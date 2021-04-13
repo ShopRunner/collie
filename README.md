@@ -1,7 +1,7 @@
 # collie_recs
 
 [![PyPI version](https://badge.fury.io/py/collie-recs.svg)](https://badge.fury.io/py/collie-recs)
-[![Workflows Passing](https://github.com/ShopRunner/collie_recs/workflows/Python%20package/badge.svg)](https://github.com/ShopRunner/collie_recs/actions/workflows/prod.yaml)
+[![Workflows Passing](https://github.com/ShopRunner/collie_recs/workflows/prod_workflow/badge.svg)](https://github.com/ShopRunner/collie_recs/actions/workflows/prod.yaml)
 [![codecov](https://codecov.io/gh/ShopRunner/collie_recs/branch/main/graph/badge.svg)](https://codecov.io/gh/ShopRunner/collie_recs)
 [![Documentation Status](https://readthedocs.org/projects/collie/badge/?version=latest)](https://collie.readthedocs.io/en/latest/?badge=latest)
 
