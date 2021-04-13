@@ -22,6 +22,9 @@ pip install collie_recs
 ```
 
 ## Quick Start
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ShopRunner/collie_recs/blob/main/tutorials/quickstart.ipynb)
+
 Creating and evaluating an implicit matrix factorization model with MovieLens 100K data is simple with Collie:
 ```python
 from collie_recs.cross_validation import stratified_split

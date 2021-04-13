@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 ### Added
  - badges to ``README``
  - links to documentation where relevant
+ - Colab links to tutorial notebooks
 ### Changed
  - ``ApproximateNegativeSamplingInteractionsDataLoader`` uses a ``sampler`` instead of a ``batch_sampler`` for greater speed increases
  - base ``Dockerfile`` image to the ``torch@1.8.1`` version
