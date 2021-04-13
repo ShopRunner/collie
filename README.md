@@ -1,4 +1,6 @@
 # collie_recs
+[![Compliance OSS](https://github.com/ShopRunner/collie_recs/actions/workflows/compliance-oss.yaml/badge.svg)](https://github.com/ShopRunner/collie_recs/actions/workflows/compliance-oss.yaml)
+
 Collie is a library for preparing, training, and evaluating implicit deep learning hybrid recommender systems, named after the Border Collie dog breed.
 
 Collie offers a collection of simple APIs for preparing and splitting datasets, incorporating item metadata directly into a model architecture or loss, efficiently evaluating a model's performance on the GPU, and so much more. Above all else though, Collie is built with flexibility and customization in mind, allowing for faster prototyping and experimentation.
