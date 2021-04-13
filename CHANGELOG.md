@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  - links to documentation where relevant
 ### Changed
  - ``ApproximateNegativeSamplingInteractionsDataLoader`` uses a ``sampler`` instead of a ``batch_sampler`` for greater speed increases
+ - base ``Dockerfile`` image to the ``torch@1.8.1`` version
 
 # [0.1.1] - 2021-4-13
 ### Added
