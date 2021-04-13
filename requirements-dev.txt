@@ -18,6 +18,10 @@ alabaster==0.7.12
     # via sphinx
 anyio==2.2.0
     # via jupyter-server
+appnope==0.1.2
+    # via
+    #   ipykernel
+    #   ipython
 argon2-cffi==20.1.0
     # via
     #   jupyter-server

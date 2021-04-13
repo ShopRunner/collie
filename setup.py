@@ -12,7 +12,7 @@ with open('LICENSE.txt') as l:
 setup(
     name='collie_recs',
     version=__version__,
-    description='deep learning recommendation system',
+    description='A PyTorch library for preparing, training, and evaluating deep learning hybrid recommender systems.',
     long_description=readme+'\n\n\nLicense\n-------\n'+license,
     long_description_content_type='text/markdown',
     author='Nathan Jones',
