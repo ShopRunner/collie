@@ -16,5 +16,4 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v1
       - name: OSS Scan
-        uses: shoprunner/action-oss@gotchas-n-feedback
-        
+        uses: shoprunner/action-oss@main
