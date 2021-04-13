@@ -251,8 +251,13 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
 
         super().__init__(
             interactions=interactions,
-            batch_sampler=approximate_negative_sampler,
+            # batch_sampler=approximate_negative_sampler,
+            sampler=approximate_negative_sampler,
             num_workers=num_workers,
+            # with the unique way we index ``Interactions`` data, PyTorch will wrap the data in an
+            # outermost list by default, which we must remove in order to get a batch format that a
+            # a Collie model expects. Hence, the ``[0]`` in the ``lambda`` below
+            collate_fn=lambda x: torch.utils.data._utils.collate.default_convert(x[0]),
             **kwargs,
         )
 

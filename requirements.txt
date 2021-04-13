@@ -21,7 +21,7 @@ chardet==4.0.0
     #   aiohttp
     #   requests
 fire==0.4.0
-    # via collie_recs (setup.py)
+    # via collie-recs (setup.py)
 fsspec[http]==0.9.0
     # via pytorch-lightning
 future==0.18.2
@@ -40,7 +40,7 @@ idna==2.10
     #   yarl
 joblib==1.0.1
     # via
-    #   collie_recs (setup.py)
+    #   collie-recs (setup.py)
     #   scikit-learn
 markdown==3.3.4
     # via tensorboard
@@ -52,7 +52,7 @@ numexpr==2.7.3
     # via tables
 numpy==1.20.2
     # via
-    #   collie_recs (setup.py)
+    #   collie-recs (setup.py)
     #   numexpr
     #   pandas
     #   pytorch-lightning
@@ -63,8 +63,8 @@ numpy==1.20.2
     #   torch
 oauthlib==3.1.0
     # via requests-oauthlib
-pandas==1.2.3
-    # via collie_recs (setup.py)
+pandas==1.2.4
+    # via collie-recs (setup.py)
 protobuf==3.15.8
     # via tensorboard
 pyasn1-modules==0.2.8
@@ -76,7 +76,7 @@ pyasn1==0.4.8
 python-dateutil==2.8.1
     # via pandas
 pytorch-lightning==1.2.7
-    # via collie_recs (setup.py)
+    # via collie-recs (setup.py)
 pytz==2021.1
     # via pandas
 pyyaml==5.3.1
@@ -91,7 +91,7 @@ requests==2.25.1
 rsa==4.7.2
     # via google-auth
 scikit-learn==0.24.1
-    # via collie_recs (setup.py)
+    # via collie-recs (setup.py)
 scipy==1.6.2
     # via scikit-learn
 six==1.15.0
@@ -104,7 +104,7 @@ six==1.15.0
     #   python-dateutil
     #   tensorboard
 tables==3.6.1
-    # via collie_recs (setup.py)
+    # via collie-recs (setup.py)
 tensorboard-plugin-wit==1.8.0
     # via tensorboard
 tensorboard==2.4.1
@@ -115,16 +115,16 @@ threadpoolctl==2.1.0
     # via scikit-learn
 torch==1.8.1
     # via
-    #   collie_recs (setup.py)
+    #   collie-recs (setup.py)
     #   pytorch-lightning
     #   torchmetrics
 torchmetrics==0.2.0
     # via
-    #   collie_recs (setup.py)
+    #   collie-recs (setup.py)
     #   pytorch-lightning
 tqdm==4.60.0
     # via
-    #   collie_recs (setup.py)
+    #   collie-recs (setup.py)
     #   pytorch-lightning
 typing-extensions==3.7.4.3
     # via

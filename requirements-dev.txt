@@ -18,10 +18,6 @@ alabaster==0.7.12
     # via sphinx
 anyio==2.2.0
     # via jupyter-server
-appnope==0.1.2
-    # via
-    #   ipykernel
-    #   ipython
 argon2-cffi==20.1.0
     # via
     #   jupyter-server
@@ -161,7 +157,7 @@ jsonschema==3.2.0
     # via
     #   jupyterlab-server
     #   nbformat
-jupyter-client==6.2.0
+jupyter-client==6.1.12
     # via
     #   ipykernel
     #   jupyter-server
@@ -175,9 +171,9 @@ jupyter-core==4.7.1
     #   nbconvert
     #   nbformat
     #   notebook
-jupyter-packaging==0.8.3
+jupyter-packaging==0.9.1
     # via jupyterlab
-jupyter-server==1.6.0
+jupyter-server==1.6.1
     # via
     #   jupyterlab
     #   jupyterlab-server
@@ -229,9 +225,7 @@ nbformat==5.1.3
     #   nbconvert
     #   notebook
 nest-asyncio==1.5.1
-    # via
-    #   jupyter-client
-    #   nbclient
+    # via nbclient
 notebook==6.3.0
     # via
     #   nbclassic
@@ -266,7 +260,7 @@ packaging==20.9
     #   jupyterlab-server
     #   pytest
     #   sphinx
-pandas==1.2.3
+pandas==1.2.4
     # via
     #   -c requirements.txt
     #   collie-recs
