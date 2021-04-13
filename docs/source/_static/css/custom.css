@@ -1,0 +1,13 @@
+/* change color of menu-bar titles to Collie green */
+.wy-menu-vertical header, .wy-menu-vertical p.caption {
+    color: #4F6D5A;
+}
+
+/* allow table wrapping for comparison table in ``README.md`` */
+.wy-table-responsive table td, .wy-table-responsive table th {
+    white-space: normal;
+}
+
+.wy-table-responsive {
+    overflow: auto;
+}
