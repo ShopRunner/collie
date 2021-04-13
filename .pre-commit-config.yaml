@@ -15,6 +15,6 @@ repos:
     entry: pip-compile --output-file=requirements-dev.txt requirements-dev.in
     language: system
     always_run: false
-    files: requirements-dev.in
+    files: setup.py
     stages: [push]
     pass_filenames: false

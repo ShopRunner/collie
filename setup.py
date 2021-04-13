@@ -32,4 +32,23 @@ setup(
         'torchmetrics',
         'tqdm',
     ],
+    extras_require={
+        'dev': [
+            'flake8',
+            'flake8-docstrings',
+            'flake8-import-order',
+            'ipython',
+            'ipywidgets',
+            'jupyterlab>=3.0.0',
+            'matplotlib',
+            'm2r2',
+            'pip-tools',
+            'pydocstyle<4.0.0',
+            'pytest',
+            'pytest-cov<3.0.0',
+            'sphinx-copybutton',
+            'sphinx-rtd-theme==0.5.1',
+            'widgetsnbextension',
+        ]
+    },
 )
