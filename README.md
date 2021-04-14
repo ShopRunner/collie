@@ -86,7 +86,7 @@ More complicated examples of pipelines can be viewed [for MovieLens 100K data he
 | **Automatic support for multi-GPU training**  |  |  |  |  |  |  | ✓ |
 | **Actively supported and maintained**  | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |
 | **Scalable for larger, out-of-memory datasets**  |  |  |  |  |  | ✓ | ✓ |
-| Includes **model zoo** with two or model architectures implemented  |  |  |  | ✓ | ✓ |  | ✓ |
+| Includes **model zoo** with two or more model architectures implemented  |  |  |  | ✓ | ✓ |  | ✓ |
 | Includes **implicit loss functions** for training and **metric functions** for model evaluation  |  | ✓ |  | ✓ | ✓ |  | ✓ |
 | Includes **adaptive loss functions** for multiple negative examples  |  | ✓ |  | ✓ |  |  | ✓ |
 | Includes **loss functions that account for side-data**  |  |  |  |  |  |  | ✓ |
@@ -98,6 +98,7 @@ The following table notes shows the results of an experiment training and evalua
 
 | Model | MAP@10 Score | Notes |
 | ----- | :----------: | :---: |
+| Randomly initialized, untrained model                                     | 0.0001     |                                       |
 | [Logistic MF](https://implicit.readthedocs.io/en/latest/lmf.html)         | 0.0128     | Using the CUDA implementation.        |
 | [LightFM](https://making.lyst.com/lightfm/docs/home.html) with BPR Loss   | 0.0180     |                                       |
 | [ALS](https://implicit.readthedocs.io/en/latest/als.html)                 | 0.0189     | Using the CUDA implementation.        |
