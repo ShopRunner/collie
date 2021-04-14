@@ -251,7 +251,6 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
 
         super().__init__(
             interactions=interactions,
-            # batch_sampler=approximate_negative_sampler,
             sampler=approximate_negative_sampler,
             num_workers=num_workers,
             # with the unique way we index ``Interactions`` data, PyTorch will wrap the data in an

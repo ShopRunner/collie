@@ -12,7 +12,7 @@ repos:
     pass_filenames: false
   - id: pip-compile-dev
     name: compile requirements-dev.txt
-    entry: pip-compile --output-file=requirements-dev.txt requirements-dev.in
+    entry: pip-compile requirements-dev.in
     language: system
     always_run: false
     files: setup.py
