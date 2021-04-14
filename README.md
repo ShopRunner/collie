@@ -1,9 +1,9 @@
 # collie_recs
 
 [![PyPI version](https://badge.fury.io/py/collie-recs.svg)](https://badge.fury.io/py/collie-recs)
+[![versions](https://img.shields.io/pypi/pyversions/collie-recs.svg)](https://pypi.org/project/collie-recs/)
 [![Workflows Passing](https://github.com/ShopRunner/collie_recs/workflows/prod_workflow/badge.svg)](https://github.com/ShopRunner/collie_recs/actions/workflows/prod.yaml)
 [![Documentation Status](https://readthedocs.org/projects/collie/badge/?version=latest)](https://collie.readthedocs.io/en/latest/?badge=latest)
-[![versions](https://img.shields.io/pypi/pyversions/collie-recs.svg)](https://pypi.org/project/collie-recs/)
 [![codecov](https://codecov.io/gh/ShopRunner/collie_recs/branch/main/graph/badge.svg)](https://codecov.io/gh/ShopRunner/collie_recs)
 [![license](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](https://github.com/ShopRunner/collie_recs/blob/main/LICENSE)
 
