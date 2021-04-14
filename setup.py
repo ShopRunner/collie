@@ -6,7 +6,7 @@ with open('collie_recs/_version.py') as version_file:
 with open('README.md') as r:
     readme = r.read()
 
-with open('LICENSE.txt') as l:
+with open('LICENSE') as l:
     license = l.read()
 
 setup(
@@ -17,9 +17,12 @@ setup(
     long_description_content_type='text/markdown',
     author='Nathan Jones',
     url='https://github.com/ShopRunner/collie_recs',
+    download_url='https://github.com/ShopRunner/collie_recs',
     license='BSD-3-Clause',
-    data_files=[('', ['LICENSE.txt'])],
+    data_files=[('', ['LICENSE'])],
     packages=find_packages(exclude=('tests', 'docs')),
+    keywords=['deep learning', 'pytorch', 'recommender'],
+    python_requires='>=3.6',
     install_requires=[
         'fire',
         'joblib',
@@ -51,4 +54,23 @@ setup(
             'widgetsnbextension',
         ]
     },
+    project_urls={
+        'Documentation': 'https://collie.readthedocs.io/',
+        'Source Code': 'https://github.com/ShopRunner/collie_recs',
+    },
+    classifiers=[
+        'Environment :: Console',
+        'Environment :: GPU',
+        'Natural Language :: English',
+        'Development Status :: 4 - Beta',
+        'Intended Audience :: Developers',
+        'Topic :: Scientific/Engineering :: Artificial Intelligence',
+        'License :: OSI Approved :: BSD License',
+        'Operating System :: OS Independent',
+        'Programming Language :: Python :: 3',
+        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.7',
+        'Programming Language :: Python :: 3.8',
+        'Programming Language :: Python :: 3.9',
+    ],
 )

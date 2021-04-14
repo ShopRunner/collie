@@ -16,7 +16,7 @@ USER root
 WORKDIR /collie_recs/
 
 # copy files to container
-COPY setup.py README.md LICENSE.txt requirements-dev.txt ./
+COPY setup.py README.md LICENSE requirements-dev.txt ./
 COPY collie_recs/_version.py ./collie_recs/
 
 # install libraries
