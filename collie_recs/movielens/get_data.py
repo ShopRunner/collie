@@ -169,6 +169,10 @@ def read_movielens_posters_df() -> pd.DataFrame:
     Read in data containing the item ID and poster URL for visualization purposes of MovieLens 100K
     data.
 
+    This function will attempt to read the file at ``data/movielens_posters.csv`` if it exists and,
+    if not, will read the CSV from the origin GitHub repo at
+    https://raw.githubusercontent.com/ShopRunner/collie_recs/main/data/movielens_posters.csv.
+
     Returns
     -------------
     posters_df: pd.DataFrame
@@ -179,9 +183,22 @@ def read_movielens_posters_df() -> pd.DataFrame:
             * url
 
     """
+    # attempt to first load from a local file
     absolute_data_path = Path(__file__).parent.absolute().parent.parent / 'data'
+    movielens_posters_csv_filepath = os.path.join(absolute_data_path, 'movielens_posters.csv')
 
-    return pd.read_csv(os.path.join(absolute_data_path, 'movielens_posters.csv'))
+    # be prepared to read the CSV from the origin GitHub repo as well
+    movielens_posters_csv_url = (
+        'https://raw.githubusercontent.com/ShopRunner/collie_recs/main/data/movielens_posters.csv'
+    )
+
+    posters_df = pd.read_csv(
+        movielens_posters_csv_filepath
+        if os.path.exists(movielens_posters_csv_filepath)
+        else movielens_posters_csv_url
+    )
+
+    return posters_df
 
 
 def get_movielens_metadata(df_item: pd.DataFrame = None) -> pd.DataFrame:

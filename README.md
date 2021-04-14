@@ -1,9 +1,17 @@
 # collie_recs
+
+[![PyPI version](https://badge.fury.io/py/collie-recs.svg)](https://badge.fury.io/py/collie-recs)
+[![versions](https://img.shields.io/pypi/pyversions/collie-recs.svg)](https://pypi.org/project/collie-recs/)
+[![Workflows Passing](https://github.com/ShopRunner/collie_recs/workflows/prod_workflow/badge.svg)](https://github.com/ShopRunner/collie_recs/actions/workflows/prod.yaml)
+[![Documentation Status](https://readthedocs.org/projects/collie/badge/?version=latest)](https://collie.readthedocs.io/en/latest/?badge=latest)
+[![codecov](https://codecov.io/gh/ShopRunner/collie_recs/branch/main/graph/badge.svg)](https://codecov.io/gh/ShopRunner/collie_recs)
+[![license](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](https://github.com/ShopRunner/collie_recs/blob/main/LICENSE)
+
 Collie is a library for preparing, training, and evaluating implicit deep learning hybrid recommender systems, named after the Border Collie dog breed.
 
 Collie offers a collection of simple APIs for preparing and splitting datasets, incorporating item metadata directly into a model architecture or loss, efficiently evaluating a model's performance on the GPU, and so much more. Above all else though, Collie is built with flexibility and customization in mind, allowing for faster prototyping and experimentation.
 
-See the documentation for more details.
+See the [documentation](https://collie.readthedocs.io/en/latest/index.html) for more details.
 
 ![](https://net-shoprunner-scratch-data-science.s3.amazonaws.com/njones/collie/collie-banner.png)
 > "We adopted 2 Border Collies a year ago and they are about 3 years old. They are completely obsessed with fetch and tennis balls and it's getting out of hand. They live in the fenced back yard and when anyone goes out there they instantly run around frantically looking for a tennis ball. If there is no ball they will just keep looking and will not let you pet them. When you do have a ball, they are 100% focused on it and will not notice anything else going on around them, like it's their whole world."
@@ -16,6 +24,9 @@ pip install collie_recs
 ```
 
 ## Quick Start
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ShopRunner/collie_recs/blob/main/tutorials/quickstart.ipynb)
+
 Creating and evaluating an implicit matrix factorization model with MovieLens 100K data is simple with Collie:
 ```python
 from collie_recs.cross_validation import stratified_split
@@ -59,7 +70,7 @@ print(f'MRR:          {mrr_score}')
 print(f'MAP@10:       {mapk_score}')
 ```
 
-More complicated examples of pipelines can be viewed [for MovieLens 100K data here](collie_recs/movielens/run.py), [in notebooks here](collie_recs/tutorials), and documentation here.
+More complicated examples of pipelines can be viewed [for MovieLens 100K data here](collie_recs/movielens/run.py), [in notebooks here](collie_recs/tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
 
 ## Comparison With Other Open-Source Recommendation Libraries
 

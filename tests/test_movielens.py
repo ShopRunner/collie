@@ -1,6 +1,10 @@
 from unittest import mock
 
-from collie_recs.movielens import get_recommendation_visualizations, run_movielens_example
+import pandas as pd
+
+from collie_recs.movielens import (get_recommendation_visualizations,
+                                   read_movielens_posters_df,
+                                   run_movielens_example)
 
 
 def test_read_movielens_df(movielens_explicit_df, movielens_explicit_df_not_decremented):
@@ -17,6 +21,20 @@ def test_read_movielens_df(movielens_explicit_df, movielens_explicit_df_not_decr
 
 def test_read_movielens_df_item(movielens_df_item):
     assert movielens_df_item.shape == (1682, 23)
+
+
+def test_read_movielens_posters_df(movielens_posters_df):
+    assert movielens_posters_df.shape == (1682, 2)
+
+
+@mock.patch('os.path.exists')
+def test_read_movielens_posters_df_no_local_file(os_path_exists_mock, movielens_posters_df):
+    os_path_exists_mock.return_value = False
+
+    expected = movielens_posters_df
+    actual = read_movielens_posters_df()
+
+    pd.testing.assert_frame_equal(actual, expected)
 
 
 def test_get_movielens_metadata(movielens_metadata_df):

@@ -63,7 +63,7 @@ numpy==1.20.2
     #   torch
 oauthlib==3.1.0
     # via requests-oauthlib
-pandas==1.2.3
+pandas==1.2.4
     # via collie_recs (setup.py)
 protobuf==3.15.8
     # via tensorboard
