@@ -70,7 +70,7 @@ print(f'MRR:          {mrr_score}')
 print(f'MAP@10:       {mapk_score}')
 ```
 
-More complicated examples of pipelines can be viewed [for MovieLens 100K data here](collie_recs/movielens/run.py), [in notebooks here](collie_recs/tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
+More complicated examples of pipelines can be viewed [for MovieLens 100K data here](collie_recs/movielens/run.py), [in notebooks here](tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
 
 ## Comparison With Other Open-Source Recommendation Libraries
 
@@ -163,7 +163,7 @@ pytest --cov-report term --cov=collie_recs
 
 Note that a handful of tests require the [MovieLens 100K dataset](https://files.grouplens.org/datasets/movielens/ml-100k.zip) to be downloaded (~5MB in size), meaning that either before or during test time, there will need to be an internet connection. This dataset only needs to be downloaded a single time for use in both unit tests and tutorials.
 
-## Docs
+### Docs
 The Collie library supports Read the Docs documentation. To compile locally,
 ```bash
 cd docs
