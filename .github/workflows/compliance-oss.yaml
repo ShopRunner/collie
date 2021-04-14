@@ -10,6 +10,7 @@ on:
 
 jobs:
   scan:
+
     name: Scan
     runs-on: ubuntu-latest
     steps:

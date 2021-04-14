@@ -1,4 +1,4 @@
-name: CI
+name: pr_workflow
 
 on:
   pull_request:
