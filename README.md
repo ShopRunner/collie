@@ -70,7 +70,7 @@ print(f'MRR:          {mrr_score}')
 print(f'MAP@10:       {mapk_score}')
 ```
 
-More complicated examples of pipelines can be viewed [for MovieLens 100K data here](collie_recs/movielens/run.py), [in notebooks here](collie_recs/tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
+More complicated examples of pipelines can be viewed [for MovieLens 100K data here](collie_recs/movielens/run.py), [in notebooks here](tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
 
 ## Comparison With Other Open-Source Recommendation Libraries
 
@@ -86,7 +86,7 @@ More complicated examples of pipelines can be viewed [for MovieLens 100K data he
 | **Automatic support for multi-GPU training**  |  |  |  |  |  |  | ✓ |
 | **Actively supported and maintained**  | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |
 | **Scalable for larger, out-of-memory datasets**  |  |  |  |  |  | ✓ | ✓ |
-| Includes **model zoo** with two or model architectures implemented  |  |  |  | ✓ | ✓ |  | ✓ |
+| Includes **model zoo** with two or more model architectures implemented  |  |  |  | ✓ | ✓ |  | ✓ |
 | Includes **implicit loss functions** for training and **metric functions** for model evaluation  |  | ✓ |  | ✓ | ✓ |  | ✓ |
 | Includes **adaptive loss functions** for multiple negative examples  |  | ✓ |  | ✓ |  |  | ✓ |
 | Includes **loss functions that account for side-data**  |  |  |  |  |  |  | ✓ |
@@ -98,6 +98,7 @@ The following table notes shows the results of an experiment training and evalua
 
 | Model | MAP@10 Score | Notes |
 | ----- | :----------: | :---: |
+| Randomly initialized, untrained model                                     | 0.0001     |                                       |
 | [Logistic MF](https://implicit.readthedocs.io/en/latest/lmf.html)         | 0.0128     | Using the CUDA implementation.        |
 | [LightFM](https://making.lyst.com/lightfm/docs/home.html) with BPR Loss   | 0.0180     |                                       |
 | [ALS](https://implicit.readthedocs.io/en/latest/als.html)                 | 0.0189     | Using the CUDA implementation.        |
@@ -163,7 +164,7 @@ pytest --cov-report term --cov=collie_recs
 
 Note that a handful of tests require the [MovieLens 100K dataset](https://files.grouplens.org/datasets/movielens/ml-100k.zip) to be downloaded (~5MB in size), meaning that either before or during test time, there will need to be an internet connection. This dataset only needs to be downloaded a single time for use in both unit tests and tutorials.
 
-## Docs
+### Docs
 The Collie library supports Read the Docs documentation. To compile locally,
 ```bash
 cd docs
