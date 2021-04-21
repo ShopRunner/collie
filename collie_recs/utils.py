@@ -345,11 +345,9 @@ def df_to_html(df: pd.DataFrame,
         if image_col not in df.columns:
             raise ValueError('{} not a column in df!'.format(image_col))
         if not image_width:
-            df[image_col] = df[image_col].map(lambda x: '<img src="{}">'.format(x))
+            df[image_col] = df[image_col].map(lambda x: f'<img src="{x}">')
         else:
-            df[image_col] = df[image_col].map(
-                lambda x: '<img src="{}" width={}>'.format(x, image_width)
-            )
+            df[image_col] = df[image_col].map(lambda x: f'<img src="{x}" width={image_width}>')
 
     hyperlink_cols = _wrap_cols_if_needed(hyperlink_cols)
     for hyperlink_col in hyperlink_cols:
@@ -357,21 +355,28 @@ def df_to_html(df: pd.DataFrame,
             raise ValueError('{} not a column in df!'.format(hyperlink_col))
         if hyperlink_col in image_cols:
             continue
-        df[hyperlink_col] = df[hyperlink_col].map(
-            lambda x: '<a target="_blank" href=" {}">{}</a>'.format(x, x)
+        df[hyperlink_col] = (
+            df[hyperlink_col].map(lambda x: f'<a target="_blank" href="{x}">{x}</a>')
         )
 
     for col, transformations in html_tags.items():
         if col not in df.columns:
-            raise ValueError('{} not a column in df!'.format(col))
+            raise ValueError(f'{col} not a column in df!')
         if col in image_cols:
             continue
 
         if isinstance(transformations, str):
             transformations = [transformations]
 
+        opening_tag = ''
         for extra in transformations:
-            df[col] = df[col].map(lambda x: '<{0}>{1}</{0}>'.format(extra, x))
+            opening_tag += f'<{extra}>'
+
+        closing_tag = ''
+        for extra in transformations[::-1]:
+            closing_tag += f'</{extra}>'
+
+        df[col] = df[col].map(lambda x: f'{opening_tag}{x}{closing_tag}')
 
     max_colwidth = pd.get_option('display.max_colwidth')
     if pd.__version__ != '0':

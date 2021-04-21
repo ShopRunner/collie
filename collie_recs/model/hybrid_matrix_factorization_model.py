@@ -168,9 +168,11 @@ class HybridPretrainedModel(BasePipeline):
             if item_metadata is None:
                 raise ValueError('Must provide item metadata for ``HybridPretrainedModel``.')
             elif isinstance(item_metadata, pd.DataFrame):
-                item_metadata = torch.tensor(item_metadata.to_numpy()).float()
+                item_metadata = torch.from_numpy(item_metadata.to_numpy())
             elif isinstance(item_metadata, np.ndarray):
-                item_metadata = torch.tensor(item_metadata).float()
+                item_metadata = torch.from_numpy(item_metadata)
+
+            item_metadata = item_metadata.float()
 
             item_metadata_num_cols = item_metadata.shape[1]
 
@@ -202,8 +204,10 @@ class HybridPretrainedModel(BasePipeline):
                 copy.deepcopy(self._trained_model.item_embeddings)
             )
 
-            self.embeddings[0].weight.requires_grad = not self.hparams.freeze_embeddings
-            self.embeddings[1].weight.requires_grad = not self.hparams.freeze_embeddings
+            if self.hparams.freeze_embeddings:
+                self.freeze_embeddings()
+            else:
+                self.unfreeze_embeddings()
 
             # save hyperparameters that we need to be able to rebuilt the embedding layers on load
             self.hparams.user_num_embeddings = self.embeddings[0].num_embeddings
@@ -336,13 +340,9 @@ class HybridPretrainedModel(BasePipeline):
         """
         path = str(path)
 
-        if os.path.isfile(path):
-            raise ValueError(f'``path`` must be a directory path! {path} not valid.')
-        elif os.path.exists(path):
+        if os.path.exists(path):
             if os.listdir(path) and overwrite is False:
                 raise ValueError(f'Data exists in ``path`` at {path} and ``overwrite`` is False.')
-        elif os.path.isfile(path):
-            print(f'The path {path} is for a file, not directory.')
 
         Path(path).mkdir(parents=True, exist_ok=True)
         joblib.dump(self.item_metadata, os.path.join(path, 'metadata.pkl'))

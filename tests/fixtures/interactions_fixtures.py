@@ -75,3 +75,32 @@ def hdf5_pandas_df_path(df_for_interactions, tmpdir):
     pandas_df_to_hdf5(df=df_for_interactions, out_path=hdf5_path, key='interactions')
 
     return hdf5_path
+
+
+@pytest.fixture()
+def hdf5_pandas_df_path_with_meta(df_for_interactions, tmpdir):
+    hdf5_path = os.path.join(str(tmpdir), 'df_for_interactions_meta.h5')
+    pandas_df_to_hdf5(df=df_for_interactions, out_path=hdf5_path, key='interactions')
+
+    additional_info_df = pd.DataFrame({
+        'num_users': [df_for_interactions['user_id'].max() + 1],
+        'num_items': [df_for_interactions['item_id'].max() + 1],
+    })
+    pandas_df_to_hdf5(df=additional_info_df, out_path=hdf5_path, key='meta')
+
+    return hdf5_path
+
+
+@pytest.fixture(params=['users', 'items', 'both_users_and_items'])
+def hdf5_pandas_df_path_ids_start_at_1(request, df_for_interactions, tmpdir):
+    incremented_df_for_interactions = df_for_interactions
+
+    if 'users' in request.param:
+        incremented_df_for_interactions['user_id'] += 1
+    if 'items' in request.param:
+        incremented_df_for_interactions['item_id'] += 1
+
+    hdf5_path = os.path.join(str(tmpdir), 'df_for_interactions_incremented.h5')
+    pandas_df_to_hdf5(df=incremented_df_for_interactions, out_path=hdf5_path, key='interactions')
+
+    return hdf5_path

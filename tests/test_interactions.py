@@ -1,7 +1,9 @@
 import numpy as np
+import pandas as pd
 import pytest
 
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
+                                      HDF5Interactions,
                                       HDF5InteractionsDataLoader,
                                       Interactions,
                                       InteractionsDataLoader)
@@ -30,6 +32,12 @@ def test_Interactions(ratings_matrix_for_interactions,
     assert (interactions_1.num_interactions
             == interactions_2.num_interactions
             == interactions_3.num_interactions)
+
+    expected_repr = (
+        'Interactions object with 12 interactions between 6 users and 10 items,'
+        ' returning 10 negative samples per interaction.'
+    )
+    assert str(interactions_1) == str(interactions_2) == str(interactions_3) == expected_repr
 
 
 def test_Interactions_with_missing_ids(df_for_interactions_with_missing_ids,
@@ -62,6 +70,87 @@ def test_Interactions_with_missing_ids(df_for_interactions_with_missing_ids,
                  ratings=df_for_interactions_with_missing_ids['rating'],
                  allow_missing_ids=True,
                  check_num_negative_samples_is_valid=False)
+
+
+def test_Interactions_with_invalid_lengths(df_for_interactions_with_missing_ids):
+    with pytest.raises(ValueError):
+        Interactions(users=df_for_interactions_with_missing_ids['user_id'],
+                     items=df_for_interactions_with_missing_ids['item_id'][:-1],
+                     ratings=df_for_interactions_with_missing_ids['rating'],
+                     allow_missing_ids=True,
+                     check_num_negative_samples_is_valid=False)
+
+    with pytest.raises(ValueError):
+        Interactions(users=df_for_interactions_with_missing_ids['user_id'][:-1],
+                     items=df_for_interactions_with_missing_ids['item_id'],
+                     ratings=df_for_interactions_with_missing_ids['rating'],
+                     allow_missing_ids=True,
+                     check_num_negative_samples_is_valid=False)
+
+    with pytest.raises(ValueError):
+        Interactions(users=df_for_interactions_with_missing_ids['user_id'],
+                     items=df_for_interactions_with_missing_ids['item_id'],
+                     ratings=df_for_interactions_with_missing_ids['rating'][:-1],
+                     allow_missing_ids=True,
+                     check_num_negative_samples_is_valid=False)
+
+    Interactions(users=df_for_interactions_with_missing_ids['user_id'][:-1],
+                 items=df_for_interactions_with_missing_ids['item_id'][:-1],
+                 ratings=df_for_interactions_with_missing_ids['rating'][:-1],
+                 allow_missing_ids=True,
+                 check_num_negative_samples_is_valid=False)
+
+
+def test_Interactions_data_methods(ratings_matrix_for_interactions,
+                                   sparse_ratings_matrix_for_interactions,
+                                   df_for_interactions):
+    interactions_dense = Interactions(mat=ratings_matrix_for_interactions,
+                                      check_num_negative_samples_is_valid=False)
+    interactions_pandas = Interactions(users=df_for_interactions['user_id'],
+                                       items=df_for_interactions['item_id'],
+                                       ratings=df_for_interactions['rating'],
+                                       check_num_negative_samples_is_valid=False)
+
+    assert np.array_equal(interactions_dense.todense(), interactions_pandas.todense())
+    assert np.array_equal(interactions_dense.todense(),
+                          sparse_ratings_matrix_for_interactions.todense())
+
+    assert np.array_equal(interactions_dense.toarray(), interactions_pandas.toarray())
+    assert np.array_equal(interactions_dense.toarray(),
+                          sparse_ratings_matrix_for_interactions.toarray())
+
+    assert np.array_equal(interactions_dense.head(), interactions_pandas.head())
+    assert np.array_equal(interactions_dense.head(),
+                          sparse_ratings_matrix_for_interactions.toarray()[:5])
+
+    assert np.array_equal(interactions_dense.tail(), interactions_pandas.tail())
+    assert np.array_equal(interactions_dense.tail(),
+                          sparse_ratings_matrix_for_interactions.toarray()[-5:])
+
+    assert len(interactions_dense.head(3)) == len(interactions_pandas.head(3)) == 3
+    assert len(interactions_dense.tail(3)) == len(interactions_pandas.tail(3)) == 3
+
+    assert (
+        len(interactions_dense.head(42))
+        == len(interactions_pandas.head(42))
+        == interactions_dense.num_users
+    )
+    assert (
+        len(interactions_dense.tail(42))
+        == len(interactions_pandas.tail(42))
+        == interactions_dense.num_users
+    )
+
+    assert (
+        len(interactions_dense.head(-1))
+        == len(interactions_pandas.head(-1))
+        == interactions_dense.num_users
+    )
+    assert (
+        len(interactions_dense.tail(-1))
+        == len(interactions_pandas.tail(-1))
+        == interactions_dense.num_users
+    )
 
 
 def test_Interactions_approximate_negative_samples(ratings_matrix_for_interactions):
@@ -164,6 +253,82 @@ def test_Interactions_exact_negative_samples_num_negative_samples_too_large(
                      num_negative_samples=8)
 
 
+def test_HDF5Interactions_meta_instantiation(hdf5_pandas_df_path,
+                                             hdf5_pandas_df_path_with_meta,
+                                             capfd):
+    interactions_with_meta = HDF5Interactions(hdf5_path=hdf5_pandas_df_path_with_meta,
+                                              user_col='user_id',
+                                              item_col='item_id')
+
+    out, _ = capfd.readouterr()
+    assert '``meta`` key not found - generating ``num_users`` and ``num_items``' not in out
+
+    interactions_no_meta = HDF5Interactions(hdf5_path=hdf5_pandas_df_path,
+                                            user_col='user_id',
+                                            item_col='item_id')
+
+    out, _ = capfd.readouterr()
+    assert '``meta`` key not found - generating ``num_users`` and ``num_items``' in out
+
+    assert interactions_with_meta.num_users == interactions_no_meta.num_users
+    assert interactions_with_meta.num_items == interactions_no_meta.num_items
+
+    expected_repr = (
+        'HDF5Interactions object with 12 interactions between 6 users and 10 items, returning 10'
+        ' negative samples per interaction.'
+    )
+    assert str(interactions_with_meta) == str(interactions_no_meta) == expected_repr
+
+
+def test_bad_HDF5Interactions_instantiation_incremented(hdf5_pandas_df_path_ids_start_at_1):
+    with pytest.raises(ValueError):
+        HDF5Interactions(hdf5_path=hdf5_pandas_df_path_ids_start_at_1,
+                         user_col='user_id',
+                         item_col='item_id')
+
+
+def test_HDF5Interactions__getitem__(hdf5_pandas_df_path_with_meta):
+    interactions = HDF5Interactions(hdf5_path=hdf5_pandas_df_path_with_meta,
+                                    user_col='user_id',
+                                    item_col='item_id')
+    shuffled_interactions = HDF5Interactions(hdf5_path=hdf5_pandas_df_path_with_meta,
+                                             user_col='user_id',
+                                             item_col='item_id',
+                                             shuffle=True,
+                                             seed=42)
+
+    # ensure both methods of indexing the ``__getitem__`` method are equal
+    assert np.array_equal(interactions[(0, 1)][0][0], interactions[0][0][0])
+    assert np.array_equal(interactions[(0, 1)][0][1], interactions[0][0][1])
+
+    # ensure when we shuffle data, the outputs of ``__getitem__`` are not equal
+    assert not np.array_equal(interactions[(0, 5)][0][0], shuffled_interactions[(0, 5)][0][0])
+    assert not np.array_equal(interactions[(0, 5)][0][1], shuffled_interactions[(0, 5)][0][1])
+
+    # ensure we handle an out-of-bounds ``__getitem__`` properly...
+    with pytest.raises(IndexError):
+        interactions[interactions.num_interactions]
+
+    # ... but we can request more than is available and still get a data chunk
+    out_of_bounds_request = interactions[(interactions.num_interactions - 1, 1024)]
+    assert len(out_of_bounds_request) < 1024
+
+
+def test_HDF5Interactions_head_tail(hdf5_pandas_df_path_with_meta, df_for_interactions):
+    interactions = HDF5Interactions(hdf5_path=hdf5_pandas_df_path_with_meta,
+                                    user_col='user_id',
+                                    item_col='item_id')
+
+    pd.testing.assert_frame_equal(interactions.head(3), df_for_interactions.head(3))
+    pd.testing.assert_frame_equal(interactions.tail(3), df_for_interactions.tail(3))
+
+    pd.testing.assert_frame_equal(interactions.head(42), df_for_interactions.head(42))
+    pd.testing.assert_frame_equal(interactions.tail(42), df_for_interactions.tail(42))
+
+    pd.testing.assert_frame_equal(interactions.head(-1), df_for_interactions.head(-1))
+    pd.testing.assert_frame_equal(interactions.tail(-1), df_for_interactions.tail(-1))
+
+
 @pytest.mark.parametrize('data_loader_class', [InteractionsDataLoader,
                                                ApproximateNegativeSamplingInteractionsDataLoader])
 def test_instantiate_data_loaders(ratings_matrix_for_interactions,
@@ -247,6 +412,25 @@ def test_instantiate_data_loaders(ratings_matrix_for_interactions,
     )
 
 
+def test_hdf5_interactions_dataloader_attributes(df_for_interactions, hdf5_pandas_df_path):
+    interactions_dl = InteractionsDataLoader(users=df_for_interactions['user_id'],
+                                             items=df_for_interactions['item_id'],
+                                             num_negative_samples=5)
+
+    hdf5_interactions_dl = HDF5InteractionsDataLoader(hdf5_path=hdf5_pandas_df_path,
+                                                      user_col='user_id',
+                                                      item_col='item_id',
+                                                      num_negative_samples=5)
+
+    assert hdf5_interactions_dl.num_users == interactions_dl.num_users
+    assert hdf5_interactions_dl.num_items == interactions_dl.num_items
+    assert hdf5_interactions_dl.num_negative_samples == interactions_dl.num_negative_samples
+    assert hdf5_interactions_dl.num_interactions == interactions_dl.num_interactions
+
+    with pytest.raises(AttributeError):
+        hdf5_interactions_dl.mat
+
+
 def test_all_data_loaders_output_equal(df_for_interactions, hdf5_pandas_df_path, tmpdir, capfd):
     common_data_loader_kwargs = {
         'num_negative_samples': 4,
@@ -267,6 +451,17 @@ def test_all_data_loaders_output_equal(df_for_interactions, hdf5_pandas_df_path,
                                                       user_col='user_id',
                                                       item_col='item_id',
                                                       **common_data_loader_kwargs)
+
+    expected_repr = (
+        '{} object with 12 interactions between 6 users and 10 items, returning 4 negative samples'
+        ' per interaction in non-shuffled batches of size 5.'
+    )
+
+    assert str(interactions_dl) == expected_repr.format(str(type(interactions_dl).__name__))
+    assert str(approx_dl) == expected_repr.format(str(type(approx_dl).__name__))
+    assert (
+        str(hdf5_interactions_dl) == expected_repr.format(str(type(hdf5_interactions_dl).__name__))
+    )
 
     out, _ = capfd.readouterr()
     assert '``meta`` key not found - generating ``num_users`` and ``num_items``' in out

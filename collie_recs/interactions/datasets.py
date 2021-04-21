@@ -1,5 +1,6 @@
 import collections
 import random
+import sys
 import textwrap
 from typing import Iterable, Optional, Tuple, Union
 import warnings
@@ -281,13 +282,24 @@ class Interactions(torch.utils.data.Dataset):
         """Transforms ``Interactions`` instance sparse matrix to np.array, 2-d."""
         return self.mat.toarray()
 
-    def head(self, n: int) -> np.array:
+    def head(self, n: int = 5) -> np.array:
         """Return the first ``n`` rows of the dense matrix as a np.array, 2-d."""
+        n = self._prep_head_tail_n(n=n)
         return self.mat.tocsr()[range(n), :].toarray()
 
-    def tail(self, n: int) -> np.array:
+    def tail(self, n: int = 5) -> np.array:
         """Return the last ``n`` rows of the dense matrix as a np.array, 2-d."""
+        n = self._prep_head_tail_n(n=n)
         return self.mat.tocsr()[range(-n, 0), :].toarray()
+
+    def _prep_head_tail_n(self, n: int):
+        """Ensure we don't run into an ``IndexError`` when using ``head`` or ``tail`` methods."""
+        if n < 0:
+            n = sys.maxsize
+
+        error_free_n = min(n, self.num_users)
+
+        return error_free_n
 
 
 class HDF5Interactions(torch.utils.data.Dataset):
@@ -377,8 +389,8 @@ class HDF5Interactions(torch.utils.data.Dataset):
                             f' 0, not {min_user_id} and {min_item_id}, respectively.'
                         )
 
-        self.num_users += 1
-        self.num_items += 1
+                    self.num_users += 1
+                    self.num_items += 1
 
         assert self.num_users > 1
         assert self.num_items > 1
@@ -441,12 +453,21 @@ class HDF5Interactions(torch.utils.data.Dataset):
         ).replace('\n', ' ').strip()
 
     def head(self, n: int = 5) -> pd.DataFrame:
-        """Return the first ``n`` rows of the dense matrix as a np.array, 2-d."""
+        """Return the first ``n`` rows of the underlying pd.DataFrame."""
+        n = self._prep_head_tail_n(n=n)
         return self._get_data_chunk(0, n)
 
     def tail(self, n: int = 5) -> pd.DataFrame:
-        """Return the last ``n`` rows of the dense matrix as a np.array, 2-d."""
+        """Return the last ``n`` rows of the underlying pd.DataFrame."""
+        n = self._prep_head_tail_n(n=n)
         return self._get_data_chunk(self.num_interactions - n, n)
+
+    def _prep_head_tail_n(self, n: int):
+        """Ensure we don't run into an ``IndexError`` when using ``head`` or ``tail`` methods."""
+        if n < 0:
+            n = self.num_interactions + n
+
+        return n
 
 
 def _check_array_contains_all_integers(array: Iterable[int],

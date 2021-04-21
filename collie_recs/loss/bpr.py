@@ -73,7 +73,7 @@ def bpr_loss(
 
     """
     if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['num_items']:
-        raise ValueError(f'Unexpected ``kwargs``: {kwargs}')
+        raise TypeError(f'Unexpected ``kwargs``: {kwargs}')
 
     preds = positive_scores - negative_scores
 
@@ -154,7 +154,7 @@ def adaptive_bpr_loss(
 
     """
     if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['num_items']:
-        raise ValueError(f'Unexpected ``kwargs``: {kwargs}')
+        raise TypeError(f'Unexpected ``kwargs``: {kwargs}')
 
     highest_negative_scores, highest_negative_inds = torch.max(many_negative_scores, 0)
 

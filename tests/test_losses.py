@@ -215,3 +215,27 @@ def test_warp_loss_metadata(
     expected = (10.390 + 65.063) / 4
 
     assert_almost_equal(actual.item(), expected, decimal=3)
+
+
+def test_loss_wrong_kwargs(positive_scores, negative_scores, many_negative_scores):
+    bpr_loss(positive_scores, negative_scores, num_items=11)
+    with pytest.raises(TypeError):
+        bpr_loss(positive_scores, negative_scores, random_kwarg=11)
+
+    hinge_loss(positive_scores, negative_scores, num_items=11)
+    with pytest.raises(TypeError):
+        hinge_loss(positive_scores, negative_scores, random_kwarg=11)
+
+    adaptive_bpr_loss(positive_scores, many_negative_scores, num_items=11)
+    with pytest.raises(TypeError):
+        adaptive_bpr_loss(positive_scores, many_negative_scores, random_kwarg=11)
+
+    adaptive_hinge_loss(positive_scores, many_negative_scores, num_items=11)
+    with pytest.raises(TypeError):
+        adaptive_hinge_loss(positive_scores, many_negative_scores, random_kwarg=11)
+
+    warp_loss(positive_scores, many_negative_scores, num_items=11)
+    with pytest.raises(TypeError):
+        warp_loss(positive_scores, many_negative_scores)
+    with pytest.raises(TypeError):
+        warp_loss(positive_scores, many_negative_scores, random_kwarg=11)

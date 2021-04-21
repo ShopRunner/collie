@@ -82,8 +82,8 @@ class CollieTrainer(Trainer):
             kwargs['check_val_every_n_epoch'] = sys.maxsize
 
         if kwargs.get('gpus') is None and torch.cuda.is_available():
-            print('Detected GPU. Setting ``gpus`` to -1.')
-            kwargs['gpus'] = -1
+            print('Detected GPU. Setting ``gpus`` to 1.')
+            kwargs['gpus'] = 1
 
         kwargs['benchmark'] = benchmark
         kwargs['deterministic'] = deterministic
@@ -541,7 +541,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
     def get_item_predictions(self,
                              user_id: int = 0,
-                             unseen_items_only: bool = True,
+                             unseen_items_only: bool = False,
                              sort_values: bool = True) -> pd.Series:
         """
         Get predicted rankings/ratings for all items for a given ``user_id``.
@@ -554,7 +554,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         user_id: int
         unseen_items_only: bool
             Filter ``preds`` to only show predictions of unseen items not present in the training
-            or validation datasets for that ``user_id``
+            or validation datasets for that ``user_id``. Note this requires both ``train_loader``
+            and ``val_loader`` to be 1) class-level attributes in the model and 2) DataLoaders with
+            ``Interactions`` at its core (not ``HDF5Interactions``). If you are loading in a model,
+            these two attributes will need to be set manually, since datasets are NOT saved when
+            saving the model
         sort_values: bool
             Whether to sort recommendations by descending prediction probability or not
 

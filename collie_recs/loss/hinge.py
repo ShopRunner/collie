@@ -69,7 +69,7 @@ def hinge_loss(
 
     """
     if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['num_items']:
-        raise ValueError(f'Unexpected ``kwargs``: {kwargs}')
+        raise TypeError(f'Unexpected ``kwargs``: {kwargs}')
 
     score_difference = (positive_scores - negative_scores)
 
@@ -158,7 +158,7 @@ def adaptive_hinge_loss(
 
     """
     if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['num_items']:
-        raise ValueError(f'Unexpected ``kwargs``: {kwargs}')
+        raise TypeError(f'Unexpected ``kwargs``: {kwargs}')
 
     many_positive_scores = positive_scores.repeat([many_negative_scores.shape[0], 1])
 

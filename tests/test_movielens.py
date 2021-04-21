@@ -1,6 +1,7 @@
 from unittest import mock
 
 import pandas as pd
+import pytest
 
 from collie_recs.movielens import (get_recommendation_visualizations,
                                    read_movielens_posters_df,
@@ -81,16 +82,22 @@ def test_run_movielens_example(save_model_mock, gpu_count):
     run_movielens_example(epochs=1, gpus=gpu_count)
 
 
+@pytest.mark.parametrize('supply_df_user', [False, True])
+@pytest.mark.parametrize('supply_df_item', [False, True])
+@pytest.mark.parametrize('supply_movielens_posters_df', [False, True])
 def test_run_get_recommendation_visualizations(implicit_model,
                                                movielens_explicit_df_not_decremented,
                                                movielens_df_item,
-                                               movielens_posters_df):
+                                               movielens_posters_df,
+                                               supply_df_user,
+                                               supply_df_item,
+                                               supply_movielens_posters_df):
     html_not_detailed = get_recommendation_visualizations(
         model=implicit_model,
         user_id=42,
-        df_user=movielens_explicit_df_not_decremented,
-        df_item=movielens_df_item,
-        movielens_posters_df=movielens_posters_df,
+        df_user=movielens_explicit_df_not_decremented if supply_df_user else None,
+        df_item=movielens_df_item if supply_df_item else None,
+        movielens_posters_df=movielens_posters_df if supply_movielens_posters_df else None,
         filter_films=False,
         shuffle=False,
         detailed=False,
@@ -100,9 +107,9 @@ def test_run_get_recommendation_visualizations(implicit_model,
     html_detailed = get_recommendation_visualizations(
         model=implicit_model,
         user_id=42,
-        df_user=movielens_explicit_df_not_decremented,
-        df_item=movielens_df_item,
-        movielens_posters_df=movielens_posters_df,
+        df_user=movielens_explicit_df_not_decremented if supply_df_user else None,
+        df_item=movielens_df_item if supply_df_item else None,
+        movielens_posters_df=movielens_posters_df if supply_movielens_posters_df else None,
         filter_films=True,
         shuffle=True,
         detailed=True,
@@ -110,3 +117,43 @@ def test_run_get_recommendation_visualizations(implicit_model,
     assert len(html_detailed) > 0
 
     assert len(html_not_detailed) < len(html_detailed)
+
+
+def test_run_get_recommendation_visualizations_not_decremented(
+    implicit_model, movielens_explicit_df, movielens_df_item
+):
+    with pytest.raises(ValueError):
+        get_recommendation_visualizations(
+            model=implicit_model,
+            user_id=42,
+            df_user=movielens_explicit_df,
+        )
+
+    movielens_df_item_not_decremented = movielens_df_item
+    movielens_df_item_not_decremented['item_id'] -= 1
+
+    with pytest.raises(ValueError):
+        get_recommendation_visualizations(
+            model=implicit_model,
+            user_id=42,
+            df_item=movielens_df_item_not_decremented,
+        )
+
+
+def test_run_get_recommendation_visualizations_invalid_user(
+    implicit_model, movielens_explicit_df, movielens_df_item
+):
+    def bad_get_item_predictions_function(*args, **kwargs):
+        return []
+
+    implicit_model.get_item_predictions = bad_get_item_predictions_function
+
+    with pytest.raises(ValueError) as error_1:
+        get_recommendation_visualizations(model=implicit_model, user_id=42, filter_films=True)
+
+        assert 'User 42 cannot have rated every movie.' in str(error_1.value)
+
+    with pytest.raises(ValueError) as error_2:
+        get_recommendation_visualizations(model=implicit_model, user_id=42, filter_films=False)
+
+        assert 'User 42 has no top rated films.' in str(error_2.value)

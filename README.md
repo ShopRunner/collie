@@ -2,7 +2,7 @@
 
 [![PyPI version](https://badge.fury.io/py/collie-recs.svg)](https://badge.fury.io/py/collie-recs)
 [![versions](https://img.shields.io/pypi/pyversions/collie-recs.svg)](https://pypi.org/project/collie-recs/)
-[![Workflows Passing](https://github.com/ShopRunner/collie_recs/workflows/prod_workflow/badge.svg)](https://github.com/ShopRunner/collie_recs/actions/workflows/prod.yaml)
+[![Workflows Passing](https://github.com/ShopRunner/collie_recs/workflows/ci/badge.svg)](https://github.com/ShopRunner/collie_recs/actions/workflows/ci.yaml)
 [![Documentation Status](https://readthedocs.org/projects/collie/badge/?version=latest)](https://collie.readthedocs.io/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/ShopRunner/collie_recs/branch/main/graph/badge.svg)](https://codecov.io/gh/ShopRunner/collie_recs)
 [![license](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](https://github.com/ShopRunner/collie_recs/blob/main/LICENSE)
@@ -85,14 +85,14 @@ More complicated examples of pipelines can be viewed [for MovieLens 100K data he
 | **Deep learning** libraries utilizing speed-ups with a GPU and able to implement new, cutting-edge deep learning algorithms  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |
 | **Automatic support for multi-GPU training**  |  |  |  |  |  |  | ✓ |
 | **Actively supported and maintained**  | ✓ | ✓ | ✓ |  | ✓ | ✓ | ✓ |
+| **Type annotations** for classes, methods, and functions  |  |  |  |  |  | ✓ | ✓ |
 | **Scalable for larger, out-of-memory datasets**  |  |  |  |  |  | ✓ | ✓ |
-| Includes **model zoo** with two or model architectures implemented  |  |  |  | ✓ | ✓ |  | ✓ |
+| Includes **model zoo** with two or more model architectures implemented  |  |  |  | ✓ | ✓ |  | ✓ |
 | Includes **implicit loss functions** for training and **metric functions** for model evaluation  |  | ✓ |  | ✓ | ✓ |  | ✓ |
 | Includes **adaptive loss functions** for multiple negative examples  |  | ✓ |  | ✓ |  |  | ✓ |
 | Includes **loss functions that account for side-data**  |  |  |  |  |  |  | ✓ |
 
 <sup>* Coming soon!</sup>
-
 
 The following table notes shows the results of an experiment training and evaluating recommendation models in some popular implicit recommendation model frameworks on a common [MovieLens 10M](https://grouplens.org/datasets/movielens/10m/) dataset. The data was split via a 90/5/5 stratified data split. Each model was trained for a maximum of 40 epochs using an embedding dimension of 32. For each model, we used default hyperparameters (unless otherwise noted below).
 

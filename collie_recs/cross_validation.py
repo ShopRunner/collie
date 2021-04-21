@@ -1,6 +1,5 @@
 from collections import defaultdict
 import functools
-import multiprocessing as mp
 import operator
 from typing import Any, Iterable, Optional, Tuple
 
@@ -63,7 +62,7 @@ def random_split(interactions: Interactions,
 
     """
     if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['processes']:
-        raise ValueError(f'Unexpected ``kwargs``: {kwargs}')
+        raise TypeError(f'Unexpected ``kwargs``: {kwargs}')
 
     _validate_val_p_and_test_p(val_p=val_p, test_p=test_p)
 
@@ -124,7 +123,7 @@ def _subset_interactions(interactions: Interactions, idxs: Iterable[int]) -> Int
 def stratified_split(interactions: Interactions,
                      val_p: float = 0.0,
                      test_p: float = 0.2,
-                     processes: int = mp.cpu_count(),
+                     processes: int = -1,
                      seed: Optional[int] = None) -> Tuple[Interactions, ...]:
     """
     Split an ``Interactions`` instance into train, validate, and test datasets in a stratified
@@ -155,7 +154,9 @@ def stratified_split(interactions: Interactions,
     test_p: float
         Proportion of data used for testing
     processes: int
-        Number of CPUs to use for parallelization
+        Number of CPUs to use for parallelization. If ``processes == 0``, this will be run
+        sequentially in a single list comprehension, else this function uses ``joblib.delayed`` and
+        ``joblib.Parallel`` for parallelization
     seed: int
         Random seed for splits
 
@@ -216,15 +217,24 @@ def _stratified_split(interactions: Interactions,
     for idx, user in enumerate(users):
         all_idxs_for_users_dict[user].append(idx)
 
-    # run the function below in parallel for each user
-    # by setting the seed to ``seed + user``, we get a balance between reproducability and actual
-    # randomness so users with the same number of interactions are not split the exact same way
-    test_idxs = Parallel(n_jobs=processes)(
-        delayed(_stratified_split_parallel_worker)(all_idxs_for_users_dict[user],
-                                                   test_p,
-                                                   seed + user)
-        for user in unique_users
-    )
+    if processes == 0:
+        test_idxs = [
+            _stratified_split_parallel_worker(idxs_to_split=all_idxs_for_users_dict[user],
+                                              test_p=test_p,
+                                              seed=(seed + user))
+            for user in unique_users
+        ]
+    else:
+        # run the function below in parallel for each user
+        # by setting the seed to ``seed + user``, we get a balance between reproducability and
+        # actual randomness so users with the same number of interactions are not split the exact
+        # same way
+        test_idxs = Parallel(n_jobs=processes)(
+            delayed(_stratified_split_parallel_worker)(all_idxs_for_users_dict[user],
+                                                       test_p,
+                                                       seed + user)
+            for user in unique_users
+        )
 
     # reduce the list of lists down to a 1-d list
     test_idxs = functools.reduce(operator.iconcat, test_idxs, [])
@@ -256,6 +266,6 @@ def _validate_val_p_and_test_p(val_p: float, test_p: float):
     if val_p >= 1 or val_p < 0:
         raise ValueError('``val_p`` must be in the range [0, 1).')
     if test_p >= 1 or test_p < 0:
-        raise ValueError('``val_p`` must be in the range [0, 1).')
+        raise ValueError('``test_p`` must be in the range [0, 1).')
     if validate_and_test_p >= 1 or validate_and_test_p <= 0:
         raise ValueError('The sum of ``val_p`` and ``test_p`` must be in the range (0, 1).')
