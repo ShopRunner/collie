@@ -13,31 +13,37 @@ NUM_NEGATIVE_SAMPLES = 3
 NUM_USERS_TO_GENERATE = 10
 
 
-def test_Interactions(ratings_matrix_for_interactions,
-                      sparse_ratings_matrix_for_interactions,
-                      df_for_interactions):
-    interactions_1 = Interactions(mat=ratings_matrix_for_interactions,
-                                  check_num_negative_samples_is_valid=False)
-    interactions_2 = Interactions(mat=sparse_ratings_matrix_for_interactions,
-                                  check_num_negative_samples_is_valid=False)
-    interactions_3 = Interactions(users=df_for_interactions['user_id'],
-                                  items=df_for_interactions['item_id'],
-                                  ratings=df_for_interactions['rating'],
-                                  check_num_negative_samples_is_valid=False)
-
-    np.testing.assert_equal(interactions_1.toarray(), interactions_2.toarray())
-    np.testing.assert_equal(interactions_1.toarray(), interactions_3.toarray())
-    assert interactions_1.num_users == interactions_2.num_users == interactions_3.num_users
-    assert interactions_1.num_items == interactions_2.num_items == interactions_3.num_items
-    assert (interactions_1.num_interactions
-            == interactions_2.num_interactions
-            == interactions_3.num_interactions)
+def test_Interactions(interactions_matrix,
+                      interactions_sparse_matrix,
+                      interactions_pandas):
+    np.testing.assert_equal(interactions_matrix.toarray(), interactions_sparse_matrix.toarray())
+    np.testing.assert_equal(interactions_matrix.toarray(), interactions_pandas.toarray())
+    assert (
+        interactions_matrix.num_users
+        == interactions_sparse_matrix.num_users
+        == interactions_pandas.num_users
+    )
+    assert (
+        interactions_matrix.num_items
+        == interactions_sparse_matrix.num_items
+        == interactions_pandas.num_items
+    )
+    assert (
+        interactions_matrix.num_interactions
+        == interactions_sparse_matrix.num_interactions
+        == interactions_pandas.num_interactions
+    )
 
     expected_repr = (
         'Interactions object with 12 interactions between 6 users and 10 items,'
         ' returning 10 negative samples per interaction.'
     )
-    assert str(interactions_1) == str(interactions_2) == str(interactions_3) == expected_repr
+    assert (
+        str(interactions_matrix)
+        == str(interactions_sparse_matrix)
+        == str(interactions_pandas)
+        == expected_repr
+    )
 
 
 def test_Interactions_with_missing_ids(df_for_interactions_with_missing_ids,
@@ -54,7 +60,7 @@ def test_Interactions_with_missing_ids(df_for_interactions_with_missing_ids,
     with pytest.raises(ValueError):
         Interactions(users=df_for_interactions_with_missing_ids['user_id'],
                      items=df_for_interactions_with_missing_ids['item_id'],
-                     ratings=df_for_interactions_with_missing_ids['rating'],
+                     ratings=df_for_interactions_with_missing_ids['ratings'],
                      check_num_negative_samples_is_valid=False)
 
     Interactions(mat=ratings_matrix_for_interactions_with_missing_ids,
@@ -67,7 +73,7 @@ def test_Interactions_with_missing_ids(df_for_interactions_with_missing_ids,
 
     Interactions(users=df_for_interactions_with_missing_ids['user_id'],
                  items=df_for_interactions_with_missing_ids['item_id'],
-                 ratings=df_for_interactions_with_missing_ids['rating'],
+                 ratings=df_for_interactions_with_missing_ids['ratings'],
                  allow_missing_ids=True,
                  check_num_negative_samples_is_valid=False)
 
@@ -76,80 +82,102 @@ def test_Interactions_with_invalid_lengths(df_for_interactions_with_missing_ids)
     with pytest.raises(ValueError):
         Interactions(users=df_for_interactions_with_missing_ids['user_id'],
                      items=df_for_interactions_with_missing_ids['item_id'][:-1],
-                     ratings=df_for_interactions_with_missing_ids['rating'],
+                     ratings=df_for_interactions_with_missing_ids['ratings'],
                      allow_missing_ids=True,
                      check_num_negative_samples_is_valid=False)
 
     with pytest.raises(ValueError):
         Interactions(users=df_for_interactions_with_missing_ids['user_id'][:-1],
                      items=df_for_interactions_with_missing_ids['item_id'],
-                     ratings=df_for_interactions_with_missing_ids['rating'],
+                     ratings=df_for_interactions_with_missing_ids['ratings'],
                      allow_missing_ids=True,
                      check_num_negative_samples_is_valid=False)
 
     with pytest.raises(ValueError):
         Interactions(users=df_for_interactions_with_missing_ids['user_id'],
                      items=df_for_interactions_with_missing_ids['item_id'],
-                     ratings=df_for_interactions_with_missing_ids['rating'][:-1],
+                     ratings=df_for_interactions_with_missing_ids['ratings'][:-1],
                      allow_missing_ids=True,
                      check_num_negative_samples_is_valid=False)
 
     Interactions(users=df_for_interactions_with_missing_ids['user_id'][:-1],
                  items=df_for_interactions_with_missing_ids['item_id'][:-1],
-                 ratings=df_for_interactions_with_missing_ids['rating'][:-1],
+                 ratings=df_for_interactions_with_missing_ids['ratings'][:-1],
                  allow_missing_ids=True,
                  check_num_negative_samples_is_valid=False)
 
 
-def test_Interactions_data_methods(ratings_matrix_for_interactions,
-                                   sparse_ratings_matrix_for_interactions,
-                                   df_for_interactions):
-    interactions_dense = Interactions(mat=ratings_matrix_for_interactions,
-                                      check_num_negative_samples_is_valid=False)
-    interactions_pandas = Interactions(users=df_for_interactions['user_id'],
-                                       items=df_for_interactions['item_id'],
-                                       ratings=df_for_interactions['rating'],
-                                       check_num_negative_samples_is_valid=False)
+def test_Interactions_with_0_ratings(interactions_pandas, df_for_interactions_with_0_ratings):
+    with pytest.warns(UserWarning):
+        interactions_with_0s = Interactions(users=df_for_interactions_with_0_ratings['user_id'],
+                                            items=df_for_interactions_with_0_ratings['item_id'],
+                                            ratings=df_for_interactions_with_0_ratings['ratings'],
+                                            check_num_negative_samples_is_valid=False)
 
-    assert np.array_equal(interactions_dense.todense(), interactions_pandas.todense())
-    assert np.array_equal(interactions_dense.todense(),
+    assert np.array_equal(interactions_pandas.toarray(), interactions_with_0s.toarray())
+
+
+def test_bad_Interactions_instantiation(df_for_interactions):
+    with pytest.raises(AssertionError):
+        Interactions(users=df_for_interactions['user_id'],
+                     items=None,
+                     ratings=df_for_interactions['ratings'],
+                     check_num_negative_samples_is_valid=False)
+
+    with pytest.raises(AssertionError):
+        Interactions(users=None,
+                     items=df_for_interactions['item_id'],
+                     ratings=df_for_interactions['ratings'],
+                     check_num_negative_samples_is_valid=False)
+
+    Interactions(users=df_for_interactions['user_id'],
+                 items=df_for_interactions['item_id'],
+                 ratings=None,
+                 check_num_negative_samples_is_valid=False)
+
+
+def test_Interactions_data_methods(interactions_matrix,
+                                   interactions_pandas,
+                                   sparse_ratings_matrix_for_interactions):
+    assert np.array_equal(interactions_matrix.todense(), interactions_pandas.todense())
+    assert np.array_equal(interactions_matrix.todense(),
                           sparse_ratings_matrix_for_interactions.todense())
 
-    assert np.array_equal(interactions_dense.toarray(), interactions_pandas.toarray())
-    assert np.array_equal(interactions_dense.toarray(),
+    assert np.array_equal(interactions_matrix.toarray(), interactions_pandas.toarray())
+    assert np.array_equal(interactions_matrix.toarray(),
                           sparse_ratings_matrix_for_interactions.toarray())
 
-    assert np.array_equal(interactions_dense.head(), interactions_pandas.head())
-    assert np.array_equal(interactions_dense.head(),
+    assert np.array_equal(interactions_matrix.head(), interactions_pandas.head())
+    assert np.array_equal(interactions_matrix.head(),
                           sparse_ratings_matrix_for_interactions.toarray()[:5])
 
-    assert np.array_equal(interactions_dense.tail(), interactions_pandas.tail())
-    assert np.array_equal(interactions_dense.tail(),
+    assert np.array_equal(interactions_matrix.tail(), interactions_pandas.tail())
+    assert np.array_equal(interactions_matrix.tail(),
                           sparse_ratings_matrix_for_interactions.toarray()[-5:])
 
-    assert len(interactions_dense.head(3)) == len(interactions_pandas.head(3)) == 3
-    assert len(interactions_dense.tail(3)) == len(interactions_pandas.tail(3)) == 3
+    assert len(interactions_matrix.head(3)) == len(interactions_pandas.head(3)) == 3
+    assert len(interactions_matrix.tail(3)) == len(interactions_pandas.tail(3)) == 3
 
     assert (
-        len(interactions_dense.head(42))
+        len(interactions_matrix.head(42))
         == len(interactions_pandas.head(42))
-        == interactions_dense.num_users
+        == interactions_matrix.num_users
     )
     assert (
-        len(interactions_dense.tail(42))
+        len(interactions_matrix.tail(42))
         == len(interactions_pandas.tail(42))
-        == interactions_dense.num_users
+        == interactions_matrix.num_users
     )
 
     assert (
-        len(interactions_dense.head(-1))
+        len(interactions_matrix.head(-1))
         == len(interactions_pandas.head(-1))
-        == interactions_dense.num_users
+        == interactions_matrix.num_users
     )
     assert (
-        len(interactions_dense.tail(-1))
+        len(interactions_matrix.tail(-1))
         == len(interactions_pandas.tail(-1))
-        == interactions_dense.num_users
+        == interactions_matrix.num_users
     )
 
 
@@ -287,10 +315,7 @@ def test_bad_HDF5Interactions_instantiation_incremented(hdf5_pandas_df_path_ids_
                          item_col='item_id')
 
 
-def test_HDF5Interactions__getitem__(hdf5_pandas_df_path_with_meta):
-    interactions = HDF5Interactions(hdf5_path=hdf5_pandas_df_path_with_meta,
-                                    user_col='user_id',
-                                    item_col='item_id')
+def test_HDF5Interactions__getitem__(hdf5_interactions, hdf5_pandas_df_path_with_meta):
     shuffled_interactions = HDF5Interactions(hdf5_path=hdf5_pandas_df_path_with_meta,
                                              user_col='user_id',
                                              item_col='item_id',
@@ -298,35 +323,31 @@ def test_HDF5Interactions__getitem__(hdf5_pandas_df_path_with_meta):
                                              seed=42)
 
     # ensure both methods of indexing the ``__getitem__`` method are equal
-    assert np.array_equal(interactions[(0, 1)][0][0], interactions[0][0][0])
-    assert np.array_equal(interactions[(0, 1)][0][1], interactions[0][0][1])
+    assert np.array_equal(hdf5_interactions[(0, 1)][0][0], hdf5_interactions[0][0][0])
+    assert np.array_equal(hdf5_interactions[(0, 1)][0][1], hdf5_interactions[0][0][1])
 
     # ensure when we shuffle data, the outputs of ``__getitem__`` are not equal
-    assert not np.array_equal(interactions[(0, 5)][0][0], shuffled_interactions[(0, 5)][0][0])
-    assert not np.array_equal(interactions[(0, 5)][0][1], shuffled_interactions[(0, 5)][0][1])
+    assert not np.array_equal(hdf5_interactions[(0, 5)][0][0], shuffled_interactions[(0, 5)][0][0])
+    assert not np.array_equal(hdf5_interactions[(0, 5)][0][1], shuffled_interactions[(0, 5)][0][1])
 
     # ensure we handle an out-of-bounds ``__getitem__`` properly...
     with pytest.raises(IndexError):
-        interactions[interactions.num_interactions]
+        hdf5_interactions[hdf5_interactions.num_interactions]
 
     # ... but we can request more than is available and still get a data chunk
-    out_of_bounds_request = interactions[(interactions.num_interactions - 1, 1024)]
+    out_of_bounds_request = hdf5_interactions[(hdf5_interactions.num_interactions - 1, 1024)]
     assert len(out_of_bounds_request) < 1024
 
 
-def test_HDF5Interactions_head_tail(hdf5_pandas_df_path_with_meta, df_for_interactions):
-    interactions = HDF5Interactions(hdf5_path=hdf5_pandas_df_path_with_meta,
-                                    user_col='user_id',
-                                    item_col='item_id')
+def test_HDF5Interactions_head_tail(hdf5_interactions, df_for_interactions):
+    pd.testing.assert_frame_equal(hdf5_interactions.head(3), df_for_interactions.head(3))
+    pd.testing.assert_frame_equal(hdf5_interactions.tail(3), df_for_interactions.tail(3))
 
-    pd.testing.assert_frame_equal(interactions.head(3), df_for_interactions.head(3))
-    pd.testing.assert_frame_equal(interactions.tail(3), df_for_interactions.tail(3))
+    pd.testing.assert_frame_equal(hdf5_interactions.head(42), df_for_interactions.head(42))
+    pd.testing.assert_frame_equal(hdf5_interactions.tail(42), df_for_interactions.tail(42))
 
-    pd.testing.assert_frame_equal(interactions.head(42), df_for_interactions.head(42))
-    pd.testing.assert_frame_equal(interactions.tail(42), df_for_interactions.tail(42))
-
-    pd.testing.assert_frame_equal(interactions.head(-1), df_for_interactions.head(-1))
-    pd.testing.assert_frame_equal(interactions.tail(-1), df_for_interactions.tail(-1))
+    pd.testing.assert_frame_equal(hdf5_interactions.head(-1), df_for_interactions.head(-1))
+    pd.testing.assert_frame_equal(hdf5_interactions.tail(-1), df_for_interactions.tail(-1))
 
 
 @pytest.mark.parametrize('data_loader_class', [InteractionsDataLoader,
@@ -349,7 +370,7 @@ def test_instantiate_data_loaders(ratings_matrix_for_interactions,
                                             **common_data_loader_kwargs)
     data_loader_class_2 = data_loader_class(users=df_for_interactions['user_id'],
                                             items=df_for_interactions['item_id'],
-                                            ratings=df_for_interactions['rating'],
+                                            ratings=df_for_interactions['ratings'],
                                             **interactions_kwargs,
                                             **common_data_loader_kwargs)
     data_loader_class_3 = data_loader_class(interactions=data_loader_class_1.interactions,

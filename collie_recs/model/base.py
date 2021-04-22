@@ -206,6 +206,33 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                                          map_location=map_location,
                                          **kwargs)
         else:
+            if self.train_loader is None:
+                pass
+            elif self.val_loader is not None:
+                assert self.train_loader.num_users == self.val_loader.num_users, (
+                    'Both training and val ``num_users`` must equal: '
+                    f'{self.train_loader.num_users} != {self.val_loader.num_users}.'
+                )
+                assert self.train_loader.num_items == self.val_loader.num_items, (
+                    'Both training and val ``num_items`` must equal: '
+                    f'{self.train_loader.num_items} != {self.val_loader.num_items}.'
+                )
+
+                num_negative_samples_error = (
+                    'Training and val ``num_negative_samples`` property must both equal ``1``'
+                    f' or both be greater than ``1``, not: {self.train_loader.num_items} and'
+                    f' {self.val_loader.num_items}, respectively.'
+                )
+                if self.train_loader.num_negative_samples == 1:
+                    assert self.val_loader.num_negative_samples == 1, num_negative_samples_error
+                elif self.train_loader.num_negative_samples > 1:
+                    assert self.val_loader.num_negative_samples > 1, num_negative_samples_error
+                else:
+                    raise ValueError(
+                        '``self.train_loader.num_negative_samples`` must be greater than ``0``, not'
+                        f' {self.train_loader.num_negative_samples}.'
+                    )
+
             # saves all passed-in parameters
             init_args = get_init_arguments(
                 exclude=['train', 'val', 'item_metadata', 'trained_model'],

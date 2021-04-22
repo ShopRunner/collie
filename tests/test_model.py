@@ -1,4 +1,5 @@
 from contextlib import suppress
+import copy
 import os
 from unittest import mock
 
@@ -65,8 +66,54 @@ def test_basepipeline_does_not_initialize(train_val_implicit_data):
         BasePipeline(train=train, val=val)
 
 
+@pytest.mark.parametrize('change_to_make', ['num_users',
+                                            'num_items',
+                                            'num_negative_samples',
+                                            'bad_train_num_negative_samples'])
+def test_mismatched_train_and_val_loaders(train_val_implicit_data, change_to_make):
+    train, val = train_val_implicit_data
+
+    train = copy.copy(train)
+    val = copy.copy(val)
+
+    expected_error = AssertionError
+
+    if change_to_make == 'num_users':
+        train.num_users = 3
+        val.num_users = 2
+    elif change_to_make == 'num_items':
+        train.num_items = 1
+        val.num_items = 2
+    elif change_to_make == 'num_negative_samples':
+        train.num_negative_samples = 1
+        val.num_negative_samples = 2
+    elif change_to_make == 'bad_train_num_negative_samples':
+        train.num_negative_samples = 0
+        expected_error = ValueError
+
+    with pytest.raises(expected_error):
+        MatrixFactorizationModel(train=train, val=val)
+
+
+def test_okay_mismatched_train_and_val_loaders(train_val_implicit_data):
+    train, val = train_val_implicit_data
+
+    train = copy.copy(train)
+    val = copy.copy(val)
+
+    train.num_negative_samples = 2
+    val.num_negative_samples = 3
+
+    model = MatrixFactorizationModel(train=train, val=val)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer.fit(model)
+
+
 def test_instantiation_of_model_loss(train_val_implicit_data):
     train, val = train_val_implicit_data
+
+    train = copy.copy(train)
+    val = copy.copy(val)
 
     train.num_negative_samples = 1
     val.num_negative_samples = 1

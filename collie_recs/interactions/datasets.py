@@ -2,7 +2,7 @@ import collections
 import random
 import sys
 import textwrap
-from typing import Iterable, Optional, Tuple, Union
+from typing import Any, Iterable, Optional, Tuple, Union
 import warnings
 
 import numpy as np
@@ -88,6 +88,8 @@ class Interactions(torch.utils.data.Dataset):
                  max_number_of_samples_to_consider: int = 200,
                  seed: Optional[int] = None):
         if mat is None:
+            assert users is not None and items is not None, 'Input data cannot be ``None``!'
+
             if len(users) != len(items):
                 raise ValueError('Lengths of ``users`` and ``items`` must be equal.')
 
@@ -107,6 +109,18 @@ class Interactions(torch.utils.data.Dataset):
                     raise ValueError(
                         'Length of ``ratings`` must be equal to lengths of ``users``, ``items``.'
                     )
+
+                if 0 in set(ratings):
+                    warnings.warn(
+                        '``ratings`` contain ``0``s, which is impossible for implicit data.'
+                        ' Filtering these rows out.'
+                    )
+                    indices_to_drop = [idx for idx, rating in enumerate(ratings) if rating == 0]
+
+                    users = _drop_array_values_by_idx(array=users, indices_to_drop=indices_to_drop)
+                    items = _drop_array_values_by_idx(array=items, indices_to_drop=indices_to_drop)
+                    ratings = _drop_array_values_by_idx(array=ratings,
+                                                        indices_to_drop=indices_to_drop)
 
             mat = collie_recs.utils._create_sparse_ratings_matrix_helper(users=users,
                                                                          items=items,
@@ -479,3 +493,7 @@ def _check_array_contains_all_integers(array: Iterable[int],
             f'``{array_name}`` must contain every integer between 0 and {array_max_value - 1}. '
             + 'To override this error, set ``allow_missing_ids`` to True.'
         )
+
+
+def _drop_array_values_by_idx(array: Iterable[Any], indices_to_drop: Iterable[int]):
+    return [element for idx, element in enumerate(array) if idx not in indices_to_drop]
