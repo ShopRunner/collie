@@ -651,7 +651,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             for idx in range(self.hparams.num_items)
         ]
 
-        sim_score_idxs = np.array(results) / np.linalg.norm(item_embs[item_id])
+        sim_score_idxs = np.array(results) / (np.linalg.norm(item_embs[item_id]) + 1e-11)
 
         sim_score_idxs_series = pd.Series(sim_score_idxs)
         sim_score_idxs_series = sim_score_idxs_series.sort_values(ascending=False)

@@ -29,6 +29,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  - a ``relu`` final activation layer now works in ``NeuralCollaborativeFiltering`` model
  - ``df_to_html`` now outputs proper HTML when multiple ``html_tags`` options are specified
  - tutorial notebooks now fully run on Colab without having to only rely on previously-saved data
+ - add value of ``1e-11`` to ``BasePipeline.get_item_predictions`` denominator to avoid potential ``NaN``s
 
 # [0.1.2] - 2021-4-14
 ### Added
