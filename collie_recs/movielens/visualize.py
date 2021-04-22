@@ -36,9 +36,9 @@ def get_recommendation_visualizations(
     df_user: DataFrame
         ``u.data`` from MovieLens data. This DataFrame must have columns:
 
-        * ``user_id`` (starting at 1)
+        * ``user_id`` (starting at ``1``)
 
-        * ``item_id`` (starting at 1)
+        * ``item_id`` (starting at ``1``)
 
         * ``rating`` (explicit ratings)
 
@@ -46,7 +46,7 @@ def get_recommendation_visualizations(
     df_item: DataFrame
         ``u.item`` from MovieLens data. This DataFrame must have columns:
 
-        * ``item_id`` (starting at 1)
+        * ``item_id`` (starting at ``1``)
 
         * ``movie_title``
 
@@ -55,7 +55,7 @@ def get_recommendation_visualizations(
         DataFrame containing item_ids from MovieLens data and the poster url. This DataFrame must
         have columns:
 
-        * ``item_id`` (starting at 1)
+        * ``item_id`` (starting at ``1``)
 
         * ``url``
 
