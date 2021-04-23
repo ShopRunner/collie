@@ -39,30 +39,6 @@ def test_create_ratings_matrix_sparse(explicit_df):
     np.testing.assert_equal(actual.toarray(), EXPECTED_RATINGS_MATRIX)
 
 
-def test_create_ratings_matrix_not_sparse_starting_at_one(explicit_df):
-    explicit_df['userId'] += 1
-    explicit_df['itemId'] += 1
-
-    with pytest.raises(ValueError):
-        create_ratings_matrix(df=explicit_df,
-                              user_col='userId',
-                              item_col='itemId',
-                              ratings_col='rating',
-                              sparse=False)
-
-
-def test_create_ratings_matrix_sparse_starting_at_one(explicit_df):
-    explicit_df['userId'] += 1
-    explicit_df['itemId'] += 1
-
-    with pytest.raises(ValueError):
-        create_ratings_matrix(df=explicit_df,
-                              user_col='userId',
-                              item_col='itemId',
-                              ratings_col='rating',
-                              sparse=True)
-
-
 def test_df_to_interactions(df_to_turn_to_interactions):
     expected = np.array([[0, 0, 1, 0, 0],
                          [0, 1, 1, 1, 0],
@@ -457,7 +433,7 @@ def test_timecheck_default_message(capsys):
 
     out, _ = capsys.readouterr()
 
-    assert out == 'finished (1.00 min)\n'
+    assert out == 'Finished (1.00 min)\n'
     assert actual == 1
 
 
@@ -481,7 +457,7 @@ def test_time_since_start_default_message(capsys):
     out, _ = capsys.readouterr()
     message = out.split('\n')[1] + '\n'
 
-    assert message == 'total time: 1.00 min\n'
+    assert message == 'Total time: 1.00 min\n'
     assert actual == 1
 
 

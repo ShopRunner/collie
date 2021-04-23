@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
-# [0.1.3] - 2021-4-22
+# [0.1.3] - 2021-4-23
 ### Added
  - ability to run ``stratified_split`` without any ``joblib.Parallel`` parallelization
  - data quality checks to ``Interactions.__init__`` to assert ``users`` and ``items`` and ``mat`` are not ``None`` and ``ratings`` does not contain any ``0``s (if so, those rows will now automatically be filtered out)
@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  - default ``unseen_items_only`` in ``BasePipeline.get_item_predictions`` method is now ``False``
  - docs in ``get_recommendation_visualizations`` to be clearer
  - ``get_recommendation_visualizations`` data quality checks have been moved to the beginning of the function to potentially fail faster
+ - ``create_ratings_matrix`` no longer raises ``ValueError`` if ``users`` and ``items`` do not start at ``0``
 ### Fixed
  - typo in ``cross_validation.py`` error message
  - ``head`` and ``tail`` methods in ``interactions/datasets.py`` to no longer error with ``n < 1`` or large ``n`` values

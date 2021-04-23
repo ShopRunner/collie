@@ -31,9 +31,9 @@ def create_ratings_matrix(df: pd.DataFrame,
     df: pd.DataFrame
         Dataframe with columns for user IDs, item IDs, and ratings
     user_col: str
-        Column name for the user IDs, starting at 0
+        Column name for the user IDs
     item_col: str
-        Column name for the item IDs, starting at 0
+        Column name for the item IDs
     ratings_col: str
         Column name for the ratings column
     sparse: bool
@@ -67,11 +67,6 @@ def _create_sparse_ratings_matrix_helper(users: Iterable[int],
                                          num_users: Union[int, str] = 'infer',
                                          num_items: Union[int, str] = 'infer') -> coo_matrix:
     """Create a sparse matrix from a series of arrays."""
-    # we found that putting this function in ``utils.py`` gave an error since ``utils.py`` imports
-    # ``interactions.py`` which imports ``utils.py`` and so on.
-    if min(users) != 0 or min(items) != 0:
-        raise ValueError('Minimum values of ``users`` and ``items`` must both be 0.')
-
     num_users = _infer_num_if_needed_for_1d_array(num_users, users)
     num_items = _infer_num_if_needed_for_1d_array(num_items, items)
 
@@ -400,7 +395,7 @@ class Timer(object):
         self.start_time = time.time()
         self.current_time = self.start_time
 
-    def timecheck(self, message: str = 'finished') -> float:
+    def timecheck(self, message: str = 'Finished') -> float:
         """Get time since last timecheck."""
         tmp_time = time.time()
         elapsed_time = (tmp_time-self.current_time)/60.0
@@ -409,9 +404,9 @@ class Timer(object):
 
         return elapsed_time
 
-    def time_since_start(self, message: str = 'total time') -> float:
+    def time_since_start(self, message: str = 'Total time') -> float:
         """Get time since timer was instantiated."""
-        total_time = (time.time()-self.start_time)/60.0
+        total_time = (time.time() - self.start_time) / 60.0
         print('{0}: {1:.2f} min'.format(message, total_time))
 
         return total_time
