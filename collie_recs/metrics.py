@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, List, Tuple, Union
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pytorch_lightning
@@ -195,7 +195,7 @@ def mapk(targets: csr_matrix,
 def mrr(targets: csr_matrix,
         user_ids: (np.array, torch.tensor),
         preds: (np.array, torch.tensor),
-        **kwargs) -> float:
+        k: Optional[Any] = None) -> float:
     """
     Calculate the mean reciprocal rank (MRR) of the input predictions.
 
@@ -207,7 +207,7 @@ def mrr(targets: csr_matrix,
         Users corresponding to the recommendations in the top k predictions
     preds: torch.tensor
         Tensor of shape (n_users x n_items) with each user's scores for each item
-    kwargs: keyword arguments
+    k: Any
         Ignored, included only for compatibility with ``mapk``
 
     Returns
@@ -215,9 +215,6 @@ def mrr(targets: csr_matrix,
     mrr_score: float
 
     """
-    if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['k']:
-        raise TypeError(f'Unexpected ``kwargs``: {kwargs}')
-
     predicted_items = preds.topk(preds.shape[1], dim=1).indices
     labeled = _get_labels(targets, user_ids, predicted_items, device=preds.device)
 
@@ -240,7 +237,7 @@ def mrr(targets: csr_matrix,
 def auc(targets: csr_matrix,
         user_ids: (np.array, torch.tensor),
         preds: (np.array, torch.tensor),
-        **kwargs) -> float:
+        k: Optional[Any] = None) -> float:
     """
     Calculate the area under the ROC curve (AUC) for each user and average the results.
 
@@ -252,7 +249,7 @@ def auc(targets: csr_matrix,
         Users corresponding to the recommendations in the top k predictions
     preds: torch.tensor
         Tensor of shape (n_users x n_items) with each user's scores for each item
-    kwargs: keyword arguments
+    k: Any
         Ignored, included only for compatibility with ``mapk``
 
     Returns
@@ -260,9 +257,6 @@ def auc(targets: csr_matrix,
     auc_score: float
 
     """
-    if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['k']:
-        raise TypeError(f'Unexpected ``kwargs``: {kwargs}')
-
     agg = 0
     for i, user_id in enumerate(user_ids):
         target_tensor = torch.tensor(

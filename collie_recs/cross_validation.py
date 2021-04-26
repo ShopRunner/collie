@@ -15,8 +15,8 @@ from collie_recs.utils import get_random_seed
 def random_split(interactions: Interactions,
                  val_p: float = 0.0,
                  test_p: float = 0.2,
-                 seed: Optional[int] = None,
-                 **kwargs) -> Tuple[Interactions, ...]:
+                 processes: Optional[Any] = None,
+                 seed: Optional[int] = None) -> Tuple[Interactions, ...]:
     """
     Randomly split interactions into training, validation, and testing sets.
 
@@ -35,10 +35,10 @@ def random_split(interactions: Interactions,
         Proportion of data used for validation
     test_p: float
         Proportion of data used for testing
+    processes: Any
+        Ignored, included only for compatability with ``stratified_split`` API
     seed: int
         Random seed for splits
-    kwargs: keyword arguments
-        Ignored, included only for compatibility with ``stratified_split`` API
 
     Returns
     ----------
@@ -61,9 +61,6 @@ def random_split(interactions: Interactions,
         (80000, 20000)
 
     """
-    if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['processes']:
-        raise TypeError(f'Unexpected ``kwargs``: {kwargs}')
-
     _validate_val_p_and_test_p(val_p=val_p, test_p=test_p)
 
     if seed is None:
@@ -156,7 +153,8 @@ def stratified_split(interactions: Interactions,
     processes: int
         Number of CPUs to use for parallelization. If ``processes == 0``, this will be run
         sequentially in a single list comprehension, else this function uses ``joblib.delayed`` and
-        ``joblib.Parallel`` for parallelization
+        ``joblib.Parallel`` for parallelization. A value of ``-1`` means that all available cores
+        will be used
     seed: int
         Random seed for splits
 
@@ -260,7 +258,7 @@ def _stratified_split_parallel_worker(idxs_to_split: Iterable[Any],
     return test_idxs
 
 
-def _validate_val_p_and_test_p(val_p: float, test_p: float):
+def _validate_val_p_and_test_p(val_p: float, test_p: float) -> None:
     validate_and_test_p = val_p + test_p
 
     if val_p >= 1 or val_p < 0:

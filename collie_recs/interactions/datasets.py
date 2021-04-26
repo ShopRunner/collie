@@ -1,8 +1,7 @@
 import collections
 import random
-import sys
 import textwrap
-from typing import Any, Iterable, Optional, Tuple, Union
+from typing import Any, Iterable, List, Optional, Tuple, Union
 import warnings
 
 import numpy as np
@@ -88,7 +87,9 @@ class Interactions(torch.utils.data.Dataset):
                  max_number_of_samples_to_consider: int = 200,
                  seed: Optional[int] = None):
         if mat is None:
-            assert users is not None and items is not None, 'Input data cannot be ``None``!'
+            assert users is not None and items is not None, (
+                'Either 1) ``mat`` or 2) both ``users`` or ``items`` must be non-null!'
+            )
 
             if len(users) != len(items):
                 raise ValueError('Lengths of ``users`` and ``items`` must be equal.')
@@ -112,7 +113,7 @@ class Interactions(torch.utils.data.Dataset):
 
                 if 0 in set(ratings):
                     warnings.warn(
-                        '``ratings`` contain ``0``s, which is impossible for implicit data.'
+                        '``ratings`` contain ``0``s, which are ignored for implicit data.'
                         ' Filtering these rows out.'
                     )
                     indices_to_drop = [idx for idx, rating in enumerate(ratings) if rating == 0]
@@ -306,14 +307,14 @@ class Interactions(torch.utils.data.Dataset):
         n = self._prep_head_tail_n(n=n)
         return self.mat.tocsr()[range(-n, 0), :].toarray()
 
-    def _prep_head_tail_n(self, n: int):
+    def _prep_head_tail_n(self, n: int) -> int:
         """Ensure we don't run into an ``IndexError`` when using ``head`` or ``tail`` methods."""
         if n < 0:
-            n = sys.maxsize
+            n = self.num_users + n
+        if n > self.num_users:
+            n = self.num_users
 
-        error_free_n = min(n, self.num_users)
-
-        return error_free_n
+        return n
 
 
 class HDF5Interactions(torch.utils.data.Dataset):
@@ -403,6 +404,7 @@ class HDF5Interactions(torch.utils.data.Dataset):
                             f' 0, not {min_user_id} and {min_item_id}, respectively.'
                         )
 
+                    # add one here since ``users`` and ``items`` are both zero-indexed
                     self.num_users += 1
                     self.num_items += 1
 
@@ -476,10 +478,12 @@ class HDF5Interactions(torch.utils.data.Dataset):
         n = self._prep_head_tail_n(n=n)
         return self._get_data_chunk(self.num_interactions - n, n)
 
-    def _prep_head_tail_n(self, n: int):
+    def _prep_head_tail_n(self, n: int) -> int:
         """Ensure we don't run into an ``IndexError`` when using ``head`` or ``tail`` methods."""
         if n < 0:
             n = self.num_interactions + n
+        if n > self.num_interactions:
+            n = self.num_interactions
 
         return n
 
@@ -495,5 +499,5 @@ def _check_array_contains_all_integers(array: Iterable[int],
         )
 
 
-def _drop_array_values_by_idx(array: Iterable[Any], indices_to_drop: Iterable[int]):
+def _drop_array_values_by_idx(array: Iterable[Any], indices_to_drop: Iterable[int]) -> List[Any]:
     return [element for idx, element in enumerate(array) if idx not in indices_to_drop]

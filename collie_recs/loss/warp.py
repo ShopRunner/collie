@@ -75,10 +75,10 @@ def warp_loss(
 
     if metadata is not None and len(metadata) > 0:
         ideal_difference = ideal_difference_from_metadata(
-            positive_items,
-            negative_items,
-            metadata,
-            metadata_weights,
+            positive_items=positive_items,
+            negative_items=negative_items,
+            metadata=metadata,
+            metadata_weights=metadata_weights,
         ).transpose(1, 0)
     else:
         ideal_difference = 1

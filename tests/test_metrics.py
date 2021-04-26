@@ -151,35 +151,6 @@ def test_auc(targets, test_implicit_predicted_scores):
     np.testing.assert_almost_equal(actual_score, expected_score)
 
 
-def test_metrics_kwargs(targets, test_implicit_predicted_scores):
-    user_ids = np.arange(test_implicit_predicted_scores.shape[0])
-
-    with pytest.raises(TypeError):
-        mrr(targets=targets,
-            user_ids=user_ids,
-            preds=test_implicit_predicted_scores[user_ids, :],
-            random_kwarg=3)
-
-    with pytest.raises(TypeError):
-        auc(targets=targets,
-            user_ids=user_ids,
-            preds=test_implicit_predicted_scores[user_ids, :],
-            random_kwarg=3)
-
-    mapk(targets=targets,
-         user_ids=user_ids,
-         preds=test_implicit_predicted_scores[user_ids, :],
-         k=3)
-    mrr(targets=targets,
-        user_ids=user_ids,
-        preds=test_implicit_predicted_scores[user_ids, :],
-        k=3)
-    auc(targets=targets,
-        user_ids=user_ids,
-        preds=test_implicit_predicted_scores[user_ids, :],
-        k=3)
-
-
 @pytest.mark.parametrize('batch_size', [20, 2, 1])  # default, uneven, single
 @mock.patch('collie_recs.model.MatrixFactorizationModel')
 def test_evaluate_in_batches(

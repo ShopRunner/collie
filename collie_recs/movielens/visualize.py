@@ -171,7 +171,6 @@ def _get_posters_html(movielens_posters_df: pd.DataFrame,
                       df_item: pd.DataFrame,
                       item_ids: Union[int, Iterable[Any]],
                       col_description: str = 'Recommended films:',
-                      titles_provided: bool = False,
                       image_width: Optional[int] = 500) -> str:
     if not isinstance(item_ids, collections.abc.Iterable):
         item_ids = [item_ids]
