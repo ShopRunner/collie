@@ -154,6 +154,15 @@ class TestBadInteractionsInstantiation:
                      ratings=None,
                      check_num_negative_samples_is_valid=False)
 
+    def test_duplicate_user_item_pairs(self,
+                                       interactions_pandas,
+                                       df_for_interactions_with_duplicates):
+        duplicated_interactions = Interactions(users=df_for_interactions_with_duplicates['user_id'],
+                                               items=df_for_interactions_with_duplicates['item_id'],
+                                               check_num_negative_samples_is_valid=False)
+
+        assert duplicated_interactions.mat.getnnz() == interactions_pandas.mat.getnnz()
+
 
 class TestInteractionsDataMethods:
     def test_to_dense(self,

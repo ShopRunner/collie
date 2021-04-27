@@ -6,7 +6,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
-from scipy.sparse import coo_matrix
+from scipy.sparse import coo_matrix, dok_matrix
 import torch
 from tqdm.auto import tqdm
 
@@ -143,6 +143,11 @@ class Interactions(torch.utils.data.Dataset):
                 _check_array_contains_all_integers(array=mat.col,
                                                    array_max_value=num_items,
                                                    array_name='mat.shape[1]')
+
+        # remove duplicate entires in the COO matrix
+        dok_mat = dok_matrix((mat.shape), dtype=mat.dtype)
+        dok_mat._update(zip(zip(mat.row, mat.col), mat.data))
+        mat = dok_mat.tocoo()
 
         if seed is None:
             seed = collie_recs.utils.get_random_seed()
