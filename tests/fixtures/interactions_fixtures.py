@@ -81,6 +81,16 @@ def df_for_interactions_with_0_ratings():
 
 
 @pytest.fixture()
+def df_for_interactions_with_duplicates():
+    # this should match ``df_for_interactions`` with duplicate user/item pairs added
+    return pd.DataFrame(data={
+        'user_id': [0, 0, 0, 1, 1, 2, 2, 2, 3, 3, 3, 4, 5, 5],
+        'item_id': [1, 1, 2, 2, 3, 4, 5, 6, 7, 8, 9, 0, 3, 3],
+        'ratings': [1, 2, 1, 2, 3, 4, 5, 1, 2, 3, 4, 5, 5, 4],
+    })
+
+
+@pytest.fixture()
 def interactions_pandas(df_for_interactions):
     return Interactions(users=df_for_interactions['user_id'],
                         items=df_for_interactions['item_id'],

@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
+# [0.1.4] - 2021-4-27
+### Fixed
+ - duplicate user/item pairs in ``Interactions`` are now dropped from the COO matrix during instantiation
+
 # [0.1.3] - 2021-4-26
 ### Added
  - ability to run ``stratified_split`` without any ``joblib.Parallel`` parallelization

@@ -70,7 +70,7 @@ print(f'MRR:          {mrr_score}')
 print(f'MAP@10:       {mapk_score}')
 ```
 
-More complicated examples of pipelines can be viewed [for MovieLens 100K data here](collie_recs/movielens/run.py), [in notebooks here](tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
+More complicated examples of pipelines can be viewed [for MovieLens 100K data here](https://github.com/ShopRunner/collie_recs/blob/main/collie_recs/movielens/run.py), [in notebooks here](https://github.com/ShopRunner/collie_recs/tree/main/tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
 
 ## Comparison With Other Open-Source Recommendation Libraries
 
