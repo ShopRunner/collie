@@ -39,30 +39,6 @@ def test_create_ratings_matrix_sparse(explicit_df):
     np.testing.assert_equal(actual.toarray(), EXPECTED_RATINGS_MATRIX)
 
 
-def test_create_ratings_matrix_not_sparse_starting_at_one(explicit_df):
-    explicit_df['userId'] += 1
-    explicit_df['itemId'] += 1
-
-    with pytest.raises(ValueError):
-        create_ratings_matrix(df=explicit_df,
-                              user_col='userId',
-                              item_col='itemId',
-                              ratings_col='rating',
-                              sparse=False)
-
-
-def test_create_ratings_matrix_sparse_starting_at_one(explicit_df):
-    explicit_df['userId'] += 1
-    explicit_df['itemId'] += 1
-
-    with pytest.raises(ValueError):
-        create_ratings_matrix(df=explicit_df,
-                              user_col='userId',
-                              item_col='itemId',
-                              ratings_col='rating',
-                              sparse=True)
-
-
 def test_df_to_interactions(df_to_turn_to_interactions):
     expected = np.array([[0, 0, 1, 0, 0],
                          [0, 1, 1, 1, 0],
@@ -156,6 +132,43 @@ def test_get_init_arguments_both_args_and_kwargs():
     assert actual == expected
 
 
+def test_get_init_arguments_exclude():
+    expected = {
+        'var_1': 'greetings',
+    }
+
+    class TestClass():
+        def __init__(self, var_1, var_2=2468, **kwargs):
+            super().__init__()
+
+            self.actual = get_init_arguments(exclude=['var_2', 'var_3'])
+
+    actual = TestClass('greetings', 2468, var_3='yes').actual
+
+    assert actual == expected
+
+
+def test_get_init_arguments_exclude_nonexistent_arg(capfd):
+    expected = {
+        'var_1': 'greetings',
+        'var_2': 12345,
+        'var_3': 'yes'
+    }
+
+    class TestClass():
+        def __init__(self, var_1, var_2=2468, **kwargs):
+            super().__init__()
+
+            self.actual = get_init_arguments(exclude=['var_4'], verbose=True)
+
+    actual = TestClass('greetings', 12345, var_3='yes').actual
+
+    assert actual == expected
+
+    out, _ = capfd.readouterr()
+    assert 'Key var_4 not found in ``init_args`` and will be ignored.' in out
+
+
 def test_df_to_html(df_html_test):
     expected = """
         <table border="1" class="dataframe">
@@ -177,7 +190,7 @@ def test_df_to_html(df_html_test):
                 <td><h2>Greg</h2></td>
                 <td>some text here</td>
 
-                <td><a target="_blank" href=" https://madeupsite.com">
+                <td><a target="_blank" href="https://madeupsite.com">
                     https://madeupsite.com</a></td>
                 <td><img src="https://avatars0.githubusercontent.co
                         m/u/13399445"></td>
@@ -187,7 +200,7 @@ def test_df_to_html(df_html_test):
                 <td><h2>Real Greg</h2>
                 </td>
                 <td>more text here</td>
-                <td><a target="_blank" href=" https://anotherm
+                <td><a target="_blank" href="https://anotherm
                         adeupsite.com">https://anothermadeupsite.com</a></td>
 
                 <td><img src="https://avatars3.githubusercontent.com/u/31417712"></td>
@@ -200,7 +213,7 @@ def test_df_to_html(df_html_test):
         df_html_test,
         image_cols='image',
         hyperlink_cols=['link', 'image'],
-        html_tags={'title': 'h2'},
+        html_tags={'title': 'h2', 'image': 'em'},
         max_num_rows=None,
     )
 
@@ -227,7 +240,7 @@ def test_df_to_html_with_kwargs(df_html_test):
                 <td><h2>Greg</h2></td>
                 <td>some text here</td>
 
-                <td><a target="_blank" href=" https://madeupsite.com">
+                <td><a target="_blank" href="https://madeupsite.com">
                     https://madeupsite.com</a></td>
                 <td><img src="https://avatars0.githubusercontent.co
                         m/u/13399445"></td>
@@ -236,7 +249,7 @@ def test_df_to_html_with_kwargs(df_html_test):
                 <td><h2>Real Greg</h2>
                 </td>
                 <td>more text here</td>
-                <td><a target="_blank" href=" https://anotherm
+                <td><a target="_blank" href="https://anotherm
                         adeupsite.com">https://anothermadeupsite.com</a></td>
 
                 <td><img src="https://avatars3.githubusercontent.com/u/31417712"></td>
@@ -278,7 +291,7 @@ def test_df_to_html_with_max_num_rows(df_html_test):
                 <td><h2>Greg</h2></td>
                 <td>some text here</td>
                 <td>
-                    <a target="_blank" href=" https://madeupsite.com">https://madeupsite.com</a>
+                    <a target="_blank" href="https://madeupsite.com">https://madeupsite.com</a>
                 </td>
                 <td>
                     <img src="https://avatars0.githubusercontent.com/u/13399445">
@@ -310,18 +323,16 @@ def test_df_to_html_with_number_colname(df_html_test):
                 <th>title</th>
                 <th>description</th>
                 <th>link</th>
-
                 <th>0</th>
             </tr>
             </thead>
             <tbody>
             <tr>
                 <th>0</th>
-
                 <td><h2>Greg</h2></td>
                 <td>some text here</td>
 
-                <td><a target="_blank" href=" https://madeupsite.com">
+                <td><a target="_blank" href="https://madeupsite.com">
                     https://madeupsite.com</a></td>
                 <td><img src="https://avatars0.githubusercontent.co
                         m/u/13399445"></td>
@@ -331,7 +342,7 @@ def test_df_to_html_with_number_colname(df_html_test):
                 <td><h2>Real Greg</h2>
                 </td>
                 <td>more text here</td>
-                <td><a target="_blank" href=" https://anotherm
+                <td><a target="_blank" href="https://anotherm
                         adeupsite.com">https://anothermadeupsite.com</a></td>
 
                 <td><img src="https://avatars3.githubusercontent.com/u/31417712"></td>
@@ -354,6 +365,67 @@ def test_df_to_html_with_number_colname(df_html_test):
     )
 
 
+def test_df_to_html_with_many_html_tags(df_html_test):
+    expected = """
+        <table border="1" class="dataframe">
+            <thead>
+            <tr style="text-align: right;">
+
+                <th></th>
+                <th>title</th>
+                <th>description</th>
+                <th>link</th>
+                <th>image</th>
+            </tr>
+            </thead>
+            <tbody>
+            <tr>
+                <th>0</th>
+                <td><h2><em><strong><mark>Greg</mark></strong></em></h2></td>
+                <td>some text here</td>
+
+                <td><a target="_blank" href="https://madeupsite.com">
+                    https://madeupsite.com</a></td>
+                <td><img src="https://avatars0.githubusercontent.co
+                        m/u/13399445"></td>
+            </tr>
+            <tr>
+                <th>1</th>
+                <td><h2><em><strong><mark>Real Greg</mark></strong></em></h2></td>
+                <td>more text here</td>
+                <td><a target="_blank" href="https://anotherm
+                        adeupsite.com">https://anothermadeupsite.com</a></td>
+
+                <td><img src="https://avatars3.githubusercontent.com/u/31417712"></td>
+            </tr>
+
+            </tbody>
+        </table>
+        """
+    actual = df_to_html(
+        df_html_test,
+        image_cols='image',
+        hyperlink_cols='link',
+        html_tags={'title': ['h2', 'em', 'strong', 'mark']},
+        max_num_rows=None,
+    )
+
+    assert expected.replace('\n', '').replace('  ', '') == (
+        actual.replace('\n', '').replace('  ', '')
+    )
+
+
+def test_df_to_html_with_nonexistent_cols(df_html_test):
+    with pytest.raises(ValueError):
+        df_to_html(df_html_test, image_cols='nonexistent_col')
+
+    with pytest.raises(ValueError):
+        df_to_html(df_html_test, hyperlink_cols='nonexistent_col')
+
+    with pytest.raises(ValueError):
+        df_to_html(df_html_test, html_tags={'nonexistent_col': 'mark'})
+
+
 def test_timecheck_default_message(capsys):
     with mock.patch('time.time', mock.MagicMock(side_effect=[0, 60])):
         timer = Timer()
@@ -361,7 +433,7 @@ def test_timecheck_default_message(capsys):
 
     out, _ = capsys.readouterr()
 
-    assert out == 'finished (1.00 min)\n'
+    assert out == 'Finished (1.00 min)\n'
     assert actual == 1
 
 
@@ -385,7 +457,7 @@ def test_time_since_start_default_message(capsys):
     out, _ = capsys.readouterr()
     message = out.split('\n')[1] + '\n'
 
-    assert message == 'total time: 1.00 min\n'
+    assert message == 'Total time: 1.00 min\n'
     assert actual == 1
 
 

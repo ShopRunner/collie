@@ -19,6 +19,6 @@ assignees: ''
 
 > A clear and concise description of any alternative solutions or features you've considered.
 
-**Any additional information?** 
+**Any additional information?**
 
 > Add any other context or information about the feature request here.

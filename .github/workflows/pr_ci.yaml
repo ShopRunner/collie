@@ -1,9 +1,9 @@
-name: pr_workflow
+name: "Pull Request Continuous Integration"
 
 on:
   pull_request:
     branches: [ main ]
-    
+
 jobs:
   test:
 

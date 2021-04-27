@@ -34,19 +34,43 @@ def implicit_model(train_val_implicit_data, gpu_count):
     return model
 
 
+@pytest.fixture(scope='session')
+def untrained_implicit_model(train_val_implicit_data):
+    train, val = train_val_implicit_data
+    model = MatrixFactorizationModel(train=train, val=val)
+
+    return model
+
+
+@pytest.fixture(scope='session')
+def untrained_implicit_model_no_val_data(train_val_implicit_data):
+    train, _ = train_val_implicit_data
+    model = MatrixFactorizationModel(train=train, val=None)
+
+    return model
+
+
 @pytest.fixture(params=['mf_hdf5',
+                        'mf_with_y_range',
                         'sparse_mf',
+                        'mf_no_val',
                         'mf_non_approximate',
                         'mf_approximate',
                         'nonlinear_mf',
+                        'nonlinear_mf_with_y_range',
                         'neucf',
-                        'hybrid'])
-def other_models_trained_for_one_epoch(request,
-                                       train_val_implicit_data,
-                                       movielens_metadata_df,
-                                       movielens_implicit_df,
-                                       train_val_implicit_pandas_data,
-                                       gpu_count):
+                        'neucf_sigmoid',
+                        'neucf_relu',
+                        'neucf_leaky_rulu',
+                        'neucf_custom',
+                        'hybrid_pretrained',
+                        'hybrid_pretrained_metadata_layers'])
+def models_trained_for_one_step(request,
+                                train_val_implicit_data,
+                                movielens_metadata_df,
+                                movielens_implicit_df,
+                                train_val_implicit_pandas_data,
+                                gpu_count):
     train, val = train_val_implicit_data
 
     if request.param == 'mf_hdf5':
@@ -90,7 +114,7 @@ def other_models_trained_for_one_epoch(request,
 
             model_trainer = CollieTrainer(model=model,
                                           gpus=gpu_count,
-                                          max_epochs=1,
+                                          max_steps=1,
                                           deterministic=True,
                                           logger=False,
                                           checkpoint_callback=False)
@@ -112,6 +136,8 @@ def other_models_trained_for_one_epoch(request,
                                          weight_decay=0,
                                          loss='hinge',
                                          sparse=True)
+    elif request.param == 'mf_no_val':
+        model = MatrixFactorizationModel(train=train, val=None)
     elif request.param == 'mf_non_approximate' or request.param == 'mf_approximate':
         if request.param == 'mf_non_approximate':
             train_loader = InteractionsDataLoader(interactions=train, batch_size=1024, shuffle=True)
@@ -135,6 +161,10 @@ def other_models_trained_for_one_epoch(request,
                                          weight_decay=1e-7,
                                          loss='bpr',
                                          sparse=False)
+    elif request.param == 'mf_with_y_range':
+        model = MatrixFactorizationModel(train=train,
+                                         val=val,
+                                         y_range=(0, 4))
     elif request.param == 'nonlinear_mf':
         model = NonlinearMatrixFactorizationModel(train=train,
                                                   val=val,
@@ -150,6 +180,10 @@ def other_models_trained_for_one_epoch(request,
                                                   bias_optimizer='sgd',
                                                   weight_decay=1e-7,
                                                   loss='bpr')
+    elif request.param == 'nonlinear_mf_with_y_range':
+        model = NonlinearMatrixFactorizationModel(train=train,
+                                                  val=val,
+                                                  y_range=(0, 4))
     elif request.param == 'neucf':
         model = NeuralCollaborativeFiltering(train=train,
                                              val=val,
@@ -160,7 +194,25 @@ def other_models_trained_for_one_epoch(request,
                                              weight_decay=0.,
                                              optimizer='adam',
                                              loss='adaptive')
-    elif request.param == 'hybrid':
+    elif request.param == 'neucf_sigmoid':
+        model = NeuralCollaborativeFiltering(train=train,
+                                             val=val,
+                                             final_layer='sigmoid')
+    elif request.param == 'neucf_relu':
+        model = NeuralCollaborativeFiltering(train=train,
+                                             val=val,
+                                             final_layer='relu')
+    elif request.param == 'neucf_leaky_rulu':
+        model = NeuralCollaborativeFiltering(train=train,
+                                             val=val,
+                                             final_layer='leaky_relu')
+    elif request.param == 'neucf_custom':
+        model = NeuralCollaborativeFiltering(train=train,
+                                             val=val,
+                                             final_layer=torch.tanh)
+    elif (
+        request.param == 'hybrid_pretrained' or request.param == 'hybrid_pretrained_metadata_layers'
+    ):
         implicit_model = MatrixFactorizationModel(train=train,
                                                   val=val,
                                                   embedding_dim=10,
@@ -168,7 +220,7 @@ def other_models_trained_for_one_epoch(request,
                                                   optimizer='adam')
         implicit_model_trainer = CollieTrainer(model=implicit_model,
                                                gpus=gpu_count,
-                                               max_epochs=1,
+                                               max_steps=1,
                                                deterministic=True,
                                                logger=False,
                                                checkpoint_callback=False)
@@ -184,10 +236,16 @@ def other_models_trained_for_one_epoch(request,
             .view(-1)
         )
 
+        if request.param == 'hybrid_pretrained_metadata_layers':
+            metadata_layers_dims = [16, 12]
+        else:
+            metadata_layers_dims = None
+
         model_frozen = HybridPretrainedModel(train=train,
                                              val=val,
                                              item_metadata=movielens_metadata_df,
                                              trained_model=implicit_model,
+                                             metadata_layers_dims=metadata_layers_dims,
                                              freeze_embeddings=True,
                                              dropout_p=0.15,
                                              loss='warp',
@@ -198,18 +256,18 @@ def other_models_trained_for_one_epoch(request,
                                              weight_decay=0.0)
         model_frozen_trainer = CollieTrainer(model=model_frozen,
                                              gpus=gpu_count,
-                                             max_epochs=1,
+                                             max_steps=1,
                                              deterministic=True,
                                              logger=False,
                                              checkpoint_callback=False)
         model_frozen_trainer.fit(model_frozen)
 
-        model_frozen.unfreeze_embeddings()
         model = HybridPretrainedModel(train=train,
                                       val=val,
                                       item_metadata=movielens_metadata_df,
                                       trained_model=implicit_model,
-                                      freeze_embeddings=True,
+                                      metadata_layers_dims=metadata_layers_dims,
+                                      freeze_embeddings=False,
                                       dropout_p=0.15,
                                       loss='bpr',
                                       lr=1e-4,
@@ -221,12 +279,17 @@ def other_models_trained_for_one_epoch(request,
 
     model_trainer = CollieTrainer(model=model,
                                   gpus=gpu_count,
-                                  max_epochs=1,
+                                  max_steps=1,
                                   deterministic=True,
                                   logger=False,
                                   checkpoint_callback=False)
 
-    model_trainer.fit(model)
+    if request.param == 'mf_no_val':
+        with pytest.warns(UserWarning):
+            model_trainer.fit(model)
+    else:
+        model_trainer.fit(model)
+
     model.freeze()
 
     return model

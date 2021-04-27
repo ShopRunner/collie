@@ -67,7 +67,7 @@ coverage==5.5
     # via pytest-cov
 cycler==0.10.0
     # via matplotlib
-decorator==5.0.6
+decorator==5.0.7
     # via ipython
 defusedxml==0.7.1
     # via nbconvert
@@ -87,11 +87,11 @@ flake8-docstrings==1.6.0
     # via collie-recs
 flake8-import-order==0.18.1
     # via collie-recs
-flake8==3.9.0
+flake8==3.9.1
     # via
     #   collie-recs
     #   flake8-docstrings
-fsspec[http]==0.9.0
+fsspec[http]==2021.4.0
     # via
     #   -c requirements.txt
     #   pytorch-lightning
@@ -103,7 +103,7 @@ google-auth-oauthlib==0.4.4
     # via
     #   -c requirements.txt
     #   tensorboard
-google-auth==1.28.1
+google-auth==1.29.0
     # via
     #   -c requirements.txt
     #   google-auth-oauthlib
@@ -175,9 +175,11 @@ jupyter-core==4.7.1
     #   nbconvert
     #   nbformat
     #   notebook
-jupyter-packaging==0.9.1
-    # via jupyterlab
-jupyter-server==1.6.1
+jupyter-packaging==0.9.2
+    # via
+    #   jupyter-server
+    #   jupyterlab
+jupyter-server==1.6.4
     # via
     #   jupyterlab
     #   jupyterlab-server
@@ -251,12 +253,14 @@ numpy==1.20.2
     #   tables
     #   tensorboard
     #   torch
+    #   torchmetrics
 oauthlib==3.1.0
     # via
     #   -c requirements.txt
     #   requests-oauthlib
 packaging==20.9
     # via
+    #   -c requirements.txt
     #   bleach
     #   deprecation
     #   jupyter-packaging
@@ -264,6 +268,7 @@ packaging==20.9
     #   jupyterlab-server
     #   pytest
     #   sphinx
+    #   torchmetrics
 pandas==1.2.4
     # via
     #   -c requirements.txt
@@ -280,7 +285,7 @@ pickleshare==0.7.5
     # via ipython
 pillow==8.2.0
     # via matplotlib
-pip-tools==6.0.1
+pip-tools==6.1.0
     # via collie-recs
 pluggy==0.13.1
     # via pytest
@@ -329,6 +334,7 @@ pygments==2.8.1
     #   sphinx
 pyparsing==2.4.7
     # via
+    #   -c requirements.txt
     #   matplotlib
     #   packaging
 pyrsistent==0.17.3
@@ -345,7 +351,7 @@ python-dateutil==2.8.1
     #   jupyter-client
     #   matplotlib
     #   pandas
-pytorch-lightning==1.2.7
+pytorch-lightning==1.2.8
     # via
     #   -c requirements.txt
     #   collie-recs
@@ -405,7 +411,6 @@ six==1.15.0
     #   protobuf
     #   pydocstyle
     #   python-dateutil
-    #   tensorboard
 sniffio==1.2.0
     # via anyio
 snowballstemmer==2.1.0
@@ -436,11 +441,15 @@ tables==3.6.1
     # via
     #   -c requirements.txt
     #   collie-recs
+tensorboard-data-server==0.6.0
+    # via
+    #   -c requirements.txt
+    #   tensorboard
 tensorboard-plugin-wit==1.8.0
     # via
     #   -c requirements.txt
     #   tensorboard
-tensorboard==2.4.1
+tensorboard==2.5.0
     # via
     #   -c requirements.txt
     #   pytorch-lightning
@@ -470,7 +479,7 @@ torch==1.8.1
     #   collie-recs
     #   pytorch-lightning
     #   torchmetrics
-torchmetrics==0.2.0
+torchmetrics==0.3.0
     # via
     #   -c requirements.txt
     #   collie-recs

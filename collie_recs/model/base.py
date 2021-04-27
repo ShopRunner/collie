@@ -82,8 +82,8 @@ class CollieTrainer(Trainer):
             kwargs['check_val_every_n_epoch'] = sys.maxsize
 
         if kwargs.get('gpus') is None and torch.cuda.is_available():
-            print('Detected GPU. Setting ``gpus`` to -1.')
-            kwargs['gpus'] = -1
+            print('Detected GPU. Setting ``gpus`` to 1.')
+            kwargs['gpus'] = 1
 
         kwargs['benchmark'] = benchmark
         kwargs['deterministic'] = deterministic
@@ -206,6 +206,33 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                                          map_location=map_location,
                                          **kwargs)
         else:
+            if self.train_loader is None:
+                pass
+            elif self.val_loader is not None:
+                assert self.train_loader.num_users == self.val_loader.num_users, (
+                    'Both training and val ``num_users`` must equal: '
+                    f'{self.train_loader.num_users} != {self.val_loader.num_users}.'
+                )
+                assert self.train_loader.num_items == self.val_loader.num_items, (
+                    'Both training and val ``num_items`` must equal: '
+                    f'{self.train_loader.num_items} != {self.val_loader.num_items}.'
+                )
+
+                num_negative_samples_error = (
+                    'Training and val ``num_negative_samples`` property must both equal ``1``'
+                    f' or both be greater than ``1``, not: {self.train_loader.num_items} and'
+                    f' {self.val_loader.num_items}, respectively.'
+                )
+                if self.train_loader.num_negative_samples == 1:
+                    assert self.val_loader.num_negative_samples == 1, num_negative_samples_error
+                elif self.train_loader.num_negative_samples > 1:
+                    assert self.val_loader.num_negative_samples > 1, num_negative_samples_error
+                else:
+                    raise ValueError(
+                        '``self.train_loader.num_negative_samples`` must be greater than ``0``, not'
+                        f' {self.train_loader.num_negative_samples}.'
+                    )
+
             # saves all passed-in parameters
             init_args = get_init_arguments(
                 exclude=['train', 'val', 'item_metadata', 'trained_model'],
@@ -541,7 +568,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
     def get_item_predictions(self,
                              user_id: int = 0,
-                             unseen_items_only: bool = True,
+                             unseen_items_only: bool = False,
                              sort_values: bool = True) -> pd.Series:
         """
         Get predicted rankings/ratings for all items for a given ``user_id``.
@@ -554,7 +581,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         user_id: int
         unseen_items_only: bool
             Filter ``preds`` to only show predictions of unseen items not present in the training
-            or validation datasets for that ``user_id``
+            or validation datasets for that ``user_id``. Note this requires both ``train_loader``
+            and ``val_loader`` to be 1) class-level attributes in the model and 2) DataLoaders with
+            ``Interactions`` at its core (not ``HDF5Interactions``). If you are loading in a model,
+            these two attributes will need to be set manually, since datasets are NOT saved when
+            saving the model
         sort_values: bool
             Whether to sort recommendations by descending prediction probability or not
 
@@ -620,7 +651,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             for idx in range(self.hparams.num_items)
         ]
 
-        sim_score_idxs = np.array(results) / np.linalg.norm(item_embs[item_id])
+        sim_score_idxs = np.array(results) / (np.linalg.norm(item_embs[item_id]) + 1e-11)
 
         sim_score_idxs_series = pd.Series(sim_score_idxs)
         sim_score_idxs_series = sim_score_idxs_series.sort_values(ascending=False)

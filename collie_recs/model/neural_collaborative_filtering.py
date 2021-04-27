@@ -232,9 +232,9 @@ class NeuralCollaborativeFiltering(BasePipeline):
         if callable(self.hparams.final_layer):
             prediction = self.hparams.final_layer(prediction)
         elif self.hparams.final_layer == 'sigmoid':
-            prediction = nn.sigmoid(prediction)
+            prediction = torch.sigmoid(prediction)
         elif self.hparams.final_layer == 'relu':
-            prediction = nn.ReLU(prediction)
+            prediction = F.relu(prediction)
         elif self.hparams.final_layer == 'leaky_relu':
             prediction = F.leaky_relu(prediction)
         elif self.hparams.final_layer is not None:

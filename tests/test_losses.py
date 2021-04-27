@@ -20,8 +20,8 @@ def test_ideal_difference_from_metadata_error(
 ):
     with pytest.raises(ValueError) as err:
         ideal_difference_from_metadata(
-            positive_items,
-            negative_items,
+            positive_items=positive_items,
+            negative_items=negative_items,
             metadata={'a': metadata_a, 'b': metadata_b},
             metadata_weights={'a': .2, 'b': .9},
         )
@@ -36,8 +36,8 @@ def test_ideal_difference_from_metadata_a(
     metadata_a_diff,
 ):
     ideal_diff = ideal_difference_from_metadata(
-        positive_items,
-        negative_items,
+        positive_items=positive_items,
+        negative_items=negative_items,
         metadata={'a': metadata_a},
         metadata_weights={'a': .2},
     )
@@ -52,8 +52,8 @@ def test_ideal_difference_from_metadata_no_matches(
     metadata_a_diff,
 ):
     ideal_diff = ideal_difference_from_metadata(
-        positive_items,
-        negative_items,
+        positive_items=positive_items,
+        negative_items=negative_items,
         metadata={'a': torch.tensor([0, 0, 0, 0, 1, 1, 1, 1, 1])},
         metadata_weights={'a': .2},
     )
@@ -69,8 +69,8 @@ def test_ideal_difference_from_metadata_a_and_b(
     metadata_a_and_2_diff,
 ):
     ideal_diff = ideal_difference_from_metadata(
-        positive_items.repeat(4, 1),
-        many_negative_items,
+        positive_items=positive_items.repeat(4, 1),
+        negative_items=many_negative_items,
         metadata={'a': metadata_a, 'b': metadata_b},
         metadata_weights={'a': .2, 'b': .3},
     )
@@ -121,10 +121,10 @@ def test_bpr_loss_metadata(
     metadata_a,
 ):
     actual = bpr_loss(
-        positive_scores,
-        negative_scores,
-        positive_items,
-        negative_items,
+        positive_scores=positive_scores,
+        negative_scores=negative_scores,
+        positive_items=positive_items,
+        negative_items=negative_items,
         metadata={'a': metadata_a},
         metadata_weights={'a': 0.2}
     )
@@ -141,10 +141,10 @@ def test_hinge_loss_metadata(
     metadata_a,
 ):
     actual = hinge_loss(
-        positive_scores,
-        negative_scores,
-        positive_items,
-        negative_items,
+        positive_scores=positive_scores,
+        negative_scores=negative_scores,
+        positive_items=positive_items,
+        negative_items=negative_items,
         metadata={'a': metadata_a},
         metadata_weights={'a': 0.2}
     )
@@ -162,10 +162,10 @@ def test_adaptive_bpr_loss_metadata(
     metadata_b,
 ):
     actual = adaptive_bpr_loss(
-        positive_scores,
-        many_negative_scores,
-        positive_items,
-        many_negative_items,
+        positive_scores=positive_scores,
+        many_negative_scores=many_negative_scores,
+        positive_items=positive_items,
+        negative_items=many_negative_items,
         metadata={'a': metadata_a, 'b': metadata_b},
         metadata_weights={'a': 0.2, 'b': 0.3},
     )
@@ -183,10 +183,10 @@ def test_adaptive_hinge_loss_metadata(
     metadata_b,
 ):
     actual = adaptive_hinge_loss(
-        positive_scores,
-        many_negative_scores,
-        positive_items,
-        many_negative_items,
+        positive_scores=positive_scores,
+        many_negative_scores=many_negative_scores,
+        positive_items=positive_items,
+        negative_items=many_negative_items,
         metadata={'a': metadata_a, 'b': metadata_b},
         metadata_weights={'a': 0.2, 'b': 0.3}
     )
@@ -204,8 +204,8 @@ def test_warp_loss_metadata(
     metadata_b,
 ):
     actual = warp_loss(
-        positive_scores,
-        many_negative_scores,
+        positive_scores=positive_scores,
+        many_negative_scores=many_negative_scores,
         num_items=4,
         positive_items=positive_items,
         negative_items=many_negative_items,

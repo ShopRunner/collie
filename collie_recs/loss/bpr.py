@@ -1,4 +1,4 @@
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 import torch
 
@@ -8,11 +8,11 @@ from collie_recs.loss.metadata_utils import ideal_difference_from_metadata
 def bpr_loss(
     positive_scores: torch.tensor,
     negative_scores: torch.tensor,
+    num_items: Optional[Any] = None,
     positive_items: Optional[torch.tensor] = None,
     negative_items: Optional[torch.tensor] = None,
     metadata: Optional[Dict[str, torch.tensor]] = dict(),
     metadata_weights: Optional[Dict[str, float]] = dict(),
-    **kwargs,
 ) -> torch.tensor:
     """
     Modified Bayesian Personalised Ranking [1]_.
@@ -31,6 +31,8 @@ def bpr_loss(
         Tensor containing predictions for known positive items of shape ``1 x batch_size``
     negative_scores: torch.tensor, 1-d
         Tensor containing scores for a single sampled negative item of shape ``1 x batch_size``
+    num_items: Any
+        Ignored, included only for compatability with WARP loss
     positive_items: torch.tensor, 1-d
         Tensor containing ids for known positive items of shape ``1 x batch_size``. This is only
         needed if ``metadata`` is provided
@@ -58,8 +60,6 @@ def bpr_loss(
 
         * a 0% match if it's a different item with a different genre and different director,
           which is equivalent to the loss without any partial credit
-    **kwargs: keyword arguments
-        Ignored, included only for compatability with WARP loss
 
     Returns
     -------------
@@ -72,17 +72,14 @@ def bpr_loss(
         2009, dl.acm.org/doi/10.5555/1795114.1795167.
 
     """
-    if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['num_items']:
-        raise ValueError(f'Unexpected ``kwargs``: {kwargs}')
-
     preds = positive_scores - negative_scores
 
     if metadata is not None and len(metadata) > 0:
         ideal_difference = ideal_difference_from_metadata(
-            positive_items,
-            negative_items,
-            metadata,
-            metadata_weights,
+            positive_items=positive_items,
+            negative_items=negative_items,
+            metadata=metadata,
+            metadata_weights=metadata_weights,
         )
     else:
         ideal_difference = 1
@@ -95,11 +92,11 @@ def bpr_loss(
 def adaptive_bpr_loss(
     positive_scores: torch.tensor,
     many_negative_scores: torch.tensor,
+    num_items: Optional[Any] = None,
     positive_items: Optional[torch.tensor] = None,
     negative_items: Optional[torch.tensor] = None,
     metadata: Optional[Dict[str, torch.tensor]] = dict(),
     metadata_weights: Optional[Dict[str, float]] = dict(),
-    **kwargs,
 ) -> torch.tensor:
     """
     Modified adaptive BPR loss function.
@@ -118,6 +115,8 @@ def adaptive_bpr_loss(
         Iterable of tensors containing scores for many (n > 1) sampled negative items of shape
         ``num_negative_samples x batch_size``. More tensors increase the likelihood of finding
         ranking-violating pairs, but risk overfitting
+    num_items: Any
+        Ignored, included only for compatability with WARP loss
     positive_items: torch.tensor, 1-d
         Tensor containing ids for known positive items of shape
         ``num_negative_samples x batch_size``. This is only needed if ``metadata`` is provided
@@ -153,9 +152,6 @@ def adaptive_bpr_loss(
     loss: torch.tensor
 
     """
-    if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['num_items']:
-        raise ValueError(f'Unexpected ``kwargs``: {kwargs}')
-
     highest_negative_scores, highest_negative_inds = torch.max(many_negative_scores, 0)
 
     if negative_items is not None and positive_items is not None:

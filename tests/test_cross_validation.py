@@ -195,3 +195,69 @@ def test_stratified_split_with_user_with_only_one_interaction(
             test_p=0.2,
             seed=42,
         )
+
+
+class TestSplitsWithWrongP:
+    def test_combined_too_large_random(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            random_split(interactions=interactions_to_split, val_p=0.9, test_p=0.2)
+
+    def test_combined_too_large_stratified(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            stratified_split(interactions=interactions_to_split, val_p=0.9, test_p=0.2)
+
+    def test_combined_equal_one_random(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            random_split(interactions=interactions_to_split, val_p=0.7, test_p=0.3)
+
+    def test_combined_equal_one_stratified(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            stratified_split(interactions=interactions_to_split, val_p=0.7, test_p=0.3)
+
+    def test_val_negative_but_combined_good_random(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            random_split(interactions=interactions_to_split, val_p=-0.1, test_p=0.3)
+
+    def test_val_negative_but_combined_good_stratified(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            stratified_split(interactions=interactions_to_split, val_p=-0.1, test_p=0.3)
+
+    def test_test_p_too_large_random(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            random_split(interactions=interactions_to_split, test_p=1.1)
+
+    def test_test_p_too_large_stratified(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            stratified_split(interactions=interactions_to_split, test_p=1.1)
+
+    def test_test_p_equal_one_random(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            random_split(interactions=interactions_to_split, test_p=1)
+
+    def test_test_p_equal_one_stratified(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            stratified_split(interactions=interactions_to_split, test_p=1)
+
+    def test_test_p_negative_random(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            random_split(interactions=interactions_to_split, test_p=-0.7)
+
+    def test_test_p_negative_stratified(self, interactions_to_split):
+        with pytest.raises(ValueError):
+            stratified_split(interactions=interactions_to_split, test_p=-0.7)
+
+
+def test_splits_vary_number_of_processes(interactions_to_split):
+    train_1, test_1 = stratified_split(interactions=interactions_to_split, seed=42, processes=-1)
+    train_2, test_2 = stratified_split(interactions=interactions_to_split, seed=42, processes=0)
+    train_3, test_3 = stratified_split(interactions=interactions_to_split, seed=42, processes=1)
+    train_4, test_4 = stratified_split(interactions=interactions_to_split, seed=42, processes=2)
+
+    # transitive property in action here
+    np.testing.assert_array_equal(train_1.toarray(), train_2.toarray())
+    np.testing.assert_array_equal(train_2.toarray(), train_3.toarray())
+    np.testing.assert_array_equal(train_3.toarray(), train_4.toarray())
+
+    np.testing.assert_array_equal(test_1.toarray(), test_2.toarray())
+    np.testing.assert_array_equal(test_2.toarray(), test_3.toarray())
+    np.testing.assert_array_equal(test_3.toarray(), test_4.toarray())

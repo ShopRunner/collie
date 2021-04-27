@@ -1,4 +1,4 @@
-from typing import Callable, Iterable, List, Tuple
+from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import pytorch_lightning
@@ -12,7 +12,8 @@ from collie_recs.model import BasePipeline
 
 
 def _get_user_item_pairs(user_ids: (np.array, torch.tensor),
-                         n_items: int, device: str) -> Tuple[torch.tensor, torch.tensor]:
+                         n_items: int,
+                         device: Union[str, torch.device]) -> Tuple[torch.tensor, torch.tensor]:
     """
     Create tensors pairing each input user ID with each item ID.
 
@@ -45,8 +46,8 @@ def _get_user_item_pairs(user_ids: (np.array, torch.tensor),
         np.array([0, 1, 2, 3, 0, 1, 2, 3, 0, 1, 2, 3])
 
     """
-    # Added because sometimes we call this function with n_items
-    # as np.int64 type which breaks repeat_interleave.
+    # Added because sometimes we call this function with ``n_items`` as ``np.int64`` type which
+    # breaks ``repeat_interleave``.
     if isinstance(n_items, np.int64):
         n_items = n_items.item()
 
@@ -70,7 +71,7 @@ def _get_user_item_pairs(user_ids: (np.array, torch.tensor),
 def get_preds(model: BasePipeline,
               user_ids: (np.array, torch.tensor),
               n_items: int,
-              device: str) -> torch.tensor:
+              device: Union[str, torch.device]) -> torch.tensor:
     """
     Returns a ``n_users x n_items`` tensor with the item IDs of recommended products for each user
     ID.
@@ -137,7 +138,7 @@ def _get_labels(targets: csr_matrix,
 def mapk(targets: csr_matrix,
          user_ids: (np.array, torch.tensor),
          preds: (np.array, torch.tensor),
-         k: int) -> float:
+         k: int = 10) -> float:
     """
     Calculate the mean average precision at K (MAP@K) score for each user.
 
@@ -194,7 +195,7 @@ def mapk(targets: csr_matrix,
 def mrr(targets: csr_matrix,
         user_ids: (np.array, torch.tensor),
         preds: (np.array, torch.tensor),
-        **kwargs) -> float:
+        k: Optional[Any] = None) -> float:
     """
     Calculate the mean reciprocal rank (MRR) of the input predictions.
 
@@ -206,7 +207,7 @@ def mrr(targets: csr_matrix,
         Users corresponding to the recommendations in the top k predictions
     preds: torch.tensor
         Tensor of shape (n_users x n_items) with each user's scores for each item
-    kwargs: keyword arguments
+    k: Any
         Ignored, included only for compatibility with ``mapk``
 
     Returns
@@ -214,9 +215,6 @@ def mrr(targets: csr_matrix,
     mrr_score: float
 
     """
-    if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['k']:
-        raise ValueError(f'Unexpected ``kwargs``: {kwargs}')
-
     predicted_items = preds.topk(preds.shape[1], dim=1).indices
     labeled = _get_labels(targets, user_ids, predicted_items, device=preds.device)
 
@@ -239,7 +237,7 @@ def mrr(targets: csr_matrix,
 def auc(targets: csr_matrix,
         user_ids: (np.array, torch.tensor),
         preds: (np.array, torch.tensor),
-        **kwargs) -> float:
+        k: Optional[Any] = None) -> float:
     """
     Calculate the area under the ROC curve (AUC) for each user and average the results.
 
@@ -251,7 +249,7 @@ def auc(targets: csr_matrix,
         Users corresponding to the recommendations in the top k predictions
     preds: torch.tensor
         Tensor of shape (n_users x n_items) with each user's scores for each item
-    kwargs: keyword arguments
+    k: Any
         Ignored, included only for compatibility with ``mapk``
 
     Returns
@@ -259,9 +257,6 @@ def auc(targets: csr_matrix,
     auc_score: float
 
     """
-    if len(kwargs) > 0 and [kwargs_key for kwargs_key in kwargs] != ['k']:
-        raise ValueError(f'Unexpected ``kwargs``: {kwargs}')
-
     agg = 0
     for i, user_id in enumerate(user_ids):
         target_tensor = torch.tensor(
@@ -375,6 +370,7 @@ def evaluate_in_batches(
         try:
             step = model.hparams.get('n_epochs_completed_')
         except torch.nn.modules.module.ModuleAttributeError:
+            # if, somehow, there is no ``model.hparams`` attribute, this shouldn't fail
             step = None
 
         metrics_dict = dict(zip([x.__name__ for x in metric_list], all_scores))

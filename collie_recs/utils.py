@@ -31,9 +31,9 @@ def create_ratings_matrix(df: pd.DataFrame,
     df: pd.DataFrame
         Dataframe with columns for user IDs, item IDs, and ratings
     user_col: str
-        Column name for the user IDs, starting at 0
+        Column name for the user IDs
     item_col: str
-        Column name for the item IDs, starting at 0
+        Column name for the item IDs
     ratings_col: str
         Column name for the ratings column
     sparse: bool
@@ -67,11 +67,6 @@ def _create_sparse_ratings_matrix_helper(users: Iterable[int],
                                          num_users: Union[int, str] = 'infer',
                                          num_items: Union[int, str] = 'infer') -> coo_matrix:
     """Create a sparse matrix from a series of arrays."""
-    # we found that putting this function in ``utils.py`` gave an error since ``utils.py`` imports
-    # ``interactions.py`` which imports ``utils.py`` and so on.
-    if min(users) != 0 or min(items) != 0:
-        raise ValueError('Minimum values of ``users`` and ``items`` must both be 0.')
-
     num_users = _infer_num_if_needed_for_1d_array(num_users, users)
     num_items = _infer_num_if_needed_for_1d_array(num_items, items)
 
@@ -345,11 +340,9 @@ def df_to_html(df: pd.DataFrame,
         if image_col not in df.columns:
             raise ValueError('{} not a column in df!'.format(image_col))
         if not image_width:
-            df[image_col] = df[image_col].map(lambda x: '<img src="{}">'.format(x))
+            df[image_col] = df[image_col].map(lambda x: f'<img src="{x}">')
         else:
-            df[image_col] = df[image_col].map(
-                lambda x: '<img src="{}" width={}>'.format(x, image_width)
-            )
+            df[image_col] = df[image_col].map(lambda x: f'<img src="{x}" width={image_width}>')
 
     hyperlink_cols = _wrap_cols_if_needed(hyperlink_cols)
     for hyperlink_col in hyperlink_cols:
@@ -357,21 +350,28 @@ def df_to_html(df: pd.DataFrame,
             raise ValueError('{} not a column in df!'.format(hyperlink_col))
         if hyperlink_col in image_cols:
             continue
-        df[hyperlink_col] = df[hyperlink_col].map(
-            lambda x: '<a target="_blank" href=" {}">{}</a>'.format(x, x)
+        df[hyperlink_col] = (
+            df[hyperlink_col].map(lambda x: f'<a target="_blank" href="{x}">{x}</a>')
         )
 
     for col, transformations in html_tags.items():
         if col not in df.columns:
-            raise ValueError('{} not a column in df!'.format(col))
+            raise ValueError(f'{col} not a column in df!')
         if col in image_cols:
             continue
 
         if isinstance(transformations, str):
             transformations = [transformations]
 
+        opening_tag = ''
         for extra in transformations:
-            df[col] = df[col].map(lambda x: '<{0}>{1}</{0}>'.format(extra, x))
+            opening_tag += f'<{extra}>'
+
+        closing_tag = ''
+        for extra in transformations[::-1]:
+            closing_tag += f'</{extra}>'
+
+        df[col] = df[col].map(lambda x: f'{opening_tag}{x}{closing_tag}')
 
     max_colwidth = pd.get_option('display.max_colwidth')
     if pd.__version__ != '0':
@@ -395,7 +395,7 @@ class Timer(object):
         self.start_time = time.time()
         self.current_time = self.start_time
 
-    def timecheck(self, message: str = 'finished') -> float:
+    def timecheck(self, message: str = 'Finished') -> float:
         """Get time since last timecheck."""
         tmp_time = time.time()
         elapsed_time = (tmp_time-self.current_time)/60.0
@@ -404,9 +404,9 @@ class Timer(object):
 
         return elapsed_time
 
-    def time_since_start(self, message: str = 'total time') -> float:
+    def time_since_start(self, message: str = 'Total time') -> float:
         """Get time since timer was instantiated."""
-        total_time = (time.time()-self.start_time)/60.0
+        total_time = (time.time() - self.start_time) / 60.0
         print('{0}: {1:.2f} min'.format(message, total_time))
 
         return total_time

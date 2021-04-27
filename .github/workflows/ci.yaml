@@ -1,4 +1,4 @@
-name: prod_workflow
+name: CI/CD
 
 on:
   push:
