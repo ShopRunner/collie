@@ -14,6 +14,17 @@ def explicit_df():
 
 
 @pytest.fixture()
+def explicit_df_with_duplicate_user_item_pairs():
+    # the first and last user-item pairs have been repeated. other than that, this is exactly
+    # the same as ``explicit_df``
+    return pd.DataFrame(data={
+        'userId': [2, 2, 2, 0, 1, 0, 1, 0, 3, 3, 3],
+        'itemId': [0, 0, 0, 1, 1, 0, 3, 2, 1, 1, 1],
+        'rating': [1, 1, 1, 2, 3, 1, 5, 3, 4, 4, 4]
+    })
+
+
+@pytest.fixture()
 def df_to_turn_to_interactions():
     return pd.DataFrame(data={
         'userId': [0, 3, 1, 2, 1, 2, 1, 4],

@@ -57,12 +57,28 @@ def test_df_to_interactions(df_to_turn_to_interactions):
 
 def test_explicit_to_implicit(explicit_df):
     expected = pd.DataFrame(data={
-        'userId': [1, 3],
-        'itemId': [3, 1],
+        'userId': [3, 1],
+        'itemId': [1, 3],
         'rating': [1, 1]
     })
 
-    actual = convert_to_implicit(explicit_df)
+    actual = convert_to_implicit(explicit_df, user_col='userId', item_col='itemId')
+
+    pd.testing.assert_frame_equal(actual, expected)
+
+
+def test_explicit_to_implicit_with_duplicate_user_id_item_id_pairs(
+    explicit_df_with_duplicate_user_item_pairs
+):
+    expected = pd.DataFrame(data={
+        'userId': [3, 1],
+        'itemId': [1, 3],
+        'rating': [1, 1]
+    })
+
+    actual = convert_to_implicit(explicit_df_with_duplicate_user_item_pairs,
+                                 user_col='userId',
+                                 item_col='itemId')
 
     pd.testing.assert_frame_equal(actual, expected)
 

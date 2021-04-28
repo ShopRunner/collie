@@ -119,12 +119,14 @@ def df_to_interactions(df: pd.DataFrame,
 
 def convert_to_implicit(explicit_df: pd.DataFrame,
                         min_rating_to_keep: Optional[float] = 4,
-                        ratings_col: Optional[str] = 'rating') -> pd.DataFrame:
+                        user_col: str = 'user_id',
+                        item_col: str = 'item_id',
+                        ratings_col: str = 'rating') -> pd.DataFrame:
     """
     Convert explicit interactions data to implicit data.
 
-    All scores that are ``>= min_rating_to_keep`` are kept and converted to an interaction score of
-    1. Every other data point is removed.
+    Duplicate user ID and item ID pairs will be dropped, as well as all scores that are
+    ``< min_rating_to_keep``. All remaining interactions will have a rating of ``1``.
 
     Parameters
     -------------
@@ -139,10 +141,16 @@ def convert_to_implicit(explicit_df: pd.DataFrame,
     -------------
     implicit_df: pd.DataFrame
         Dataframe that converts all ``ratings >= min_rating_to_keep`` to 1 and drops the rest with a
-        reset index
+        reset index. Note that the order of ``implicit_df`` will not be equal to ``explicit_df``
 
     """
     implicit_df = explicit_df.copy()
+
+    implicit_df = (
+        implicit_df
+        .sort_values(by=ratings_col)
+        .drop_duplicates(subset=[user_col, item_col], keep='last', ignore_index=True)
+    )
     implicit_df = implicit_df.drop(implicit_df[implicit_df[ratings_col] < min_rating_to_keep].index)
     implicit_df[ratings_col] = 1
 
