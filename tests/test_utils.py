@@ -71,9 +71,9 @@ def test_explicit_to_implicit_with_duplicate_user_id_item_id_pairs(
     explicit_df_with_duplicate_user_item_pairs
 ):
     expected = pd.DataFrame(data={
-        'userId': [3, 1],
-        'itemId': [1, 3],
-        'rating': [1, 1]
+        'userId': [3, 2, 1],
+        'itemId': [1, 0, 3],
+        'rating': [1, 1, 1]
     })
 
     actual = convert_to_implicit(explicit_df_with_duplicate_user_item_pairs,

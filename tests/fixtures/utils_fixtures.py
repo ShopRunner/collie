@@ -15,12 +15,12 @@ def explicit_df():
 
 @pytest.fixture()
 def explicit_df_with_duplicate_user_item_pairs():
-    # the first and last user-item pairs have been repeated. other than that, this is exactly
-    # the same as ``explicit_df``
+    # the first and last user-item pairs have been repeated with modified ratings.
+    # other than that, this is exactly the same as ``explicit_df`` above
     return pd.DataFrame(data={
         'userId': [2, 2, 2, 0, 1, 0, 1, 0, 3, 3, 3],
         'itemId': [0, 0, 0, 1, 1, 0, 3, 2, 1, 1, 1],
-        'rating': [1, 1, 1, 2, 3, 1, 5, 3, 4, 4, 4]
+        'rating': [1, 3, 5, 2, 3, 1, 5, 3, 1, 4, 2]
     })
 
 
