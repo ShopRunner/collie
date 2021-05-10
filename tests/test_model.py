@@ -41,7 +41,7 @@ def test_CollieTrainer_no_val_data(untrained_implicit_model_no_val_data):
 def test_CollieTrainer_no_gpu(is_available_mock, untrained_implicit_model, capfd):
     is_available_mock.return_value = True
 
-    with suppress(pytorch_lightning.utilities.exceptions.MisconfigurationException):
+    with suppress(AttributeError, pytorch_lightning.utilities.exceptions.MisconfigurationException):
         # if we run this test on CPU, PyTorch Lightning won't let us actually use a GPU, but we
         # can still test if the ``CollieTrainer`` is doing what it should here
         CollieTrainer(model=untrained_implicit_model,
@@ -261,7 +261,7 @@ class TestCollieTrainerNoLightning():
         trainer.fit(model)
 
         out, _ = capfd.readouterr()
-        assert 'Epoch 3: Early stopping activated.' in out
+        assert 'Epoch     3: Early stopping activated.' in out
 
         assert model.hparams.n_epochs_completed_ == 3
 
@@ -279,7 +279,7 @@ class TestCollieTrainerNoLightning():
         trainer.fit(model)
 
         out, _ = capfd.readouterr()
-        assert 'Epoch 2: Early stopping activated.' in out
+        assert 'Epoch     2: Early stopping activated.' in out
 
         assert model.hparams.n_epochs_completed_ == 2
 
@@ -513,35 +513,6 @@ class TestCollieTrainerNoLightning():
 
         out, _ = capfd.readouterr()
         assert out == ''
-
-    # def test_slight_verbosity(self, train_val_implicit_sample_data, capfd):
-    #     train, val = train_val_implicit_sample_data
-    #     model = MatrixFactorizationModel(train=train,
-    #                                      val=val)
-    #     trainer = CollieTrainerNoLightning(model=model,
-    #                                        max_epochs=1,
-    #                                        weights_summary='full',
-    #                                        verbosity=1)
-    #     trainer.fit(model)
-    #
-    #     out, _ = capfd.readouterr()
-    #     assert 'epoch/s]' not in out
-    #     assert 'train loss' in out
-    #
-    # @pytest.mark.parametrize('verbosity', [2, True])
-    # def test_full_verbosity(self, train_val_implicit_sample_data, verbosity, capfd):
-    #     train, val = train_val_implicit_sample_data
-    #     model = MatrixFactorizationModel(train=train,
-    #                                      val=val)
-    #     trainer = CollieTrainerNoLightning(model=model,
-    #                                        max_epochs=1,
-    #                                        weights_summary='full',
-    #                                        verbosity=verbosity)
-    #     trainer.fit(model)
-    #
-    #     out, _ = capfd.readouterr()
-    #     assert 'epoch/s]' in out
-    #     assert 'train loss' in out
 
 
 def test_model_instantiation_no_train_data():

@@ -350,11 +350,13 @@ class CollieTrainerNoLightning():
             if self.verbosity >= 1:
                 print(epoch_summary)
 
+            model.hparams.n_epochs_completed_ += 1
+
             # early stopping logic
             if (
                 self.early_stopping_patience is not None
                 and early_stop_loss >= self.best_epoch_loss[1]
-                and epoch > (self.early_stopping_patience + self.best_epoch_loss[0])
+                and epoch >= (self.early_stopping_patience + self.best_epoch_loss[0])
             ):
                 print(f'Epoch {epoch :>5}: Early stopping activated.')
                 self._finalize_training()
@@ -372,8 +374,6 @@ class CollieTrainerNoLightning():
                 except TypeError:
                     # used for ``ReduceLROnPlateau``
                     self.lr_scheduler.step(early_stop_loss)
-
-            model.hparams.n_epochs_completed_ += 1
 
         # run final logging things when training is complete before returning
         self._finalize_training()
@@ -395,13 +395,13 @@ class CollieTrainerNoLightning():
             self.optimizer = MultiOptimizer(configure_optimizers_return_value)
         elif isinstance(configure_optimizers_return_value, torch.optim.Optimizer):
             # we have a single optimizer
-            self.optimizer = MultiOptimizer([configure_optimizers_return_value])
+            self.optimizer = configure_optimizers_return_value
         else:
             # we have something we've never seen before
             raise ValueError('Unexpected output from ``model.configure_optimizers()``!')
 
         if self.verbosity != 0 and self.weights_summary is not None:
-            ModelSummary(model, mode=self.weights_summary)
+            print(ModelSummary(model, mode=self.weights_summary))
 
         # move the model over to the GPU
         model.to(self.device)
@@ -431,17 +431,17 @@ class CollieTrainerNoLightning():
 
             detached_loss = loss.detach()
 
-            if not torch.isfinite(loss).all() and self.terminate_on_nan:
+            if self.terminate_on_nan and not torch.isfinite(loss).all():
                 raise ValueError(f'Loss is {loss}, stopping training early!')
 
             total_loss += detached_loss
-            batch_loss = (total_loss / (batch_idx + 1)).cpu().numpy()
 
             if self.verbosity >= 2:
-                train_dataloader_iterator.set_postfix(train_loss=batch_loss)
+                train_dataloader_iterator.set_postfix(train_loss=detached_loss.cpu().numpy())
 
             if self.logger is not None:
                 if self.train_steps % self.log_every_n_steps == 0:
+                    batch_loss = (total_loss / (batch_idx + 1)).cpu().numpy()
                     self.logger.log_metrics(metrics={'train_loss_step': batch_loss},
                                             step=self.train_steps)
                 if self.train_steps % self.flush_logs_every_n_steps == 0:
