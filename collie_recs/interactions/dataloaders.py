@@ -174,7 +174,7 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
     compared to ``InteractionsDataLoader``.
 
     For greater efficiency, we disable automated batching by setting the DataLoader's
-    ``batch_size`` attribute to ``None``.Thus,
+    ``batch_size`` attribute to ``None``. Thus,
     to access the "true" batch size that the sampler uses, access
     ``ApproximateNegativeSamplingInteractionsDataLoader.approximate_negative_sampler.batch_size``.
 
