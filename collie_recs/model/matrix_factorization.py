@@ -7,7 +7,7 @@ from torch import nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from collie_recs.model.base import (BasePipeline,
-                                    interactions_like_input,
+                                    INTERACTIONS_LIKE_INPUT,
                                     ScaledEmbedding,
                                     ZeroEmbedding)
 from collie_recs.utils import get_init_arguments
@@ -133,8 +133,8 @@ class MatrixFactorizationModel(BasePipeline):
 
     """
     def __init__(self,
-                 train: interactions_like_input = None,
-                 val: interactions_like_input = None,
+                 train: INTERACTIONS_LIKE_INPUT = None,
+                 val: INTERACTIONS_LIKE_INPUT = None,
                  embedding_dim: int = 30,
                  dropout_p: float = 0.0,
                  sparse: bool = False,

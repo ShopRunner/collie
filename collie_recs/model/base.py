@@ -9,8 +9,11 @@ import numpy as np
 import pandas as pd
 from pytorch_lightning import Trainer
 from pytorch_lightning.core.lightning import LightningModule
+from pytorch_lightning.core.memory import ModelSummary
+from pytorch_lightning.loggers.base import LightningLoggerBase
 import torch
 from torch import nn
+from tqdm.auto import tqdm
 
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
                                       Interactions,
@@ -23,7 +26,7 @@ from collie_recs.loss import (adaptive_bpr_loss,
 from collie_recs.utils import get_init_arguments
 
 
-interactions_like_input = Union[ApproximateNegativeSamplingInteractionsDataLoader,
+INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoader,
                                 Interactions,
                                 InteractionsDataLoader]
 
@@ -40,6 +43,57 @@ class ZeroEmbedding(nn.Embedding):
     def reset_parameters(self) -> None:
         """Overriding default ``reset_parameters`` method."""
         self.weight.data.zero_()
+
+
+class MultiOptimizer(object):
+    """
+    A simple class that allows us to wrap multiple optimizers into a single API typical of a single
+    optimizer, with ``zero_grad`` and ``step`` methods.
+
+    Parameters
+    ----------
+    optimizers: List of ``torch.optim.Optimizer``s
+
+    """
+    def __init__(self, optimizers: List[torch.optim.Optimizer]):
+        assert isinstance(optimizers, list), f'Expected list, got {type(optimizers)}!'
+
+        self.optimizers = optimizers
+
+    def zero_grad(self):
+        """Apply ``zero_grad`` to all optimizers."""
+        for optimizer in self.optimizers:
+            optimizer.zero_grad()
+
+    def step(self):
+        """Apply ``step`` to all optimizers."""
+        for optimizer in self.optimizers:
+            optimizer.step()
+
+
+class MultiLRScheduler(object):
+    """
+    A simple class that allows us to wrap multiple learning rate schedulers into a single API
+    typical of a single learning rate scheduler with a ``step`` method.
+
+    Parameters
+    ----------
+    lr_schedulers: List of dictionaries
+        Each dictionary must have key ``scheduler``, which contains the actual learning rate
+        scheduler
+
+    """
+    def __init__(self, lr_schedulers: List[Dict[str, torch.optim.lr_scheduler._LRScheduler]]):
+        assert isinstance(lr_schedulers, list), f'Expected list, got {type(lr_schedulers)}!'
+
+        lr_schedulers_dicts_removed = [lr_scheduler['scheduler'] for lr_scheduler in lr_schedulers]
+
+        self.lr_schedulers = lr_schedulers_dicts_removed
+
+    def step(self, *args, **kwargs):
+        """Apply ``step`` to all optimizers."""
+        for lr_scheduler in self.lr_schedulers:
+            lr_scheduler.step(*args, **kwargs)
 
 
 class CollieTrainer(Trainer):
@@ -70,7 +124,6 @@ class CollieTrainer(Trainer):
         https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html#trainer-class-api
 
     """
-
     def __init__(self,
                  model: torch.nn.Module,
                  benchmark: bool = True,
@@ -89,6 +142,350 @@ class CollieTrainer(Trainer):
         kwargs['deterministic'] = deterministic
 
         super().__init__(**kwargs)
+
+
+class CollieTrainerNoLightning():
+    """
+    A more manual implementation of PyTorch Lightning's ``Trainer`` class, attempting to port over
+    the most commonly used ``Trainer`` arguments into a training loop with more transparency and
+    faster training times.
+
+    Through extensive experimentation, we found that PyTorch Lightning's ``Trainer`` was training
+    Collie models about 25% slower than the more manual, typical PyTorch training loop boilerplate.
+    Thus, we created the ``CollieTrainerNoLightning``, which shares a similar API to PyTorch
+    Lightning's ``Trainer`` object (both in instantation and in usage), with a standard PyTorch
+    training loop in its place.
+
+    While PyTorch Lightning's ``Trainer`` offers more flexibility and customization through the
+    addition of the additional ``Trainer`` arguments and ``callbacks``, we designed this class as a
+    way to train a model in production, where we might be more focused on faster training times and
+    less on hyperparameter tuning and R&D, where one might instead opt to use PyTorch Lightning's
+    ``Trainer`` class.
+
+    Note that the arguments the ``CollieTrainerNoLightning`` trainer accepts will be slightly
+    different than the ones that the ``CollieTrainer`` accept, and defaults are also not guranteed
+    to be equal as the two libraries evolve. Notable changes are:
+
+    * If ``gpus > 1``, only a single GPU will be used. Multi-GPU training is not supported in
+      ``CollieTrainerNoLightning`` at this time.
+
+    * ``logger == True`` has no meaning in ``CollieTrainerNoLightning`` - a default logger will
+      NOT be created if set to ``True``.
+
+    * There is no way to pass in ``callbacks`` at this time. Instead, we will implement the most
+      used ones during training here, manually, in favor of greater speed over customization.
+      To use early stopping, set the ``early_stopping_patience`` to an integer other than ``None``.
+
+    .. code-block:: python
+
+        from collie_recs.model import CollieTrainerNoLightning, MatrixFactorizationModel
+
+
+        # notice how similar the usage is to the standard ``CollieTrainer``
+        model = MatrixFactorizationModel(train=train)
+        trainer = CollieTrainerNoLightning(model)
+        trainer.fit(model)
+
+    Model results should NOT be significantly different whether trained with ``CollieTrainer`` or
+    ``CollieTrainerNoLightning``.
+
+    If there's an argument you would like to see added to ``CollieTrainerNoLightning`` that is
+    present in ``CollieTrainer`` used during productionalized model training, make an Issue or a PR
+    in GitHub!
+
+    Parameters
+    ----------
+    model: collie_recs.model.BasePipeline
+        Initialized Collie model
+    max_epochs: int
+        Stop training once this number of epochs is reached
+    gpus: bool or int
+        Whether to train on the GPU (``gpus == True`` or ``gpus > 0``) or the CPU
+    logger: LightningLoggerBase
+        Logger for experiment tracking. Set ``logger = None`` or ``logger = False`` to disable
+        logging
+    early_stopping_patience: int
+        Number of epochs of patience to have without any improvement in loss before stopping
+        training early. Validation epoch loss will be used if there is a validation dataloader
+        present, else training epoch loss will be used. Set ``early_stopping_patience = None`` or
+        ``early_stopping_patience = False`` to disable early stopping
+    log_every_n_steps: int
+        How often to log within steps, if ``logger`` is enabled
+    flush_logs_every_n_steps: int
+        How often to flush logs to disk, if ``logger`` is enabled
+    weights_summary: str
+        Prints a summary of the weights when training begins
+    terminate_on_nan: bool
+        If set to ``True``, will terminate training (by raising a ``ValueError``) at the end of each
+        training batch, if any of the parameters or the loss are NaN or +/- infinity
+    benchmark: bool
+        If set to ``True``, enables ``cudnn.benchmark``
+    deterministic: bool
+        If set to ``True``, enables ``cudnn.deterministic``
+    progress_bar_refresh_rate: int
+        How often to refresh progress bar (in steps), if ``verbosity > 0``
+    verbosity: Union[bool, int]
+        How verbose to be in training.
+
+        * ``0`` disables all printouts, including ``weights_summary``
+
+        * ``1`` prints ``weights_summary`` (if applicable) and epoch losses
+
+        * ``2`` prints ``weights_summary`` (if applicable), epoch losses, and progress bars
+
+    """
+    def __init__(self,
+                 model: 'BasePipeline',
+                 max_epochs: int = 10,
+                 gpus: Optional[Union[bool, int]] = None,
+                 logger: Optional[LightningLoggerBase] = None,
+                 early_stopping_patience: Optional[int] = 3,
+                 log_every_n_steps: int = 50,
+                 flush_logs_every_n_steps: int = 100,
+                 weights_summary: Optional[str] = 'top',
+                 terminate_on_nan: bool = False,
+                 benchmark: bool = True,
+                 deterministic: bool = True,
+                 progress_bar_refresh_rate: Optional[int] = None,
+                 verbosity: Union[bool, int] = True):
+        # some light argument validation before saving as class-level attributes
+        if gpus is None and torch.cuda.is_available():
+            print('Detected GPU. Setting ``gpus`` to 1.')
+            gpus = 1
+
+        if logger is False:
+            logger = None
+
+        if early_stopping_patience is False:
+            early_stopping_patience = None
+
+        if verbosity is True:
+            verbosity = 2
+        elif verbosity is False:
+            verbosity = 0
+
+        self.max_epochs = max_epochs
+        self.gpus = gpus
+        self.benchmark = benchmark
+        self.deterministic = deterministic
+        self.logger = logger
+        self.early_stopping_patience = early_stopping_patience
+        self.log_every_n_steps = log_every_n_steps
+        self.flush_logs_every_n_steps = flush_logs_every_n_steps
+        self.weights_summary = weights_summary
+        self.terminate_on_nan = terminate_on_nan
+        self.progress_bar_refresh_rate = progress_bar_refresh_rate
+        self.verbosity = verbosity
+
+        self.best_epoch_loss = (0, sys.maxsize)
+        self.train_steps = 0
+        self.val_steps = 0
+
+        if self.gpus is None or self.gpus is False or self.gpus == 0:
+            self.device = 'cpu'
+        else:
+            self.device = 'cuda'
+
+        torch.backends.cudnn.benchmark = self.benchmark
+        torch.backends.cudnn.deterministic = self.deterministic
+
+    def fit(self, model: 'BasePipeline'):
+        """
+        Runs the full optimization routine.
+
+        Parameters
+        ----------
+        model: collie_recs.model.BasePipeline
+            Initialized Collie model
+
+        """
+        if (
+            not hasattr(self, 'first_run_pre_training_setup_complete_')
+            or not self.first_run_pre_training_setup_complete_
+        ):
+            self._pre_training_setup(model)
+            self.first_run_pre_training_setup_complete_ = True
+
+        # set up top-level epoch progress bar
+        epoch_iterator = range(model.hparams.n_epochs_completed_ + 1,
+                               model.hparams.n_epochs_completed_ + 1 + self.max_epochs)
+        if self.verbosity >= 2:
+            epoch_iterator = tqdm(epoch_iterator,
+                                  position=0,
+                                  unit='epoch',
+                                  desc='',
+                                  miniters=self.progress_bar_refresh_rate)
+
+        for epoch in epoch_iterator:
+            # log model hyperparameters at the start of each epoch
+            if self.logger is not None:
+                self.logger.log_hyperparams(model.hparams)
+                self.logger.save()
+
+            # run the training loop
+            model.train()
+            train_loss = self._train_loop_single_epoch(model, epoch)
+            model.eval()
+
+            epoch_summary = f'Epoch {epoch: >5}: train loss: {train_loss :<1.5f}, '
+            early_stop_loss = train_loss
+
+            # save epoch loss metrics to the logger
+            if self.logger is not None:
+                self.logger.log_metrics(metrics={'train_loss_epoch': train_loss}, step=epoch)
+
+            # run the validation loop logic, if we have the ``val_dataloader`` to do so
+            if self.val_dataloader is not None:
+                val_loss = self._val_loop_single_epoch(model)
+                epoch_summary += f'val loss: {val_loss :<1.5f}'
+                early_stop_loss = val_loss
+
+                if self.logger is not None:
+                    self.logger.log_metrics(metrics={'val_loss_epoch': val_loss}, step=epoch)
+
+            # write out to disk only a single time at the end of the epoch
+            if self.logger is not None:
+                self.logger.save()
+
+            if self.verbosity >= 1:
+                print(epoch_summary)
+
+            # early stopping logic
+            if (
+                self.early_stopping_patience is not None
+                and early_stop_loss >= self.best_epoch_loss[1]
+                and epoch > (self.early_stopping_patience + self.best_epoch_loss[0])
+            ):
+                print(f'Epoch {epoch :>5}: Early stopping activated.')
+                self._finalize_training()
+                return
+
+            # save best loss stats for future early stopping logic
+            if early_stop_loss < self.best_epoch_loss[1]:
+                self.best_epoch_loss = (epoch, early_stop_loss)
+
+            # learning rate scheduler stepping, if applicable
+            if self.lr_scheduler is not None:
+                try:
+                    # used for most learning rate schedulers
+                    self.lr_scheduler.step()
+                except TypeError:
+                    # used for ``ReduceLROnPlateau``
+                    self.lr_scheduler.step(early_stop_loss)
+
+            model.hparams.n_epochs_completed_ += 1
+
+        # run final logging things when training is complete before returning
+        self._finalize_training()
+
+    def _pre_training_setup(self, model):
+        """Set up DataLoaders, optimizers, learning rate schedulers, etc. before training starts."""
+        self.train_dataloader = model.train_dataloader()
+        self.val_dataloader = model.val_dataloader()
+
+        self.lr_scheduler = None
+        configure_optimizers_return_value = model.configure_optimizers()
+        if isinstance(configure_optimizers_return_value, tuple):
+            # we have a list of optimizers and a list of lr_schedulers dictionaries
+            optimizers, lr_schedulers = configure_optimizers_return_value
+            self.optimizer = MultiOptimizer(optimizers)
+            self.lr_scheduler = MultiLRScheduler(lr_schedulers)
+        elif isinstance(configure_optimizers_return_value, list):
+            # we have a list of optimizers
+            self.optimizer = MultiOptimizer(configure_optimizers_return_value)
+        elif isinstance(configure_optimizers_return_value, torch.optim.Optimizer):
+            # we have a single optimizer
+            self.optimizer = MultiOptimizer([configure_optimizers_return_value])
+        else:
+            # we have something we've never seen before
+            raise ValueError('Unexpected output from ``model.configure_optimizers()``!')
+
+        if self.verbosity != 0 and self.weights_summary is not None:
+            ModelSummary(model, mode=self.weights_summary)
+
+        # move the model over to the GPU
+        model.to(self.device)
+
+    def _train_loop_single_epoch(self, model, epoch):
+        """Training loop for a single epoch, where gradients are optimized for."""
+        total_loss = 0
+
+        train_dataloader_iterator = enumerate(self.train_dataloader)
+        if self.verbosity >= 2:
+            train_dataloader_iterator = tqdm(train_dataloader_iterator,
+                                             total=len(self.train_dataloader),
+                                             unit='step',
+                                             desc=f'({epoch :^5})',
+                                             leave=False,
+                                             miniters=self.progress_bar_refresh_rate)
+
+        for batch_idx, batch in train_dataloader_iterator:
+            self.optimizer.zero_grad()
+
+            batch = self._move_batch_to_device(batch)
+            loss = model._calculate_loss(batch)
+            loss.backward()
+
+            self.optimizer.step()
+            self.train_steps += 1
+
+            detached_loss = loss.detach()
+
+            if not torch.isfinite(loss).all() and self.terminate_on_nan:
+                raise ValueError(f'Loss is {loss}, stopping training early!')
+
+            total_loss += detached_loss
+            batch_loss = (total_loss / (batch_idx + 1)).cpu().numpy()
+
+            if self.verbosity >= 2:
+                train_dataloader_iterator.set_postfix(train_loss=batch_loss)
+
+            if self.logger is not None:
+                if self.train_steps % self.log_every_n_steps == 0:
+                    self.logger.log_metrics(metrics={'train_loss_step': batch_loss},
+                                            step=self.train_steps)
+                if self.train_steps % self.flush_logs_every_n_steps == 0:
+                    self.logger.save()
+
+        return (total_loss / len(self.train_dataloader)).cpu().numpy()
+
+    def _val_loop_single_epoch(self, model):
+        """Validation loop for a single epoch, where gradients are NOT optimized for."""
+        total_loss = 0
+
+        for batch_idx, batch in enumerate(self.val_dataloader):
+            batch = self._move_batch_to_device(batch)
+            loss = model._calculate_loss(batch)
+
+            self.val_steps += 1
+
+            total_loss += loss.detach()
+
+            if self.logger is not None:
+                if self.val_steps % self.log_every_n_steps == 0:
+                    batch_loss = (total_loss / (batch_idx + 1)).cpu().numpy()
+                    self.logger.log_metrics(metrics={'val_loss_step': batch_loss},
+                                            step=self.val_steps)
+                if self.val_steps % self.flush_logs_every_n_steps == 0:
+                    self.logger.save()
+
+        return (total_loss / len(self.val_dataloader)).cpu().numpy()
+
+    def _move_batch_to_device(self, batch):
+        """Move a batch of data to the proper device."""
+        ((users, pos_items), neg_items) = batch
+
+        users = users.to(self.device)
+        pos_items = pos_items.to(self.device)
+        neg_items = neg_items.to(self.device)
+
+        return ((users, pos_items), neg_items)
+
+    def _finalize_training(self):
+        """Finalize logging results before returning."""
+        if self.logger is not None:
+            self.logger.save()
+            self.logger.finalize(status='FINISHED')
 
 
 class BasePipeline(LightningModule, metaclass=ABCMeta):
@@ -168,8 +565,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
     """
     def __init__(self,
-                 train: interactions_like_input = None,
-                 val: interactions_like_input = None,
+                 train: INTERACTIONS_LIKE_INPUT = None,
+                 val: INTERACTIONS_LIKE_INPUT = None,
                  lr: float = 1e-3,
                  lr_scheduler_func: Optional[Callable] = None,
                  weight_decay: float = 0.0,
@@ -207,7 +604,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                                          **kwargs)
         else:
             if self.train_loader is None:
-                pass
+                raise TypeError('``train`` must be provided to all newly-instantiated models!')
             elif self.val_loader is not None:
                 assert self.train_loader.num_users == self.val_loader.num_users, (
                     'Both training and val ``num_users`` must equal: '
@@ -364,10 +761,10 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                 optimizer_list.append(bias_optimizer)
                 scheduler_list.append(scheduler_dict_bias)
 
-            return optimizer_list, scheduler_list
+            return (optimizer_list, scheduler_list)
 
         if self.bias_optimizer is not None:
-            return optimizer, bias_optimizer
+            return [optimizer, bias_optimizer]
         else:
             return optimizer
 

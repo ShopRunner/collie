@@ -8,6 +8,7 @@ from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDat
                                       HDF5InteractionsDataLoader,
                                       InteractionsDataLoader)
 from collie_recs.model import (CollieTrainer,
+                               CollieTrainerNoLightning,
                                HybridPretrainedModel,
                                MatrixFactorizationModel,
                                NeuralCollaborativeFiltering,
@@ -28,6 +29,25 @@ def implicit_model(train_val_implicit_data, gpu_count):
                                   deterministic=True,
                                   logger=False,
                                   checkpoint_callback=False)
+    model_trainer.fit(model)
+    model.freeze()
+
+    return model
+
+
+@pytest.fixture(scope='session')
+def implicit_model_no_lightning(train_val_implicit_data, gpu_count):
+    train, val = train_val_implicit_data
+    model = MatrixFactorizationModel(train=train,
+                                     val=val,
+                                     embedding_dim=10,
+                                     lr=1e-1)
+    model_trainer = CollieTrainerNoLightning(model=model,
+                                             gpus=gpu_count,
+                                             max_epochs=10,
+                                             deterministic=True,
+                                             logger=False,
+                                             early_stopping_patience=False)
     model_trainer.fit(model)
     model.freeze()
 
@@ -66,12 +86,12 @@ def untrained_implicit_model_no_val_data(train_val_implicit_data):
                         'hybrid_pretrained',
                         'hybrid_pretrained_metadata_layers'])
 def models_trained_for_one_step(request,
-                                train_val_implicit_data,
+                                train_val_implicit_sample_data,
                                 movielens_metadata_df,
                                 movielens_implicit_df,
                                 train_val_implicit_pandas_data,
                                 gpu_count):
-    train, val = train_val_implicit_data
+    train, val = train_val_implicit_sample_data
 
     if request.param == 'mf_hdf5':
         # create, fit, and return the model all at once so we can close the HDF5 file

@@ -1,7 +1,7 @@
 import pytest
 from sklearn.model_selection import train_test_split
 
-from collie_recs.cross_validation import stratified_split
+from collie_recs.cross_validation import random_split, stratified_split
 from collie_recs.interactions import Interactions
 from collie_recs.movielens import (get_movielens_metadata,
                                    read_movielens_df,
@@ -63,3 +63,15 @@ def train_val_implicit_data(movielens_implicit_interactions):
         test_p=0.2,
         seed=42,
     )
+
+
+@pytest.fixture(scope='session')
+def train_val_implicit_sample_data(movielens_implicit_interactions):
+    _, train, val = random_split(
+        interactions=movielens_implicit_interactions,
+        val_p=0.05,
+        test_p=0.01,
+        seed=42,
+    )
+
+    return train, val

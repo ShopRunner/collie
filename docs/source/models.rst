@@ -145,13 +145,20 @@ Hybrid Pretrained Matrix Factorization Model
     :members:
     :show-inheritance:
 
-Trainer
--------
+Trainers
+--------
 
+PyTorch Lightning Trainer
+^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: collie_recs.model.CollieTrainer
     :members:
     :inherited-members:
     :show-inheritance:
+
+Non- PyTorch Lightning Trainer
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: collie_recs.model.CollieTrainerNoLightning
+    :members:
 
 Model Templates
 ---------------
