@@ -253,10 +253,6 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
             sampler=approximate_negative_sampler,
             num_workers=num_workers,
             batch_size = None, # Disable automated batching
-            # with the unique way we index ``Interactions`` data, PyTorch will wrap the data in an
-            # outermost list by default, which we must remove in order to get a batch format that a
-            # a Collie model expects. Hence, the ``[0]`` in the ``lambda`` below
-            collate_fn=lambda x: torch.utils.data._utils.collate.default_convert(x[0]),
             **kwargs,
         )
 
@@ -352,10 +348,6 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
             sampler=hdf5_sampler,
             num_workers=num_workers,
             batch_size = None, # Disable automated batching
-            # with the unique way we index ``HDF5Interactions`` data, PyTorch will wrap the data in
-            # an outermost list by default, which we must remove in order to get a batch format that
-            # a Collie model expects. Hence, the ``[0]`` in the ``lambda`` below
-            collate_fn=lambda x: torch.utils.data._utils.collate.default_convert(x[0]),
             **kwargs,
         )
 
