@@ -252,7 +252,7 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
             interactions=interactions,
             sampler=approximate_negative_sampler,
             num_workers=num_workers,
-            batch_size = None,  # Disable automated batching
+            batch_size=None,  # Disable automated batching
             **kwargs,
         )
 
@@ -347,7 +347,7 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
             interactions=hdf5_interactions,
             sampler=hdf5_sampler,
             num_workers=num_workers,
-            batch_size = None,  # Disable automated batching
+            batch_size=None,  # Disable automated batching
             **kwargs,
         )
 
