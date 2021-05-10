@@ -173,8 +173,7 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
     have found a speed increase of 2x at the cost of a 1% reduction in MAP @ 10 performance
     compared to ``InteractionsDataLoader``.
 
-    For greater efficiency, we use a ``batch_sampler`` instead of a ``sampler`` in the DataLoader.
-    PyTorch will set the DataLoader's ``batch_size`` attribute to ``None`` post-instantiation. Thus,
+    For greater efficiency, we disable automated batching by setting the DataLoader's ``batch_size`` attribute to ``None``. Thus,
     to access the "true" batch size that the sampler uses, access
     ``ApproximateNegativeSamplingInteractionsDataLoader.approximate_negative_sampler.batch_size``.
 
@@ -253,6 +252,7 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
             interactions=interactions,
             sampler=approximate_negative_sampler,
             num_workers=num_workers,
+            batch_size = None, # Disable automated batching
             # with the unique way we index ``Interactions`` data, PyTorch will wrap the data in an
             # outermost list by default, which we must remove in order to get a batch format that a
             # a Collie model expects. Hence, the ``[0]`` in the ``lambda`` below
@@ -290,8 +290,7 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
     shuffle the order of batches and the data within batches to still make for efficient reading
     of HDF5 data from disk, rather than shuffling across the entire dataset.
 
-    For greater efficiency, we use a ``batch_sampler`` instead of a ``sampler`` in the DataLoader.
-    PyTorch will set the DataLoader's ``batch_size`` attribute to ``None`` post-instantiation. Thus,
+    For greater efficiency, we disable automated batching by setting the DataLoader's ``batch_size`` attribute to ``None``. Thus,
     to access the "true" batch size that the sampler uses, access
     ``HDF5InteractionsDataLoader.hdf5_sampler.batch_size``.
 
@@ -350,8 +349,9 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
 
         super().__init__(
             interactions=hdf5_interactions,
-            batch_sampler=hdf5_sampler,
+            sampler=hdf5_sampler,
             num_workers=num_workers,
+            batch_size = None, # Disable automated batching
             # with the unique way we index ``HDF5Interactions`` data, PyTorch will wrap the data in
             # an outermost list by default, which we must remove in order to get a batch format that
             # a Collie model expects. Hence, the ``[0]`` in the ``lambda`` below
