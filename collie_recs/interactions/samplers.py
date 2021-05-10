@@ -120,7 +120,7 @@ class HDF5Sampler(torch.utils.data.sampler.Sampler):
 
         self._pointer += 1
 
-        return [idx]
+        return idx
 
     def __len__(self) -> int:
         """Number of batches returned in the sampler."""
