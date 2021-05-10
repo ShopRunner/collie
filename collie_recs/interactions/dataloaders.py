@@ -173,7 +173,8 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
     have found a speed increase of 2x at the cost of a 1% reduction in MAP @ 10 performance
     compared to ``InteractionsDataLoader``.
 
-    For greater efficiency, we disable automated batching by setting the DataLoader's ``batch_size`` attribute to ``None``. Thus,
+    For greater efficiency, we disable automated batching by setting the DataLoader's
+    ``batch_size`` attribute to ``None``.Thus,
     to access the "true" batch size that the sampler uses, access
     ``ApproximateNegativeSamplingInteractionsDataLoader.approximate_negative_sampler.batch_size``.
 
@@ -286,7 +287,8 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
     shuffle the order of batches and the data within batches to still make for efficient reading
     of HDF5 data from disk, rather than shuffling across the entire dataset.
 
-    For greater efficiency, we disable automated batching by setting the DataLoader's ``batch_size`` attribute to ``None``. Thus,
+    For greater efficiency, we disable automated batching by setting the DataLoader's
+    ``batch_size`` attribute to ``None``. Thus,
     to access the "true" batch size that the sampler uses, access
     ``HDF5InteractionsDataLoader.hdf5_sampler.batch_size``.
 
