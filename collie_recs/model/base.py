@@ -153,7 +153,7 @@ class CollieTrainerNoLightning():
     Through extensive experimentation, we found that PyTorch Lightning's ``Trainer`` was training
     Collie models about 25% slower than the more manual, typical PyTorch training loop boilerplate.
     Thus, we created the ``CollieTrainerNoLightning``, which shares a similar API to PyTorch
-    Lightning's ``Trainer`` object (both in instantation and in usage), with a standard PyTorch
+    Lightning's ``Trainer`` object (both in instantiation and in usage), with a standard PyTorch
     training loop in its place.
 
     While PyTorch Lightning's ``Trainer`` offers more flexibility and customization through the
@@ -163,7 +163,7 @@ class CollieTrainerNoLightning():
     ``Trainer`` class.
 
     Note that the arguments the ``CollieTrainerNoLightning`` trainer accepts will be slightly
-    different than the ones that the ``CollieTrainer`` accept, and defaults are also not guranteed
+    different than the ones that the ``CollieTrainer`` accept, and defaults are also not guaranteed
     to be equal as the two libraries evolve. Notable changes are:
 
     * If ``gpus > 1``, only a single GPU will be used. Multi-GPU training is not supported in
@@ -206,7 +206,7 @@ class CollieTrainerNoLightning():
         logging
     early_stopping_patience: int
         Number of epochs of patience to have without any improvement in loss before stopping
-        training early. Validation epoch loss will be used if there is a validation dataloader
+        training early. Validation epoch loss will be used if there is a validation DataLoader
         present, else training epoch loss will be used. Set ``early_stopping_patience = None`` or
         ``early_stopping_patience = False`` to disable early stopping
     log_every_n_steps: int
@@ -317,11 +317,6 @@ class CollieTrainerNoLightning():
                                   miniters=self.progress_bar_refresh_rate)
 
         for epoch in epoch_iterator:
-            # log model hyperparameters at the start of each epoch
-            if self.logger is not None:
-                self.logger.log_hyperparams(model.hparams)
-                self.logger.save()
-
             # run the training loop
             model.train()
             train_loss = self._train_loop_single_epoch(model, epoch)
@@ -403,6 +398,11 @@ class CollieTrainerNoLightning():
         if self.verbosity != 0 and self.weights_summary is not None:
             print(ModelSummary(model, mode=self.weights_summary))
 
+        # log model hyperparameters, if applicable
+        if self.logger is not None:
+            self.logger.log_hyperparams(model.hparams)
+            self.logger.save()
+
         # move the model over to the GPU
         model.to(self.device)
 
@@ -437,17 +437,17 @@ class CollieTrainerNoLightning():
             total_loss += detached_loss
 
             if self.verbosity >= 2:
-                train_dataloader_iterator.set_postfix(train_loss=detached_loss.cpu().numpy())
+                train_dataloader_iterator.set_postfix(train_loss=detached_loss.item())
 
             if self.logger is not None:
                 if self.train_steps % self.log_every_n_steps == 0:
-                    batch_loss = (total_loss / (batch_idx + 1)).cpu().numpy()
+                    batch_loss = (total_loss / (batch_idx + 1)).item()
                     self.logger.log_metrics(metrics={'train_loss_step': batch_loss},
                                             step=self.train_steps)
                 if self.train_steps % self.flush_logs_every_n_steps == 0:
                     self.logger.save()
 
-        return (total_loss / len(self.train_dataloader)).cpu().numpy()
+        return (total_loss / len(self.train_dataloader)).item()
 
     def _val_loop_single_epoch(self, model):
         """Validation loop for a single epoch, where gradients are NOT optimized for."""
@@ -463,13 +463,13 @@ class CollieTrainerNoLightning():
 
             if self.logger is not None:
                 if self.val_steps % self.log_every_n_steps == 0:
-                    batch_loss = (total_loss / (batch_idx + 1)).cpu().numpy()
+                    batch_loss = (total_loss / (batch_idx + 1)).item()
                     self.logger.log_metrics(metrics={'val_loss_step': batch_loss},
                                             step=self.val_steps)
                 if self.val_steps % self.flush_logs_every_n_steps == 0:
                     self.logger.save()
 
-        return (total_loss / len(self.val_dataloader)).cpu().numpy()
+        return (total_loss / len(self.val_dataloader)).item()
 
     def _move_batch_to_device(self, batch):
         """Move a batch of data to the proper device."""
