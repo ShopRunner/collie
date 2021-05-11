@@ -129,7 +129,7 @@ def test_run_get_recommendation_visualizations_not_decremented(
             df_user=movielens_explicit_df,
         )
 
-    movielens_df_item_not_decremented = movielens_df_item
+    movielens_df_item_not_decremented = movielens_df_item.copy()
     movielens_df_item_not_decremented['item_id'] -= 1
 
     with pytest.raises(ValueError):

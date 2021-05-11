@@ -501,7 +501,14 @@ class TestCollieTrainerNoLightning():
             trainer.fit(model)
 
     @pytest.mark.parametrize('verbosity', [0, False])
-    def test_no_verbosity(self, train_val_implicit_sample_data, verbosity, capfd):
+    @mock.patch('torch.cuda.is_available')
+    def test_no_verbosity(self,
+                          is_available_mock,
+                          train_val_implicit_sample_data,
+                          verbosity,
+                          capfd):
+        is_available_mock.return_value = False
+
         train, val = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train,
                                          val=val)
