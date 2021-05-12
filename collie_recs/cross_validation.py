@@ -20,6 +20,8 @@ def _subset_interactions(interactions: Interactions, idxs: Iterable[int]) -> Int
         shape=(interactions.num_users, interactions.num_items)
     )
 
+    # disable all ``Interactions`` checks for the data splits, since we assume the initial
+    # ``Interactions`` object would have these checks already applied prior to the data split
     return Interactions(
         mat=coo_mat,
         num_negative_samples=interactions.num_negative_samples,

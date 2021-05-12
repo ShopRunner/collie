@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  - ``remove_duplicate_user_item_pairs`` argument to ``Interactions``
 ### Fixed
  - a proper ``ValueError`` is now raised if no ``train`` data is passed into a model
+ - loss docstrings that incorrectly stated ``**kwargs`` would be accepted
 
 # [0.3.0] - 2021-5-10
 ### Changed
