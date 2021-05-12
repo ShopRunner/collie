@@ -12,6 +12,27 @@ from collie_recs.interactions import Interactions
 from collie_recs.utils import get_random_seed
 
 
+def _subset_interactions(interactions: Interactions, idxs: Iterable[int]) -> Interactions:
+    idxs = np.array(idxs)
+
+    coo_mat = coo_matrix(
+        (interactions.mat.data[idxs], (interactions.mat.row[idxs], interactions.mat.col[idxs])),
+        shape=(interactions.num_users, interactions.num_items)
+    )
+
+    return Interactions(
+        mat=coo_mat,
+        num_negative_samples=interactions.num_negative_samples,
+        allow_missing_ids=True,
+        remove_duplicate_user_item_pairs=False,
+        num_users=interactions.num_users,
+        num_items=interactions.num_items,
+        check_num_negative_samples_is_valid=False,
+        max_number_of_samples_to_consider=interactions.max_number_of_samples_to_consider,
+        seed=interactions.seed,
+    )
+
+
 def random_split(interactions: Interactions,
                  val_p: float = 0.0,
                  test_p: float = 0.2,
@@ -94,27 +115,6 @@ def random_split(interactions: Interactions,
         return train_interactions, validate_interactions, test_interactions
     else:
         return train_interactions, test_interactions
-
-
-def _subset_interactions(interactions: Interactions, idxs: Iterable[int]) -> Interactions:
-    idxs = np.array(idxs)
-
-    coo_mat = coo_matrix(
-        (interactions.mat.data[idxs], (interactions.mat.row[idxs],
-                                       interactions.mat.col[idxs])),
-        shape=(interactions.num_users, interactions.num_items)
-    )
-
-    return Interactions(
-        mat=coo_mat,
-        num_negative_samples=interactions.num_negative_samples,
-        allow_missing_ids=True,
-        num_users=interactions.num_users,
-        num_items=interactions.num_items,
-        check_num_negative_samples_is_valid=False,
-        max_number_of_samples_to_consider=interactions.max_number_of_samples_to_consider,
-        seed=interactions.seed,
-    )
 
 
 def stratified_split(interactions: Interactions,
