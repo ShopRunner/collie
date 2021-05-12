@@ -1,10 +1,9 @@
 from functools import partial
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, Optional, Tuple, Union
 
 import numpy as np
 import torch
 from torch import nn
-import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from collie_recs.model.base import (BasePipeline,
@@ -14,34 +13,25 @@ from collie_recs.model.base import (BasePipeline,
 from collie_recs.utils import get_init_arguments
 
 
-class NonlinearMatrixFactorizationModel(BasePipeline):
+class MLPMatrixFactorizationModel(BasePipeline):
     """
-    Training pipeline for a nonlinear matrix factorization model.
+    Training pipeline for the matrix factorization model with MLP layers instead of a final dot
+    product (like in ``MatrixFactorizationModel``).
 
-    ``NonlinearMatrixFactorizationModel`` models have an embedding layer for users and items. These
-    are sent through separate dense networks, which output more refined embeddings, which are then
-    dot producted for a single float ranking / rating.
+    ``MLPMatrixFactorizationModel`` models have an embedding layer for both users and items which,
+    are concatenated and sent through a MLP to output a single float ranking value.
 
-    Collie adds a twist on to this novel framework by allowing separate optimizers for embeddings
-    and bias terms. With larger datasets and multiple epochs of training, a model might incorrectly
-    learn to only optimize the bias terms for a quicker path towards a local loss minimum,
-    essentially memorizing how popular each item is. By using a separate, slower optimizer for the
-    bias terms (like Stochastic Gradient Descent), the model must prioritize optimizing the
-    embeddings for meaningful, more varied recommendations, leading to a model that is able to
-    achieve a much lower loss. See the documentation below for ``bias_lr`` and ``bias_optimizer``
-    input arguments for implementation details.
-
-    All ``NonlinearMatrixFactorizationModel`` instances are subclasses of the ``LightningModule``
-    class provided by PyTorch Lightning. This means to train a model, you will need a
+    All ``MLPMatrixFactorizationModel`` instances are subclasses of the ``LightningModule`` class
+    provided by PyTorch Lightning. This means to train a model, you will need a
     ``collie_recs.model.CollieTrainer`` object, but the model can be saved and loaded without this
     ``Trainer`` instance. Example usage may look like:
 
     .. code-block:: python
 
-        from collie_recs.model import CollieTrainer, NonlinearMatrixFactorizationModel
+        from collie.model import CollieTrainer, MLPMatrixFactorizationModel
 
 
-        model = NonlinearMatrixFactorizationModel(train=train)
+        model = MLPMatrixFactorizationModel(train=train)
         trainer = CollieTrainer(model)
         trainer.fit(model)
         model.eval()
@@ -49,7 +39,7 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         # do evaluation as normal with ``model``
 
         model.save_model(filename='model.pth')
-        new_model = NonlinearMatrixFactorizationModel(load_model_path='model.pth')
+        new_model = MLPMatrixFactorizationModel(load_model_path='model.pth')
 
         # do evaluation as normal with ``new_model``
 
@@ -63,20 +53,15 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         Data loader for validation data. If an ``Interactions`` object is supplied, an
         ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=False``. Note
         that when the model class is saved, datasets will NOT be saved as well
-    user_embedding_dim: int
-        Number of latent factors to use for user embeddings
-    item_embedding_dim: int
-        Number of latent factors to use for item embeddings
-    user_dense_layers_dims: list
-        List of linear layer dimensions to apply to the user embedding, starting with the dimension
-        directly following ``user_embedding_dim``
-    item_dense_layers_dims: list
-        List of linear layer dimensions to apply to the item embedding, starting with the dimension
-        directly following ``item_embedding_dim``
-    embedding_dropout_p: float
-        Probability of dropout on the embedding layers
-    dense_dropout_p: float
-        Probability of dropout on the dense layers
+    embedding_dim: int
+        Number of latent factors to use for user and item embeddings
+    num_layers: int
+        Number of MLP layers to apply. Each MLP layer will have its input dimension calculated with
+        the formula ``embedding_dim * (2 ** (``num_layers`` - ``current_layer_number``))``
+    batch_size: int
+        Minibatch size for each epoch
+    dropout_p: float
+        Probability of dropout on the linear layers
     lr: float
         Embedding layer learning rate
     bias_lr: float
@@ -115,7 +100,8 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
     metadata_for_loss_weights: dict
         Keys should be strings identifying each metadata type that match keys in ``metadata``.
         Values should be the amount of weight to place on a match of that type of metadata, with
-        the sum of all values ``<= 1``.ights = {'genre': .3, 'director': .2}``, then an item is:
+        the sum of all values ``<= 1``.
+        e.g. If ``metadata_for_loss_weights = {'genre': .3, 'director': .2}``, then an item is:
 
         * a 100% match if it's the same item,
 
@@ -141,12 +127,9 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
     def __init__(self,
                  train: interactions_like_input = None,
                  val: interactions_like_input = None,
-                 user_embedding_dim: int = 60,
-                 item_embedding_dim: int = 60,
-                 user_dense_layers_dims: List[float] = [48, 32],
-                 item_dense_layers_dims: List[float] = [48, 32],
-                 embedding_dropout_p: float = 0.0,
-                 dense_dropout_p: float = 0.0,
+                 embedding_dim: int = 30,
+                 num_layers: int = 3,
+                 dropout_p: float = 0.0,
                  lr: float = 1e-3,
                  bias_lr: Optional[Union[float, str]] = 1e-2,
                  lr_scheduler_func: Optional[Callable] = partial(ReduceLROnPlateau,
@@ -167,7 +150,7 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         """
         Method for building model internals that rely on the data passed in.
 
-        This method will be called after ``prepare_data``.
+        This method will be called after `prepare_data`.
 
         """
         self.user_biases = ZeroEmbedding(num_embeddings=self.hparams.num_users,
@@ -175,40 +158,37 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         self.item_biases = ZeroEmbedding(num_embeddings=self.hparams.num_items,
                                          embedding_dim=1)
         self.user_embeddings = ScaledEmbedding(num_embeddings=self.hparams.num_users,
-                                               embedding_dim=self.hparams.user_embedding_dim)
+                                               embedding_dim=self.hparams.embedding_dim)
         self.item_embeddings = ScaledEmbedding(num_embeddings=self.hparams.num_items,
-                                               embedding_dim=self.hparams.item_embedding_dim)
+                                               embedding_dim=self.hparams.embedding_dim)
 
-        self.embedding_dropout = nn.Dropout(p=self.hparams.embedding_dropout_p)
-        self.dense_dropout = nn.Dropout(p=self.hparams.dense_dropout_p)
+        mlp_modules = []
+        input_size = self.hparams.embedding_dim * 2
+        for i in range(self.hparams.num_layers):
+            next_input_size = (
+                int(
+                    self.hparams.embedding_dim
+                    * 2
+                    * ((self.hparams.num_layers - i) / (self.hparams.num_layers + 1))
+                )
+            )
+            mlp_modules.append(nn.Linear(input_size, next_input_size))
+            mlp_modules.append(nn.ReLU())
+            mlp_modules.append(nn.Dropout(p=self.hparams.dropout_p))
+            input_size = next_input_size
+        self.mlp_layers = nn.Sequential(*mlp_modules)
 
-        # set up user dense layers
-        user_dense_layers_dims = (
-            [self.hparams.user_embedding_dim] + self.hparams.user_dense_layers_dims
-        )
-        self.user_dense_layers = [
-            nn.Linear(user_dense_layers_dims[idx - 1], user_dense_layers_dims[idx])
-            for idx in range(1, len(user_dense_layers_dims))
-        ]
-        for i, layer in enumerate(self.user_dense_layers):
-            nn.init.xavier_normal_(self.user_dense_layers[i].weight)
-            self.add_module('user_dense_layer_{}'.format(i), layer)
-
-        # set up item dense layers
-        item_dense_layers_dims = (
-            [self.hparams.item_embedding_dim] + self.hparams.item_dense_layers_dims
-        )
-        self.item_dense_layers = [
-            nn.Linear(item_dense_layers_dims[idx - 1], item_dense_layers_dims[idx])
-            for idx in range(1, len(item_dense_layers_dims))
-        ]
-        for i, layer in enumerate(self.item_dense_layers):
-            nn.init.xavier_normal_(self.item_dense_layers[i].weight)
-            self.add_module('item_dense_layer_{}'.format(i), layer)
+        self.predict_layer = nn.Linear(next_input_size, 1)
 
     def forward(self, users: torch.tensor, items: torch.tensor) -> torch.tensor:
         """
         Forward pass through the model.
+
+        Simple matrix factorization for a single user and item looks like:
+
+        ```prediction = (user_embedding * item_embedding) + user_bias + item_bias```
+
+        If dropout is added, it is applied for the two embeddings and not the biases.
 
         Parameters
         ----------
@@ -226,26 +206,15 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         user_embeddings = self.user_embeddings(users)
         item_embeddings = self.item_embeddings(items)
 
-        for idx, user_dense_layer in enumerate(self.user_dense_layers):
-            user_embeddings = F.leaky_relu(
-                user_dense_layer(user_embeddings)
+        concatenated_embeddings = torch.cat((user_embeddings, item_embeddings), -1)
+        mlp_output = torch.sigmoid(
+            self.predict_layer(
+                self.mlp_layers(concatenated_embeddings)
             )
-
-            if idx < (len(self.user_dense_layers) - 1):
-                user_embeddings = self.dense_dropout(user_embeddings)
-
-        for idx, item_dense_layer in enumerate(self.item_dense_layers):
-            item_embeddings = F.leaky_relu(
-                item_dense_layer(item_embeddings)
-            )
-
-            if idx < (len(self.item_dense_layers) - 1):
-                item_embeddings = self.dense_dropout(item_embeddings)
+        ).squeeze()
 
         preds = (
-            (
-                self.embedding_dropout(user_embeddings) * self.embedding_dropout(item_embeddings)
-            ).sum(1)
+            mlp_output
             + self.user_biases(users).squeeze(1)
             + self.item_biases(items).squeeze(1)
         )
@@ -261,16 +230,6 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
 
     def _get_item_embeddings(self) -> np.array:
         """Get item embeddings."""
-        if not hasattr(self, 'item_embeddings_'):
-            items = torch.arange(self.hparams.num_items, device=self.device)
-
-            item_embeddings = self.item_embeddings(items)
-
-            for item_dense_layer in self.item_dense_layers:
-                item_embeddings = F.leaky_relu(
-                    item_dense_layer(item_embeddings)
-                )
-
-            self.item_embeddings_ = item_embeddings.detach().cpu()
-
-        return self.item_embeddings_
+        return self.item_embeddings(
+            torch.arange(self.hparams.num_items, device=self.device)
+        ).detach().cpu()

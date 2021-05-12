@@ -124,15 +124,33 @@ Matrix Factorization Model
     :members:
     :show-inheritance:
 
-Nonlinear Factorization Model
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Multilayer Perceptron Matrix Factorization Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: collie_recs.model.MLPMatrixFactorizationModel
+    :members:
+    :show-inheritance:
+
+Nonlinear Embeddings Matrix Factorization Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: collie_recs.model.NonlinearMatrixFactorizationModel
+    :members:
+    :show-inheritance:
+
+Collaborative Metric Learning Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: collie_recs.model.CollaborativeMetricLearningModel
     :members:
     :show-inheritance:
 
 Neural Collaborative Filtering (NeuCF)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: collie_recs.model.NeuralCollaborativeFiltering
+    :members:
+    :show-inheritance:
+
+Deep Factorization Machine (DeepFM)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: collie_recs.model.DeepFM
     :members:
     :show-inheritance:
 

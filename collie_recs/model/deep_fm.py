@@ -1,5 +1,5 @@
 from functools import partial
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, Dict, Optional, Union
 
 import numpy as np
 import torch
@@ -11,37 +11,32 @@ from collie_recs.model.base import (BasePipeline,
                                     interactions_like_input,
                                     ScaledEmbedding,
                                     ZeroEmbedding)
-from collie_recs.utils import get_init_arguments
+from collie_recs.utils import get_init_arguments, trunc_normal
 
 
-class NonlinearMatrixFactorizationModel(BasePipeline):
+class DeepFM(BasePipeline):
     """
-    Training pipeline for a nonlinear matrix factorization model.
+    Training pipeline for a deep factorization model.
 
-    ``NonlinearMatrixFactorizationModel`` models have an embedding layer for users and items. These
-    are sent through separate dense networks, which output more refined embeddings, which are then
-    dot producted for a single float ranking / rating.
+    ``DeepFM`` models combine a shallow factorization machine and a deep multilayer perceptron
+    network in a single, unified model. The model consists of embedding tables for users and items,
+    and model output is the sum of 1) factorization machine output of both embeddings (shallow) and
+    2) MLP output for the concatenation of both embeddings (deep).
 
-    Collie adds a twist on to this novel framework by allowing separate optimizers for embeddings
-    and bias terms. With larger datasets and multiple epochs of training, a model might incorrectly
-    learn to only optimize the bias terms for a quicker path towards a local loss minimum,
-    essentially memorizing how popular each item is. By using a separate, slower optimizer for the
-    bias terms (like Stochastic Gradient Descent), the model must prioritize optimizing the
-    embeddings for meaningful, more varied recommendations, leading to a model that is able to
-    achieve a much lower loss. See the documentation below for ``bias_lr`` and ``bias_optimizer``
-    input arguments for implementation details.
+    The implementation here is meant to mimic its original implementation as specified here:
+    https://arxiv.org/pdf/1703.04247.pdf
 
-    All ``NonlinearMatrixFactorizationModel`` instances are subclasses of the ``LightningModule``
-    class provided by PyTorch Lightning. This means to train a model, you will need a
+    All ``DeepFM`` instances are subclasses of the ``LightningModule`` class
+    provided by PyTorch Lightning. This means to train a model, you will need a
     ``collie_recs.model.CollieTrainer`` object, but the model can be saved and loaded without this
     ``Trainer`` instance. Example usage may look like:
 
     .. code-block:: python
 
-        from collie_recs.model import CollieTrainer, NonlinearMatrixFactorizationModel
+        from collie.model import CollieTrainer, DeepFM
 
 
-        model = NonlinearMatrixFactorizationModel(train=train)
+        model = DeepFM(train=train)
         trainer = CollieTrainer(model)
         trainer.fit(model)
         model.eval()
@@ -49,7 +44,7 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         # do evaluation as normal with ``model``
 
         model.save_model(filename='model.pth')
-        new_model = NonlinearMatrixFactorizationModel(load_model_path='model.pth')
+        new_model = DeepFM(load_model_path='model.pth')
 
         # do evaluation as normal with ``new_model``
 
@@ -63,20 +58,27 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         Data loader for validation data. If an ``Interactions`` object is supplied, an
         ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=False``. Note
         that when the model class is saved, datasets will NOT be saved as well
-    user_embedding_dim: int
-        Number of latent factors to use for user embeddings
-    item_embedding_dim: int
-        Number of latent factors to use for item embeddings
-    user_dense_layers_dims: list
-        List of linear layer dimensions to apply to the user embedding, starting with the dimension
-        directly following ``user_embedding_dim``
-    item_dense_layers_dims: list
-        List of linear layer dimensions to apply to the item embedding, starting with the dimension
-        directly following ``item_embedding_dim``
-    embedding_dropout_p: float
-        Probability of dropout on the embedding layers
-    dense_dropout_p: float
-        Probability of dropout on the dense layers
+    embedding_dim: int
+        Number of latent factors to use for the matrix factorization embedding table. For the MLP
+        embedding table, the dimensionality will be calculated with the formula
+        ``embedding_dim * (2 ** (num_layers - 1))``
+    num_layers: int
+        Number of MLP layers to apply. Each MLP layer will have its input dimension calculated with
+        the formula ``embedding_dim * (2 ** (``num_layers`` - ``current_layer_number``))``
+    final_layer: str or function
+        Final layer activation function. Available string options include:
+
+        * 'sigmoid'
+
+        * 'relu'
+
+        * 'leaky_relu'
+
+    dropout_p: float
+        Probability of dropout
+    sparse: bool
+        Whether or not to treat embeddings as sparse tensors. If ``True``, cannot use weight decay
+        on the optimizer
     lr: float
         Embedding layer learning rate
     bias_lr: float
@@ -91,6 +93,8 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         * ``'sgd'`` (for ``torch.optim.SGD``)
 
         * ``'adam'`` (for ``torch.optim.Adam``)
+
+        * ``'sparse_adam'`` (for ``torch.optim.SparseAdam``)
 
     bias_optimizer: torch.optim or str
         Optimizer for the bias terms. This supports the same string options as ``optimizer``, with
@@ -115,7 +119,8 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
     metadata_for_loss_weights: dict
         Keys should be strings identifying each metadata type that match keys in ``metadata``.
         Values should be the amount of weight to place on a match of that type of metadata, with
-        the sum of all values ``<= 1``.ights = {'genre': .3, 'director': .2}``, then an item is:
+        the sum of all values ``<= 1``.
+        e.g. If ``metadata_for_loss_weights = {'genre': .3, 'director': .2}``, then an item is:
 
         * a 100% match if it's the same item,
 
@@ -141,12 +146,10 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
     def __init__(self,
                  train: interactions_like_input = None,
                  val: interactions_like_input = None,
-                 user_embedding_dim: int = 60,
-                 item_embedding_dim: int = 60,
-                 user_dense_layers_dims: List[float] = [48, 32],
-                 item_dense_layers_dims: List[float] = [48, 32],
-                 embedding_dropout_p: float = 0.0,
-                 dense_dropout_p: float = 0.0,
+                 embedding_dim: int = 8,
+                 num_layers: int = 3,
+                 final_layer: Optional[Union[str, Callable]] = None,
+                 dropout_p: float = 0.0,
                  lr: float = 1e-3,
                  bias_lr: Optional[Union[float, str]] = 1e-2,
                  lr_scheduler_func: Optional[Callable] = partial(ReduceLROnPlateau,
@@ -158,7 +161,7 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
                  loss: Union[str, Callable] = 'hinge',
                  metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
                  metadata_for_loss_weights: Optional[Dict[str, float]] = None,
-                 y_range: Optional[Tuple[float, float]] = None,
+                 # y_range: Optional[Tuple[float, float]] = None,
                  load_model_path: Optional[str] = None,
                  map_location: Optional[str] = None):
         super().__init__(**get_init_arguments())
@@ -167,44 +170,49 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         """
         Method for building model internals that rely on the data passed in.
 
-        This method will be called after ``prepare_data``.
+        This method will be called after `prepare_data`.
 
         """
+        self.user_embeddings = ScaledEmbedding(num_embeddings=self.hparams.num_users,
+                                               embedding_dim=self.hparams.embedding_dim)
+        self.item_embeddings = ScaledEmbedding(num_embeddings=self.hparams.num_items,
+                                               embedding_dim=self.hparams.embedding_dim)
         self.user_biases = ZeroEmbedding(num_embeddings=self.hparams.num_users,
                                          embedding_dim=1)
         self.item_biases = ZeroEmbedding(num_embeddings=self.hparams.num_items,
                                          embedding_dim=1)
-        self.user_embeddings = ScaledEmbedding(num_embeddings=self.hparams.num_users,
-                                               embedding_dim=self.hparams.user_embedding_dim)
-        self.item_embeddings = ScaledEmbedding(num_embeddings=self.hparams.num_items,
-                                               embedding_dim=self.hparams.item_embedding_dim)
+        self.user_global_bias = nn.Parameter(torch.zeros(1))
+        self.item_global_bias = nn.Parameter(torch.zeros(1))
 
-        self.embedding_dropout = nn.Dropout(p=self.hparams.embedding_dropout_p)
-        self.dense_dropout = nn.Dropout(p=self.hparams.dense_dropout_p)
+        mlp_modules = []
+        input_size = self.hparams.embedding_dim * 2
+        for i in range(self.hparams.num_layers):
+            next_input_size = (
+                int(
+                    self.hparams.embedding_dim
+                    * 2
+                    * ((self.hparams.num_layers - i) / (self.hparams.num_layers + 1))
+                )
+            )
+            mlp_modules.append(nn.Linear(input_size, next_input_size))
+            mlp_modules.append(nn.ReLU())
+            mlp_modules.append(nn.Dropout(p=self.hparams.dropout_p))
+            input_size = next_input_size
+        self.mlp_layers = nn.Sequential(*mlp_modules)
 
-        # set up user dense layers
-        user_dense_layers_dims = (
-            [self.hparams.user_embedding_dim] + self.hparams.user_dense_layers_dims
-        )
-        self.user_dense_layers = [
-            nn.Linear(user_dense_layers_dims[idx - 1], user_dense_layers_dims[idx])
-            for idx in range(1, len(user_dense_layers_dims))
-        ]
-        for i, layer in enumerate(self.user_dense_layers):
-            nn.init.xavier_normal_(self.user_dense_layers[i].weight)
-            self.add_module('user_dense_layer_{}'.format(i), layer)
+        self.predict_layer = nn.Linear(next_input_size, 1)
 
-        # set up item dense layers
-        item_dense_layers_dims = (
-            [self.hparams.item_embedding_dim] + self.hparams.item_dense_layers_dims
-        )
-        self.item_dense_layers = [
-            nn.Linear(item_dense_layers_dims[idx - 1], item_dense_layers_dims[idx])
-            for idx in range(1, len(item_dense_layers_dims))
-        ]
-        for i, layer in enumerate(self.item_dense_layers):
-            nn.init.xavier_normal_(self.item_dense_layers[i].weight)
-            self.add_module('item_dense_layer_{}'.format(i), layer)
+        for m in self.mlp_layers:
+            if isinstance(m, nn.Linear):
+                # initialization taken from the official repo:
+                # https://github.com/hexiangnan/neural_collaborative_filtering/blob/master/NeuMF.py
+                trunc_normal(m.weight.data, std=0.01)
+
+        nn.init.kaiming_uniform_(self.predict_layer.weight, nonlinearity='relu')
+
+        for m in self.modules():
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                m.bias.data.zero_()
 
     def forward(self, users: torch.tensor, items: torch.tensor) -> torch.tensor:
         """
@@ -226,51 +234,33 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         user_embeddings = self.user_embeddings(users)
         item_embeddings = self.item_embeddings(items)
 
-        for idx, user_dense_layer in enumerate(self.user_dense_layers):
-            user_embeddings = F.leaky_relu(
-                user_dense_layer(user_embeddings)
-            )
+        # FM output
+        embedding_sum = user_embeddings + item_embeddings
+        embedding_squared_sum = torch.pow(user_embeddings, 2) + torch.pow(item_embeddings, 2)
+        embeddings_difference = embedding_sum - embedding_squared_sum
+        fm_output = torch.sum(embeddings_difference, dim=1)
 
-            if idx < (len(self.user_dense_layers) - 1):
-                user_embeddings = self.dense_dropout(user_embeddings)
+        # MLP output
+        concatenated_embeddings = torch.cat((user_embeddings, item_embeddings), -1)
+        mlp_output = self.predict_layer(self.mlp_layers(concatenated_embeddings)).squeeze()
 
-        for idx, item_dense_layer in enumerate(self.item_dense_layers):
-            item_embeddings = F.leaky_relu(
-                item_dense_layer(item_embeddings)
-            )
+        prediction = fm_output + mlp_output
 
-            if idx < (len(self.item_dense_layers) - 1):
-                item_embeddings = self.dense_dropout(item_embeddings)
+        if callable(self.hparams.final_layer):
+            prediction = self.hparams.final_layer(prediction)
+        elif self.hparams.final_layer == 'sigmoid':
+            prediction = torch.sigmoid(prediction)
+        elif self.hparams.final_layer == 'relu':
+            prediction = F.relu(prediction)
+        elif self.hparams.final_layer == 'leaky_relu':
+            prediction = F.leaky_relu(prediction)
+        elif self.hparams.final_layer is not None:
+            raise ValueError(f'{self.hparams.final_layer} not valid final layer value!')
 
-        preds = (
-            (
-                self.embedding_dropout(user_embeddings) * self.embedding_dropout(item_embeddings)
-            ).sum(1)
-            + self.user_biases(users).squeeze(1)
-            + self.item_biases(items).squeeze(1)
-        )
-
-        if self.hparams.y_range is not None:
-            preds = (
-                torch.sigmoid(preds)
-                * (self.hparams.y_range[1] - self.hparams.y_range[0])
-                + self.hparams.y_range[0]
-            )
-
-        return preds
+        return prediction.view(-1)
 
     def _get_item_embeddings(self) -> np.array:
         """Get item embeddings."""
-        if not hasattr(self, 'item_embeddings_'):
-            items = torch.arange(self.hparams.num_items, device=self.device)
-
-            item_embeddings = self.item_embeddings(items)
-
-            for item_dense_layer in self.item_dense_layers:
-                item_embeddings = F.leaky_relu(
-                    item_dense_layer(item_embeddings)
-                )
-
-            self.item_embeddings_ = item_embeddings.detach().cpu()
-
-        return self.item_embeddings_
+        return self.item_embeddings(
+            torch.arange(self.hparams.num_items, device=self.device)
+        ).detach().cpu()

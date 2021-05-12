@@ -39,7 +39,7 @@ class NeuralCollaborativeFiltering(BasePipeline):
         model = NeuralCollaborativeFiltering(train=train)
         trainer = CollieTrainer(model)
         trainer.fit(model)
-        model.freeze()
+        model.eval()
 
         # do evaluation as normal with ``model``
 
