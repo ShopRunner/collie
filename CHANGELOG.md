@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 # [0.4.0] - 2021-5-13
 ### Added
- - ``CollieTrainerNoLightning`` for a faster, simpler version of ``CollieTrainer``
+ - ``CollieTrainerMinimal`` for a faster, simpler version of ``CollieTrainer``
  - ``remove_duplicate_user_item_pairs`` argument to ``Interactions``
 ### Fixed
  - a proper ``ValueError`` is now raised if no ``train`` data is passed into a model
