@@ -218,7 +218,7 @@ class Interactions(torch.utils.data.Dataset):
             print('Generating positive items set...')
             self._generate_positive_item_set()
 
-    def _generate_positive_item_set(self):
+    def _generate_positive_item_set(self) -> None:
         """Build positive item dictionary lookup for exact negative sampling."""
         self.positive_items = set(zip(self.mat.row, self.mat.col))
 
@@ -244,7 +244,7 @@ class Interactions(torch.utils.data.Dataset):
 
         return (user_id, item_id), negative_item_ids_array
 
-    def _negative_sample(self, user_id: Union[int, np.array]):
+    def _negative_sample(self, user_id: Union[int, np.array]) -> np.array:
         """Generate negative samples for a ``user_id``."""
         if self.max_number_of_samples_to_consider > 0:
             # if we are here, we are doing true negative sampling

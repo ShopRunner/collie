@@ -143,14 +143,14 @@ def read_movielens_df_item() -> pd.DataFrame:
     return df_item
 
 
-def _make_data_path_dirs_if_not_exist():
+def _make_data_path_dirs_if_not_exist() -> None:
     """Get path to the movielens dataset file."""
     if not DATA_PATH.exists():
         print(f'Making data path at ``{DATA_PATH}``...')
         DATA_PATH.mkdir(parents=True, exist_ok=True)
 
 
-def _download_movielens_100k():
+def _download_movielens_100k() -> None:
     """Download the MovieLens 100K data."""
     url = 'http://files.grouplens.org/datasets/movielens/ml-100k.zip'
     req = requests.get(url, stream=True)

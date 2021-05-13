@@ -78,7 +78,7 @@ def _create_sparse_ratings_matrix_helper(users: Iterable[int],
     )
 
 
-def _infer_num_if_needed_for_1d_array(num: Union[int, str], array: Iterable[int]):
+def _infer_num_if_needed_for_1d_array(num: Union[int, str], array: Iterable[int]) -> int:
     """Return ``num`` or, if ``None``, the maximum value of ``array`` + 1."""
     if num == 'infer':
         num = max(array) + 1
@@ -237,7 +237,9 @@ def get_init_arguments(exclude: Optional[Iterable] = [], verbose: bool = False) 
     return init_args
 
 
-def pandas_df_to_hdf5(df: pd.DataFrame, out_path: Union[str, Path], key: str = 'interactions'):
+def pandas_df_to_hdf5(df: pd.DataFrame,
+                      out_path: Union[str, Path],
+                      key: str = 'interactions') -> None:
     """Append a Pandas DataFrame to HDF5 using a ``table`` format and ``blosc`` compression."""
     df.to_hdf(str(out_path),
               key=key,

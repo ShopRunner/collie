@@ -57,7 +57,7 @@ class MatrixFactorizationModel(BasePipeline):
         Data loader for training data. If an ``Interactions`` object is supplied, an
         ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=True``. Note
         that when the model class is saved, datasets will NOT be saved as well
-    vak: ``collie_recs.interactions`` object
+    val: ``collie_recs.interactions`` object
         Data loader for validation data. If an ``Interactions`` object is supplied, an
         ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=False``. Note
         that when the model class is saved, datasets will NOT be saved as well

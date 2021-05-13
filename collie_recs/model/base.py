@@ -60,12 +60,12 @@ class MultiOptimizer(object):
 
         self.optimizers = optimizers
 
-    def zero_grad(self):
+    def zero_grad(self) -> None:
         """Apply ``zero_grad`` to all optimizers."""
         for optimizer in self.optimizers:
             optimizer.zero_grad()
 
-    def step(self):
+    def step(self) -> None:
         """Apply ``step`` to all optimizers."""
         for optimizer in self.optimizers:
             optimizer.step()
@@ -90,7 +90,7 @@ class MultiLRScheduler(object):
 
         self.lr_schedulers = lr_schedulers_dicts_removed
 
-    def step(self, *args, **kwargs):
+    def step(self, *args, **kwargs) -> None:
         """Apply ``step`` to all optimizers."""
         for lr_scheduler in self.lr_schedulers:
             lr_scheduler.step(*args, **kwargs)
@@ -110,6 +110,13 @@ class CollieTrainer(Trainer):
 
     See ``pytorch_lightning.Trainer`` documentation for more details at:
     https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html#trainer-class-api
+
+    Compared with ``CollieTrainerNoLightning``, PyTorch Lightning's ``Trainer`` offers more
+    flexibility and room for exploration, at the cost of a higher training time (which is
+    especially true for larger models). We recommend starting all model exploration with this
+    ``CollieTrainer`` (callbacks, automatic Lightning optimizations, etc.), finding a set of
+    hyperparameters that work for your training job, then using this in the simpler but faster
+    ``CollieTrainerNoLightning``.
 
     Parameters
     ----------
@@ -166,8 +173,8 @@ class CollieTrainerNoLightning():
     different than the ones that the ``CollieTrainer`` accept, and defaults are also not guaranteed
     to be equal as the two libraries evolve. Notable changes are:
 
-    * If ``gpus > 1``, only a single GPU will be used. Multi-GPU training is not supported in
-      ``CollieTrainerNoLightning`` at this time.
+    * If ``gpus > 1``, only a single GPU will be used and any other GPUs will remain unused. Multi-
+      GPU training is not supported in ``CollieTrainerNoLightning`` at this time.
 
     * ``logger == True`` has no meaning in ``CollieTrainerNoLightning`` - a default logger will
       NOT be created if set to ``True``.
@@ -289,7 +296,7 @@ class CollieTrainerNoLightning():
         torch.backends.cudnn.benchmark = self.benchmark
         torch.backends.cudnn.deterministic = self.deterministic
 
-    def fit(self, model: 'BasePipeline'):
+    def fit(self, model: 'BasePipeline') -> None:
         """
         Runs the full optimization routine.
 
@@ -373,7 +380,7 @@ class CollieTrainerNoLightning():
         # run final logging things when training is complete before returning
         self._finalize_training()
 
-    def _pre_training_setup(self, model):
+    def _pre_training_setup(self, model: 'BasePipeline') -> None:
         """Set up DataLoaders, optimizers, learning rate schedulers, etc. before training starts."""
         self.train_dataloader = model.train_dataloader()
         self.val_dataloader = model.val_dataloader()
@@ -406,7 +413,7 @@ class CollieTrainerNoLightning():
         # move the model over to the GPU
         model.to(self.device)
 
-    def _train_loop_single_epoch(self, model, epoch):
+    def _train_loop_single_epoch(self, model: nn.Module, epoch: int) -> float:
         """Training loop for a single epoch, where gradients are optimized for."""
         total_loss = 0
 
@@ -429,27 +436,23 @@ class CollieTrainerNoLightning():
             self.optimizer.step()
             self.train_steps += 1
 
-            detached_loss = loss.detach()
-
             if self.terminate_on_nan and not torch.isfinite(loss).all():
                 raise ValueError(f'Loss is {loss}, stopping training early!')
 
+            detached_loss = loss.detach()
             total_loss += detached_loss
 
             if self.verbosity >= 2:
                 train_dataloader_iterator.set_postfix(train_loss=detached_loss.item())
 
-            if self.logger is not None:
-                if self.train_steps % self.log_every_n_steps == 0:
-                    batch_loss = (total_loss / (batch_idx + 1)).item()
-                    self.logger.log_metrics(metrics={'train_loss_step': batch_loss},
-                                            step=self.train_steps)
-                if self.train_steps % self.flush_logs_every_n_steps == 0:
-                    self.logger.save()
+            self._log_step(name='train',
+                           steps=self.train_steps,
+                           total_loss=total_loss,
+                           batch_idx=batch_idx)
 
         return (total_loss / len(self.train_dataloader)).item()
 
-    def _val_loop_single_epoch(self, model):
+    def _val_loop_single_epoch(self, model: nn.Module) -> float:
         """Validation loop for a single epoch, where gradients are NOT optimized for."""
         total_loss = 0
 
@@ -461,17 +464,16 @@ class CollieTrainerNoLightning():
 
             total_loss += loss.detach()
 
-            if self.logger is not None:
-                if self.val_steps % self.log_every_n_steps == 0:
-                    batch_loss = (total_loss / (batch_idx + 1)).item()
-                    self.logger.log_metrics(metrics={'val_loss_step': batch_loss},
-                                            step=self.val_steps)
-                if self.val_steps % self.flush_logs_every_n_steps == 0:
-                    self.logger.save()
+            self._log_step(name='val',
+                           steps=self.val_steps,
+                           total_loss=total_loss,
+                           batch_idx=batch_idx)
 
         return (total_loss / len(self.val_dataloader)).item()
 
-    def _move_batch_to_device(self, batch):
+    def _move_batch_to_device(
+        self, batch: Tuple[Tuple[torch.tensor, torch.tensor], torch.tensor],
+    ) -> Tuple[Tuple[torch.tensor, torch.tensor], torch.tensor]:
         """Move a batch of data to the proper device."""
         ((users, pos_items), neg_items) = batch
 
@@ -481,7 +483,16 @@ class CollieTrainerNoLightning():
 
         return ((users, pos_items), neg_items)
 
-    def _finalize_training(self):
+    def _log_step(self, name: str, steps: int, total_loss: torch.tensor, batch_idx: int) -> None:
+        """Check if we should and, if so, log step-loss metrics to our logger."""
+        if self.logger is not None:
+            if steps % self.log_every_n_steps == 0:
+                batch_loss = (total_loss / (batch_idx + 1)).item()
+                self.logger.log_metrics(metrics={f'{name}_loss_step': batch_loss}, step=steps)
+            if steps % self.flush_logs_every_n_steps == 0:
+                self.logger.save()
+
+    def _finalize_training(self) -> None:
         """Finalize logging results before returning."""
         if self.logger is not None:
             self.logger.save()
@@ -837,8 +848,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         return optimizer_parameters
 
-    def train_dataloader(self) -> Union[InteractionsDataLoader,
-                                        ApproximateNegativeSamplingInteractionsDataLoader]:
+    def train_dataloader(self) -> Union[ApproximateNegativeSamplingInteractionsDataLoader,
+                                        InteractionsDataLoader]:
         """
         Method that sets up training data as a PyTorch DataLoader.
 
@@ -886,8 +897,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         self.log(name='train_loss_epoch', value=avg_loss)
 
-    def val_dataloader(self) -> Union[InteractionsDataLoader,
-                                      ApproximateNegativeSamplingInteractionsDataLoader]:
+    def val_dataloader(self) -> Union[ApproximateNegativeSamplingInteractionsDataLoader,
+                                      InteractionsDataLoader]:
         """
         Method that sets up validation data as a PyTorch DataLoader.
 
