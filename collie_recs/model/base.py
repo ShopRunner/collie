@@ -286,7 +286,7 @@ class CollieTrainerMinimal():
         self.best_epoch_loss = (0, sys.maxsize)
         self.train_steps = 0
         self.val_steps = 0
-        self.n_epochs_completed = 0
+        self.num_epochs_completed = 0
 
         if self.gpus is None or self.gpus is False or self.gpus == 0:
             self.device = 'cpu'
@@ -314,7 +314,7 @@ class CollieTrainerMinimal():
             self.first_run_pre_training_setup_complete_ = True
 
         # set up top-level epoch progress bar
-        epoch_iterator = range(self.n_epochs_completed + 1, self.max_epochs + 1)
+        epoch_iterator = range(self.num_epochs_completed + 1, self.max_epochs + 1)
         if self.verbosity >= 2:
             epoch_iterator = tqdm(epoch_iterator,
                                   position=0,
@@ -351,8 +351,8 @@ class CollieTrainerMinimal():
             if self.verbosity >= 1:
                 print(epoch_summary)
 
-            model.hparams.n_epochs_completed += 1
-            self.n_epochs_completed += 1
+            model.hparams.num_epochs_completed += 1
+            self.num_epochs_completed += 1
 
             # early stopping logic
             if (
@@ -651,7 +651,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
             self.hparams.num_users = self.train_loader.num_users
             self.hparams.num_items = self.train_loader.num_items
-            self.hparams.n_epochs_completed = 0
+            self.hparams.num_epochs_completed = 0
 
             self._configure_loss()
 
@@ -887,7 +887,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         This method will be called after ``training_step``.
 
         """
-        self.hparams.n_epochs_completed += 1
+        self.hparams.num_epochs_completed += 1
 
         try:
             avg_loss = torch.stack([x['loss'] for x in outputs]).mean()

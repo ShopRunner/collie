@@ -2,7 +2,6 @@ from contextlib import suppress
 import copy
 from functools import partial
 import os
-import time
 from unittest import mock
 
 import pandas as pd
@@ -247,13 +246,31 @@ class TestCollieTrainerMinimal():
         out, _ = capfd.readouterr()
         assert 'Detected GPU. Setting ``gpus`` to 1.' in out
 
+    def test_trainer_max_epochs(self, train_val_implicit_sample_data):
+        train, _ = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train)
+        trainer = CollieTrainerMinimal(model=model, max_epochs=2)
+
+        trainer.fit(model)
+        assert model.hparams.num_epochs_completed == 2
+        assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
+
+        trainer.fit(model)
+        assert model.hparams.num_epochs_completed == 2
+        assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
+
+        trainer.max_epochs += 1
+        trainer.fit(model)
+        assert model.hparams.num_epochs_completed == 3
+        assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
+
     @mock.patch.object(CollieTrainerMinimal, '_train_loop_single_epoch')
     def test_early_stopping_train(self,
                                   _train_loop_single_epoch_mock,
                                   train_val_implicit_sample_data,
                                   capfd):
-        # our training loss will increase as time goes on, triggering early stopping
-        _train_loop_single_epoch_mock.return_value = time.time()
+        # our training loss will not decrease, triggering early stopping
+        _train_loop_single_epoch_mock.return_value = 100
 
         train, _ = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train)
@@ -263,15 +280,16 @@ class TestCollieTrainerMinimal():
         out, _ = capfd.readouterr()
         assert 'Epoch     3: Early stopping activated.' in out
 
-        assert model.hparams.n_epochs_completed_ == 3
+        assert model.hparams.num_epochs_completed == 3
+        assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
 
     @mock.patch.object(CollieTrainerMinimal, '_val_loop_single_epoch')
     def test_early_stopping_val(self,
                                 _val_loop_single_epoch_mock,
                                 train_val_implicit_sample_data,
                                 capfd):
-        # our validation loss will increase as time goes on, triggering early stopping
-        _val_loop_single_epoch_mock.return_value = time.time()
+        # our validation loss will not decrease, triggering early stopping
+        _val_loop_single_epoch_mock.return_value = 100
 
         train, val = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train, val=val)
@@ -281,7 +299,8 @@ class TestCollieTrainerMinimal():
         out, _ = capfd.readouterr()
         assert 'Epoch     2: Early stopping activated.' in out
 
-        assert model.hparams.n_epochs_completed_ == 2
+        assert model.hparams.num_epochs_completed == 2
+        assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
 
     def test_logging_log_every_n_steps(self, train_val_implicit_sample_data):
         class SimpleLogger(pytorch_lightning.loggers.LightningLoggerBase):

@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  - ``CollieTrainerMinimal`` for a faster, simpler version of ``CollieTrainer``
  - ``remove_duplicate_user_item_pairs`` argument to ``Interactions``
 ### Changed
- - renamed `BasePipeline.hparams.n_epochs_completed_ -> BasePipeline.hparams.n_epochs_completed`
+ - renamed `BasePipeline.hparams.n_epochs_completed_ -> BasePipeline.hparams.num_epochs_completed`
 ### Fixed
  - a proper ``ValueError`` is now raised if no ``train`` data is passed into a model
  - loss docstrings that incorrectly stated ``**kwargs`` would be accepted

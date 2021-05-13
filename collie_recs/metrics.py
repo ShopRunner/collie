@@ -314,7 +314,7 @@ def evaluate_in_batches(
     logger: pytorch_lightning.loggers.base.LightningLoggerBase
         If provided, will log outputted metrics dictionary using the ``log_metrics`` method with
         keys being the string representation of ``metric_list`` and values being
-        ``evaluation_results``. Additionally, if ``model.hparams.n_epochs_completed_`` exists, this
+        ``evaluation_results``. Additionally, if ``model.hparams.num_epochs_completed`` exists, this
         will be logged as well, making it possible to track metrics progress over the course of
         model training
     verbose: bool
@@ -368,7 +368,7 @@ def evaluate_in_batches(
 
     if logger is not None:
         try:
-            step = model.hparams.get('n_epochs_completed_')
+            step = model.hparams.get('num_epochs_completed')
         except torch.nn.modules.module.ModuleAttributeError:
             # if, somehow, there is no ``model.hparams`` attribute, this shouldn't fail
             step = None

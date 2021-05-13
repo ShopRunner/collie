@@ -287,7 +287,7 @@ prometheus-client==0.10.1
     #   notebook
 prompt-toolkit==3.0.18
     # via ipython
-protobuf==3.16.0
+protobuf==3.17.0
     # via
     #   -c requirements.txt
     #   tensorboard
@@ -347,7 +347,7 @@ python-dateutil==2.8.1
     #   jupyter-client
     #   matplotlib
     #   pandas
-pytorch-lightning==1.3.0
+pytorch-lightning==1.3.1
     # via
     #   -c requirements.txt
     #   collie-recs
@@ -517,7 +517,7 @@ webencodings==0.5.1
     # via bleach
 websocket-client==0.59.0
     # via jupyter-server
-werkzeug==1.0.1
+werkzeug==2.0.0
     # via
     #   -c requirements.txt
     #   tensorboard

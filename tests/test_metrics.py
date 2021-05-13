@@ -204,4 +204,4 @@ def test_evaluate_in_batches_logger(
     assert mrr_score == logger.metrics['mrr']
     assert auc_score == logger.metrics['auc']
 
-    assert logger.step == implicit_model.hparams.n_epochs_completed_
+    assert logger.step == implicit_model.hparams.num_epochs_completed
