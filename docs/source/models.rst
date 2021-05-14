@@ -157,7 +157,7 @@ PyTorch Lightning Trainer
 
 Non- PyTorch Lightning Trainer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.CollieTrainerMinimal
+.. autoclass:: collie_recs.model.CollieMinimalTrainer
     :members:
 
 Model Templates

@@ -21,7 +21,7 @@ from collie_recs.loss import (adaptive_bpr_loss,
 from collie_recs.metrics import evaluate_in_batches, mapk
 from collie_recs.model import (BasePipeline,
                                CollieTrainer,
-                               CollieTrainerMinimal,
+                               CollieMinimalTrainer,
                                HybridPretrainedModel,
                                MatrixFactorizationModel,
                                NeuralCollaborativeFiltering)
@@ -236,12 +236,12 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     trainer_9.fit(model_9)
 
 
-class TestCollieTrainerMinimal():
+class TestCollieMinimalTrainer():
     @mock.patch('torch.cuda.is_available')
     def test_no_gpu_set_but_gpu_available(is_available_mock, untrained_implicit_model, capfd):
         is_available_mock.return_value = True
 
-        CollieTrainerMinimal(model=untrained_implicit_model, gpus=None)
+        CollieMinimalTrainer(model=untrained_implicit_model, gpus=None)
 
         out, _ = capfd.readouterr()
         assert 'Detected GPU. Setting ``gpus`` to 1.' in out
@@ -249,7 +249,7 @@ class TestCollieTrainerMinimal():
     def test_trainer_max_epochs(self, train_val_implicit_sample_data):
         train, _ = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train)
-        trainer = CollieTrainerMinimal(model=model, max_epochs=2)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=2)
 
         trainer.fit(model)
         assert model.hparams.num_epochs_completed == 2
@@ -264,7 +264,7 @@ class TestCollieTrainerMinimal():
         assert model.hparams.num_epochs_completed == 3
         assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
 
-    @mock.patch.object(CollieTrainerMinimal, '_train_loop_single_epoch')
+    @mock.patch.object(CollieMinimalTrainer, '_train_loop_single_epoch')
     def test_early_stopping_train(self,
                                   _train_loop_single_epoch_mock,
                                   train_val_implicit_sample_data,
@@ -274,7 +274,7 @@ class TestCollieTrainerMinimal():
 
         train, _ = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train)
-        trainer = CollieTrainerMinimal(model=model, early_stopping_patience=2)
+        trainer = CollieMinimalTrainer(model=model, early_stopping_patience=2)
         trainer.fit(model)
 
         out, _ = capfd.readouterr()
@@ -283,7 +283,7 @@ class TestCollieTrainerMinimal():
         assert model.hparams.num_epochs_completed == 3
         assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
 
-    @mock.patch.object(CollieTrainerMinimal, '_val_loop_single_epoch')
+    @mock.patch.object(CollieMinimalTrainer, '_val_loop_single_epoch')
     def test_early_stopping_val(self,
                                 _val_loop_single_epoch_mock,
                                 train_val_implicit_sample_data,
@@ -293,7 +293,7 @@ class TestCollieTrainerMinimal():
 
         train, val = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train, val=val)
-        trainer = CollieTrainerMinimal(model=model, early_stopping_patience=1)
+        trainer = CollieMinimalTrainer(model=model, early_stopping_patience=1)
         trainer.fit(model)
 
         out, _ = capfd.readouterr()
@@ -348,14 +348,14 @@ class TestCollieTrainerMinimal():
         train, val = train_val_implicit_sample_data
 
         model_more_verbose = MatrixFactorizationModel(train=train, val=val)
-        trainer_more_verbose = CollieTrainerMinimal(model=model_more_verbose,
+        trainer_more_verbose = CollieMinimalTrainer(model=model_more_verbose,
                                                     max_epochs=1,
                                                     logger=simple_logger_more_verbose,
                                                     log_every_n_steps=1)
         trainer_more_verbose.fit(model_more_verbose)
 
         model_less_verbose = MatrixFactorizationModel(train=train, val=val)
-        trainer_less_verbose = CollieTrainerMinimal(model=model_less_verbose,
+        trainer_less_verbose = CollieMinimalTrainer(model=model_less_verbose,
                                                     max_epochs=1,
                                                     logger=simple_logger_less_verbose,
                                                     log_every_n_steps=3)
@@ -420,14 +420,14 @@ class TestCollieTrainerMinimal():
         train, val = train_val_implicit_sample_data
 
         model_more_saves = MatrixFactorizationModel(train=train, val=val)
-        trainer_more_saves = CollieTrainerMinimal(model=model_more_saves,
+        trainer_more_saves = CollieMinimalTrainer(model=model_more_saves,
                                                   max_epochs=1,
                                                   logger=simple_logger_more_saves,
                                                   flush_logs_every_n_steps=1)
         trainer_more_saves.fit(model_more_saves)
 
         model_less_saves = MatrixFactorizationModel(train=train, val=val)
-        trainer_less_saves = CollieTrainerMinimal(model=model_less_saves,
+        trainer_less_saves = CollieMinimalTrainer(model=model_less_saves,
                                                   max_epochs=1,
                                                   logger=simple_logger_less_saves,
                                                   flush_logs_every_n_steps=3)
@@ -457,7 +457,7 @@ class TestCollieTrainerMinimal():
 
         train, val = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train, val=val)
-        trainer = CollieTrainerMinimal(model=model, terminate_on_nan=True)
+        trainer = CollieMinimalTrainer(model=model, terminate_on_nan=True)
 
         with pytest.raises(ValueError):
             trainer.fit(model)
@@ -469,7 +469,7 @@ class TestCollieTrainerMinimal():
                                          optimizer='adam',
                                          bias_optimizer='sgd',
                                          lr_scheduler_func=partial(StepLR, step_size=1))
-        trainer = CollieTrainerMinimal(model=model, max_epochs=1)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=1)
         trainer.fit(model)
 
     def test_multiple_optimizers_only(self, train_val_implicit_sample_data):
@@ -479,7 +479,7 @@ class TestCollieTrainerMinimal():
                                          optimizer='adam',
                                          bias_optimizer='sgd',
                                          lr_scheduler_func=None)
-        trainer = CollieTrainerMinimal(model=model, max_epochs=1)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=1)
         trainer.fit(model)
 
     def test_single_optimizer_and_lr_scheduler(self, train_val_implicit_sample_data):
@@ -489,7 +489,7 @@ class TestCollieTrainerMinimal():
                                          optimizer='adam',
                                          bias_optimizer=None,
                                          lr_scheduler_func=ReduceLROnPlateau)
-        trainer = CollieTrainerMinimal(model=model, max_epochs=1)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=1)
         trainer.fit(model)
 
     def test_single_optimizer_only(self, train_val_implicit_sample_data):
@@ -499,7 +499,7 @@ class TestCollieTrainerMinimal():
                                          optimizer='adam',
                                          bias_optimizer=None,
                                          lr_scheduler_func=None)
-        trainer = CollieTrainerMinimal(model=model, max_epochs=1)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=1)
         trainer.fit(model)
 
     @mock.patch.object(MatrixFactorizationModel, 'configure_optimizers')
@@ -514,7 +514,7 @@ class TestCollieTrainerMinimal():
                                          optimizer='adam',
                                          bias_optimizer=None,
                                          lr_scheduler_func=None)
-        trainer = CollieTrainerMinimal(model=model, max_epochs=1)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=1)
 
         with pytest.raises(ValueError):
             trainer.fit(model)
@@ -531,7 +531,7 @@ class TestCollieTrainerMinimal():
         train, val = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train,
                                          val=val)
-        trainer = CollieTrainerMinimal(model=model,
+        trainer = CollieMinimalTrainer(model=model,
                                        max_epochs=1,
                                        weights_summary='full',
                                        verbosity=verbosity)

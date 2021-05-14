@@ -111,11 +111,11 @@ class CollieTrainer(Trainer):
     See ``pytorch_lightning.Trainer`` documentation for more details at:
     https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html#trainer-class-api
 
-    Compared with ``CollieTrainerMinimal``, PyTorch Lightning's ``Trainer`` offers more flexibility
+    Compared with ``CollieMinimalTrainer``, PyTorch Lightning's ``Trainer`` offers more flexibility
     and room for exploration, at the cost of a higher training time (which is especially true for
     larger models). We recommend starting all model exploration with this ``CollieTrainer``
     (callbacks, automatic Lightning optimizations, etc.), finding a set of hyperparameters that work
-    for your training job, then using this in the simpler but faster ``CollieTrainerMinimal``.
+    for your training job, then using this in the simpler but faster ``CollieMinimalTrainer``.
 
     Parameters
     ----------
@@ -150,7 +150,7 @@ class CollieTrainer(Trainer):
         super().__init__(**kwargs)
 
 
-class CollieTrainerMinimal():
+class CollieMinimalTrainer():
     """
     A more manual implementation of PyTorch Lightning's ``Trainer`` class, attempting to port over
     the most commonly used ``Trainer`` arguments into a training loop with more transparency and
@@ -158,7 +158,7 @@ class CollieTrainerMinimal():
 
     Through extensive experimentation, we found that PyTorch Lightning's ``Trainer`` was training
     Collie models about 25% slower than the more manual, typical PyTorch training loop boilerplate.
-    Thus, we created the ``CollieTrainerMinimal``, which shares a similar API to PyTorch Lightning's
+    Thus, we created the ``CollieMinimalTrainer``, which shares a similar API to PyTorch Lightning's
     ``Trainer`` object (both in instantiation and in usage), with a standard PyTorch training loop
     in its place.
 
@@ -168,14 +168,14 @@ class CollieTrainerMinimal():
     less on hyperparameter tuning and R&D, where one might instead opt to use PyTorch Lightning's
     ``Trainer`` class.
 
-    Note that the arguments the ``CollieTrainerMinimal`` trainer accepts will be slightly different
+    Note that the arguments the ``CollieMinimalTrainer`` trainer accepts will be slightly different
     than the ones that the ``CollieTrainer`` accept, and defaults are also not guaranteed to be
     equal as the two libraries evolve. Notable changes are:
 
     * If ``gpus > 1``, only a single GPU will be used and any other GPUs will remain unused. Multi-
-      GPU training is not supported in ``CollieTrainerMinimal`` at this time.
+      GPU training is not supported in ``CollieMinimalTrainer`` at this time.
 
-    * ``logger == True`` has no meaning in ``CollieTrainerMinimal`` - a default logger will NOT be
+    * ``logger == True`` has no meaning in ``CollieMinimalTrainer`` - a default logger will NOT be
       created if set to ``True``.
 
     * There is no way to pass in ``callbacks`` at this time. Instead, we will implement the most
@@ -184,18 +184,18 @@ class CollieTrainerMinimal():
 
     .. code-block:: python
 
-        from collie_recs.model import CollieTrainerMinimal, MatrixFactorizationModel
+        from collie_recs.model import CollieMinimalTrainer, MatrixFactorizationModel
 
 
         # notice how similar the usage is to the standard ``CollieTrainer``
         model = MatrixFactorizationModel(train=train)
-        trainer = CollieTrainerMinimal(model)
+        trainer = CollieMinimalTrainer(model)
         trainer.fit(model)
 
     Model results should NOT be significantly different whether trained with ``CollieTrainer`` or
-    ``CollieTrainerMinimal``.
+    ``CollieMinimalTrainer``.
 
-    If there's an argument you would like to see added to ``CollieTrainerMinimal`` that is present
+    If there's an argument you would like to see added to ``CollieMinimalTrainer`` that is present
     in ``CollieTrainer`` used during productionalized model training, make an Issue or a PR in
     GitHub!
 

@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 # [0.4.0] - 2021-5-13
 ### Added
- - ``CollieTrainerMinimal`` for a faster, simpler version of ``CollieTrainer``
+ - ``CollieMinimalTrainer`` for a faster, simpler version of ``CollieTrainer``
  - ``remove_duplicate_user_item_pairs`` argument to ``Interactions``
 ### Changed
  - renamed `BasePipeline.hparams.n_epochs_completed_ -> BasePipeline.hparams.num_epochs_completed`

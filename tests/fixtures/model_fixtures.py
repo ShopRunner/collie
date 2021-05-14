@@ -8,7 +8,7 @@ from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDat
                                       HDF5InteractionsDataLoader,
                                       InteractionsDataLoader)
 from collie_recs.model import (CollieTrainer,
-                               CollieTrainerMinimal,
+                               CollieMinimalTrainer,
                                HybridPretrainedModel,
                                MatrixFactorizationModel,
                                NeuralCollaborativeFiltering,
@@ -42,7 +42,7 @@ def implicit_model_no_lightning(train_val_implicit_data, gpu_count):
                                      val=val,
                                      embedding_dim=10,
                                      lr=1e-1)
-    model_trainer = CollieTrainerMinimal(model=model,
+    model_trainer = CollieMinimalTrainer(model=model,
                                          gpus=gpu_count,
                                          max_epochs=10,
                                          deterministic=True,
