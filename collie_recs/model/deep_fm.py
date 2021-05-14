@@ -24,7 +24,7 @@ class DeepFM(BasePipeline):
     2) MLP output for the concatenation of both embeddings (deep).
 
     The implementation here is meant to mimic its original implementation as specified here:
-    https://arxiv.org/pdf/1703.04247.pdf [2]_
+    https://arxiv.org/pdf/1703.04247.pdf [1]_
 
     All ``DeepFM`` instances are subclasses of the ``LightningModule`` class
     provided by PyTorch Lightning. This means to train a model, you will need a
@@ -144,7 +144,7 @@ class DeepFM(BasePipeline):
 
     References
     -------------
-    .. [2] Guo, Huifeng, et al. "DeepFM: A Factorization-Machine Based Neural Network for CTR
+    .. [1] Guo, Huifeng, et al. "DeepFM: A Factorization-Machine Based Neural Network for CTR
         Prediction." ArXiv.org, 13 Mar. 2017, arxiv.org/abs/1703.04247.
 
     """
