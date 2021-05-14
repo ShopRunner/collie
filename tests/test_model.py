@@ -20,8 +20,8 @@ from collie_recs.loss import (adaptive_bpr_loss,
                               warp_loss)
 from collie_recs.metrics import evaluate_in_batches, mapk
 from collie_recs.model import (BasePipeline,
-                               CollieTrainer,
                                CollieMinimalTrainer,
+                               CollieTrainer,
                                HybridPretrainedModel,
                                MatrixFactorizationModel,
                                NeuralCollaborativeFiltering)

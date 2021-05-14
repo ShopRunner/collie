@@ -7,8 +7,8 @@ import torch
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
                                       HDF5InteractionsDataLoader,
                                       InteractionsDataLoader)
-from collie_recs.model import (CollieTrainer,
-                               CollieMinimalTrainer,
+from collie_recs.model import (CollieMinimalTrainer,
+                               CollieTrainer,
                                HybridPretrainedModel,
                                MatrixFactorizationModel,
                                NeuralCollaborativeFiltering,
