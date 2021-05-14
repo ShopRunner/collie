@@ -54,6 +54,11 @@ class Interactions(torch.utils.data.Dataset):
         If ``False``, will check that both ``users`` and ``items`` contain each integer from 0 to
         the maximum value in the array. This check only applies when initializing an
         ``Interactions`` instance using 1-dimensional arrays ``users`` and ``items``
+    remove_duplicate_user_item_pairs: bool
+        Will check for and remove any duplicate user, item ID pairs from the ``Interactions`` matrix
+        during initialization. Note that this will create a second sparse matrix held in memory
+        to efficiently check, which could cause memory concerns for larger data. If you are sure
+        that there are no duplicated, user, item ID pairs, set to ``False``
     num_users: int
         Number of users in the dataset. If ``num_users == 'infer'``, this will be set to the
         ``mat.shape[0]`` or ``max(users) + 1``, depending on the input
@@ -81,6 +86,7 @@ class Interactions(torch.utils.data.Dataset):
                  ratings: Optional[Iterable[int]] = None,
                  num_negative_samples: int = 10,
                  allow_missing_ids: bool = False,
+                 remove_duplicate_user_item_pairs: bool = True,
                  num_users: int = 'infer',
                  num_items: int = 'infer',
                  check_num_negative_samples_is_valid: bool = True,
@@ -144,10 +150,16 @@ class Interactions(torch.utils.data.Dataset):
                                                    array_max_value=num_items,
                                                    array_name='mat.shape[1]')
 
-        # remove duplicate entires in the COO matrix
-        dok_mat = dok_matrix((mat.shape), dtype=mat.dtype)
-        dok_mat._update(zip(zip(mat.row, mat.col), mat.data))
-        mat = dok_mat.tocoo()
+        if remove_duplicate_user_item_pairs:
+            print('Checking for and removing duplicate user, item ID pairs...')
+
+            # remove duplicate entires in the COO matrix
+            dok_mat = dok_matrix((mat.shape), dtype=mat.dtype)
+            dok_mat._update(zip(zip(mat.row, mat.col), mat.data))
+            mat = dok_mat.tocoo()
+
+            # trigger garbage collection early
+            del dok_mat
 
         if seed is None:
             seed = collie_recs.utils.get_random_seed()
@@ -159,6 +171,7 @@ class Interactions(torch.utils.data.Dataset):
         self.num_items = num_items
         self.max_number_of_samples_to_consider = max_number_of_samples_to_consider
         self.allow_missing_ids = allow_missing_ids
+        self.remove_duplicate_user_item_pairs = remove_duplicate_user_item_pairs
         self.check_num_negative_samples_is_valid = check_num_negative_samples_is_valid
         self.seed = seed
 
@@ -200,14 +213,12 @@ class Interactions(torch.utils.data.Dataset):
                 (self.num_items - max_number_of_items_interacted_with)
             )
 
-        print('Generating positive items set...')
         self.positive_items = {}
         if self.max_number_of_samples_to_consider > 0:
+            print('Generating positive items set...')
             self._generate_positive_item_set()
-        else:
-            print('self.max_number_of_samples_to_consider <= 0. Skipped.')
 
-    def _generate_positive_item_set(self):
+    def _generate_positive_item_set(self) -> None:
         """Build positive item dictionary lookup for exact negative sampling."""
         self.positive_items = set(zip(self.mat.row, self.mat.col))
 
@@ -233,7 +244,7 @@ class Interactions(torch.utils.data.Dataset):
 
         return (user_id, item_id), negative_item_ids_array
 
-    def _negative_sample(self, user_id: Union[int, np.array]):
+    def _negative_sample(self, user_id: Union[int, np.array]) -> np.array:
         """Generate negative samples for a ``user_id``."""
         if self.max_number_of_samples_to_consider > 0:
             # if we are here, we are doing true negative sampling

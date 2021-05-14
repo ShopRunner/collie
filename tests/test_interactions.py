@@ -159,9 +159,19 @@ class TestBadInteractionsInstantiation:
                                        df_for_interactions_with_duplicates):
         duplicated_interactions = Interactions(users=df_for_interactions_with_duplicates['user_id'],
                                                items=df_for_interactions_with_duplicates['item_id'],
-                                               check_num_negative_samples_is_valid=False)
+                                               check_num_negative_samples_is_valid=False,
+                                               remove_duplicate_user_item_pairs=False)
 
-        assert duplicated_interactions.mat.getnnz() == interactions_pandas.mat.getnnz()
+        assert duplicated_interactions.mat.getnnz() != interactions_pandas.mat.getnnz()
+
+        non_duplicated_interactions = (
+            Interactions(users=df_for_interactions_with_duplicates['user_id'],
+                         items=df_for_interactions_with_duplicates['item_id'],
+                         check_num_negative_samples_is_valid=False,
+                         remove_duplicate_user_item_pairs=True)
+        )
+
+        assert non_duplicated_interactions.mat.getnnz() == interactions_pandas.mat.getnnz()
 
 
 class TestInteractionsDataMethods:

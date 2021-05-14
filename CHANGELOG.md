@@ -3,9 +3,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
+# [0.4.0] - 2021-5-13
+### Added
+ - ``CollieMinimalTrainer`` for a faster, simpler version of ``CollieTrainer``
+ - ``remove_duplicate_user_item_pairs`` argument to ``Interactions``
+### Changed
+ - renamed `BasePipeline.hparams.n_epochs_completed_ -> BasePipeline.hparams.num_epochs_completed`
+### Fixed
+ - a proper ``ValueError`` is now raised if no ``train`` data is passed into a model
+ - loss docstrings that incorrectly stated ``**kwargs`` would be accepted
+
 # [0.3.0] - 2021-5-10
 ### Changed
-- Disable automated batching in ApproximateNegativeSamplingInteractionsDataLoader and  HDF5InteractionsDataLoader.
+ - disable automated batching in ``ApproximateNegativeSamplingInteractionsDataLoader`` and ``HDF5InteractionsDataLoader``
 
 # [0.2.0] - 2021-4-28
 ### Changed

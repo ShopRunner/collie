@@ -143,8 +143,6 @@ def adaptive_hinge_loss(
 
         * a 0% match if it's a different item with a different genre and different director,
           which is equivalent to the loss without any partial credit
-    **kwargs: keyword arguments
-        Ignored, included only for compatability with WARP loss
 
     Returns
     -------------

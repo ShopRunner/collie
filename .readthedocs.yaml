@@ -1,0 +1,14 @@
+version: 2
+
+sphinx:
+   builder: html
+   configuration: docs/source/conf.py
+   fail_on_warning: false
+
+formats: all
+
+python:
+   version: 3.8
+   install:
+   - requirements: requirements-dev.txt
+   - requirements: requirements.txt
