@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from collie_recs.model.base import (BasePipeline,
-                                    interactions_like_input,
+                                    INTERACTIONS_LIKE_INPUT,
                                     ScaledEmbedding)
 from collie_recs.utils import get_init_arguments
 
@@ -114,8 +114,8 @@ class CollaborativeMetricLearningModel(BasePipeline):
 
     """
     def __init__(self,
-                 train: interactions_like_input = None,
-                 val: interactions_like_input = None,
+                 train: INTERACTIONS_LIKE_INPUT = None,
+                 val: INTERACTIONS_LIKE_INPUT = None,
                  embedding_dim: int = 30,
                  sparse: bool = False,
                  lr: float = 1e-3,

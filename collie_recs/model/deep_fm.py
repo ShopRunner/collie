@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from collie_recs.model.base import (BasePipeline,
-                                    interactions_like_input,
+                                    INTERACTIONS_LIKE_INPUT,
                                     ScaledEmbedding,
                                     ZeroEmbedding)
 from collie_recs.utils import get_init_arguments, trunc_normal
@@ -144,8 +144,8 @@ class DeepFM(BasePipeline):
 
     """
     def __init__(self,
-                 train: interactions_like_input = None,
-                 val: interactions_like_input = None,
+                 train: INTERACTIONS_LIKE_INPUT = None,
+                 val: INTERACTIONS_LIKE_INPUT = None,
                  embedding_dim: int = 8,
                  num_layers: int = 3,
                  final_layer: Optional[Union[str, Callable]] = None,
