@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from collie_recs.config import DATA_PATH
 from collie_recs.model.base import (BasePipeline,
-                                    interactions_like_input,
+                                    INTERACTIONS_LIKE_INPUT,
                                     ScaledEmbedding)
 from collie_recs.model.matrix_factorization import MatrixFactorizationModel
 from collie_recs.utils import get_init_arguments
@@ -140,8 +140,8 @@ class HybridPretrainedModel(BasePipeline):
 
     """
     def __init__(self,
-                 train: interactions_like_input = None,
-                 val: interactions_like_input = None,
+                 train: INTERACTIONS_LIKE_INPUT = None,
+                 val: INTERACTIONS_LIKE_INPUT = None,
                  item_metadata: Union[torch.tensor, pd.DataFrame, np.array] = None,
                  trained_model: MatrixFactorizationModel = None,
                  metadata_layers_dims: Optional[List[int]] = None,

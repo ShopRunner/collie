@@ -38,7 +38,7 @@ class ApproximateNegativeSampler(torch.utils.data.sampler.Sampler):
 
         np.random.seed(self.seed)
 
-    def __iter__(self):
+    def __iter__(self) -> 'ApproximateNegativeSampler':
         """Setup iteration through ``ApproximateNegativeSamplingInteractionsDataLoader`` data."""
         if self.shuffle:
             np.random.shuffle(self.iteration_order)
@@ -101,7 +101,7 @@ class HDF5Sampler(torch.utils.data.sampler.Sampler):
 
         random.seed(self.seed)
 
-    def __iter__(self):
+    def __iter__(self) -> 'HDF5Sampler':
         """Setup iteration through ``HDF5Sampler`` data."""
         if self.shuffle:
             random.shuffle(self.data_to_iterate_through)

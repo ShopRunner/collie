@@ -1,12 +1,16 @@
 from contextlib import suppress
 import copy
+from functools import partial
 import os
 from unittest import mock
 
 import pandas as pd
 import pytest
 import pytorch_lightning
+from pytorch_lightning.loggers.base import rank_zero_experiment
+from pytorch_lightning.utilities import rank_zero_only
 import torch
+from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 
 from collie_recs.interactions import HDF5InteractionsDataLoader
 from collie_recs.loss import (adaptive_bpr_loss,
@@ -16,6 +20,7 @@ from collie_recs.loss import (adaptive_bpr_loss,
                               warp_loss)
 from collie_recs.metrics import evaluate_in_batches, mapk
 from collie_recs.model import (BasePipeline,
+                               CollieMinimalTrainer,
                                CollieTrainer,
                                DeepFM,
                                HybridPretrainedModel,
@@ -36,7 +41,7 @@ def test_CollieTrainer_no_val_data(untrained_implicit_model_no_val_data):
 def test_CollieTrainer_no_gpu(is_available_mock, untrained_implicit_model, capfd):
     is_available_mock.return_value = True
 
-    with suppress(pytorch_lightning.utilities.exceptions.MisconfigurationException):
+    with suppress(AttributeError, pytorch_lightning.utilities.exceptions.MisconfigurationException):
         # if we run this test on CPU, PyTorch Lightning won't let us actually use a GPU, but we
         # can still test if the ``CollieTrainer`` is doing what it should here
         CollieTrainer(model=untrained_implicit_model,
@@ -232,6 +237,316 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     trainer_9.fit(model_9)
 
 
+class TestCollieMinimalTrainer():
+    @mock.patch('torch.cuda.is_available')
+    def test_no_gpu_set_but_gpu_available(is_available_mock, untrained_implicit_model, capfd):
+        is_available_mock.return_value = True
+
+        CollieMinimalTrainer(model=untrained_implicit_model, gpus=None)
+
+        out, _ = capfd.readouterr()
+        assert 'Detected GPU. Setting ``gpus`` to 1.' in out
+
+    def test_trainer_max_epochs(self, train_val_implicit_sample_data):
+        train, _ = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=2)
+
+        trainer.fit(model)
+        assert model.hparams.num_epochs_completed == 2
+        assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
+
+        trainer.fit(model)
+        assert model.hparams.num_epochs_completed == 2
+        assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
+
+        trainer.max_epochs += 1
+        trainer.fit(model)
+        assert model.hparams.num_epochs_completed == 3
+        assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
+
+    @mock.patch.object(CollieMinimalTrainer, '_train_loop_single_epoch')
+    def test_early_stopping_train(self,
+                                  _train_loop_single_epoch_mock,
+                                  train_val_implicit_sample_data,
+                                  capfd):
+        # our training loss will not decrease, triggering early stopping
+        _train_loop_single_epoch_mock.return_value = 100
+
+        train, _ = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train)
+        trainer = CollieMinimalTrainer(model=model, early_stopping_patience=2)
+        trainer.fit(model)
+
+        out, _ = capfd.readouterr()
+        assert 'Epoch     3: Early stopping activated.' in out
+
+        assert model.hparams.num_epochs_completed == 3
+        assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
+
+    @mock.patch.object(CollieMinimalTrainer, '_val_loop_single_epoch')
+    def test_early_stopping_val(self,
+                                _val_loop_single_epoch_mock,
+                                train_val_implicit_sample_data,
+                                capfd):
+        # our validation loss will not decrease, triggering early stopping
+        _val_loop_single_epoch_mock.return_value = 100
+
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train, val=val)
+        trainer = CollieMinimalTrainer(model=model, early_stopping_patience=1)
+        trainer.fit(model)
+
+        out, _ = capfd.readouterr()
+        assert 'Epoch     2: Early stopping activated.' in out
+
+        assert model.hparams.num_epochs_completed == 2
+        assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
+
+    def test_logging_log_every_n_steps(self, train_val_implicit_sample_data):
+        class SimpleLogger(pytorch_lightning.loggers.LightningLoggerBase):
+            """A simple logger that just saves all logs as class-level attributes."""
+            def __init__(self):
+                super().__init__()
+                self.metrics = list()
+                self.steps = 0
+                self.saved_count = 0
+                self.val_in_metrics = False
+
+            @property
+            def name(self):
+                return 'MyLogger'
+
+            @property
+            @rank_zero_experiment
+            def experiment(self):
+                pass
+
+            @property
+            def version(self):
+                return '0.0'
+
+            @rank_zero_only
+            def log_hyperparams(self, params):
+                self.hparams = params
+
+            @rank_zero_only
+            def log_metrics(self, metrics, step):
+                self.metrics.append(metrics)
+                self.steps += 1
+
+            @rank_zero_only
+            def save(self):
+                self.saved_count += 1
+
+            @rank_zero_only
+            def finalize(self, status):
+                self.finalized_ = status
+
+        simple_logger_more_verbose = SimpleLogger()
+        simple_logger_less_verbose = SimpleLogger()
+
+        train, val = train_val_implicit_sample_data
+
+        model_more_verbose = MatrixFactorizationModel(train=train, val=val)
+        trainer_more_verbose = CollieMinimalTrainer(model=model_more_verbose,
+                                                    max_epochs=1,
+                                                    logger=simple_logger_more_verbose,
+                                                    log_every_n_steps=1)
+        trainer_more_verbose.fit(model_more_verbose)
+
+        model_less_verbose = MatrixFactorizationModel(train=train, val=val)
+        trainer_less_verbose = CollieMinimalTrainer(model=model_less_verbose,
+                                                    max_epochs=1,
+                                                    logger=simple_logger_less_verbose,
+                                                    log_every_n_steps=3)
+        trainer_less_verbose.fit(model_less_verbose)
+
+        assert (
+            simple_logger_more_verbose.hparams
+            == simple_logger_less_verbose.hparams
+            == model_more_verbose.hparams
+            == model_less_verbose.hparams
+        )
+        assert simple_logger_more_verbose.saved_count == simple_logger_less_verbose.saved_count
+        assert simple_logger_more_verbose.finalized_ == simple_logger_less_verbose.finalized_
+        assert len(simple_logger_more_verbose.metrics) == simple_logger_more_verbose.steps
+        assert len(simple_logger_less_verbose.metrics) == simple_logger_less_verbose.steps
+
+        assert len(simple_logger_more_verbose.metrics) > len(simple_logger_less_verbose.metrics)
+
+    def test_logging_flush_logs_every_n_steps(self, train_val_implicit_sample_data):
+        class SimpleLogger(pytorch_lightning.loggers.LightningLoggerBase):
+            """A simple logger that just saves all logs as class-level attributes."""
+            def __init__(self):
+                super().__init__()
+                self.metrics = list()
+                self.steps = 0
+                self.saved_count = 0
+                self.val_in_metrics = False
+
+            @property
+            def name(self):
+                return 'MyLogger'
+
+            @property
+            @rank_zero_experiment
+            def experiment(self):
+                pass
+
+            @property
+            def version(self):
+                return '0.0'
+
+            @rank_zero_only
+            def log_hyperparams(self, params):
+                self.hparams = params
+
+            @rank_zero_only
+            def log_metrics(self, metrics, step):
+                self.metrics.append(metrics)
+                self.steps += 1
+
+            @rank_zero_only
+            def save(self):
+                self.saved_count += 1
+
+            @rank_zero_only
+            def finalize(self, status):
+                self.finalized_ = status
+
+        simple_logger_more_saves = SimpleLogger()
+        simple_logger_less_saves = SimpleLogger()
+
+        train, val = train_val_implicit_sample_data
+
+        model_more_saves = MatrixFactorizationModel(train=train, val=val)
+        trainer_more_saves = CollieMinimalTrainer(model=model_more_saves,
+                                                  max_epochs=1,
+                                                  logger=simple_logger_more_saves,
+                                                  flush_logs_every_n_steps=1)
+        trainer_more_saves.fit(model_more_saves)
+
+        model_less_saves = MatrixFactorizationModel(train=train, val=val)
+        trainer_less_saves = CollieMinimalTrainer(model=model_less_saves,
+                                                  max_epochs=1,
+                                                  logger=simple_logger_less_saves,
+                                                  flush_logs_every_n_steps=3)
+        trainer_less_saves.fit(model_less_saves)
+
+        assert (
+            simple_logger_more_saves.hparams
+            == simple_logger_less_saves.hparams
+            == model_more_saves.hparams
+            == model_less_saves.hparams
+        )
+        assert simple_logger_more_saves.finalized_ == simple_logger_less_saves.finalized_
+        assert (
+            len(simple_logger_more_saves.metrics)
+            == len(simple_logger_less_saves.metrics)
+            == simple_logger_more_saves.steps
+            == simple_logger_less_saves.steps
+        )
+
+        assert simple_logger_more_saves.saved_count > simple_logger_less_saves.saved_count
+
+    @mock.patch.object(MatrixFactorizationModel, '_calculate_loss')
+    def test_terminate_on_nan(self,
+                              _calculate_loss_mock,
+                              train_val_implicit_sample_data):
+        _calculate_loss_mock.return_value = torch.tensor(float('nan')).requires_grad_()
+
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train, val=val)
+        trainer = CollieMinimalTrainer(model=model, terminate_on_nan=True)
+
+        with pytest.raises(ValueError):
+            trainer.fit(model)
+
+    def test_multiple_optimizers_and_lr_schedulers(self, train_val_implicit_sample_data):
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train,
+                                         val=val,
+                                         optimizer='adam',
+                                         bias_optimizer='sgd',
+                                         lr_scheduler_func=partial(StepLR, step_size=1))
+        trainer = CollieMinimalTrainer(model=model, max_epochs=1)
+        trainer.fit(model)
+
+    def test_multiple_optimizers_only(self, train_val_implicit_sample_data):
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train,
+                                         val=val,
+                                         optimizer='adam',
+                                         bias_optimizer='sgd',
+                                         lr_scheduler_func=None)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=1)
+        trainer.fit(model)
+
+    def test_single_optimizer_and_lr_scheduler(self, train_val_implicit_sample_data):
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train,
+                                         val=val,
+                                         optimizer='adam',
+                                         bias_optimizer=None,
+                                         lr_scheduler_func=ReduceLROnPlateau)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=1)
+        trainer.fit(model)
+
+    def test_single_optimizer_only(self, train_val_implicit_sample_data):
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train,
+                                         val=val,
+                                         optimizer='adam',
+                                         bias_optimizer=None,
+                                         lr_scheduler_func=None)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=1)
+        trainer.fit(model)
+
+    @mock.patch.object(MatrixFactorizationModel, 'configure_optimizers')
+    def test_unexpected_configure_optimizers_output(self,
+                                                    configure_optimizers_mock,
+                                                    train_val_implicit_sample_data):
+        configure_optimizers_mock.return_value = 'optimizer'
+
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train,
+                                         val=val,
+                                         optimizer='adam',
+                                         bias_optimizer=None,
+                                         lr_scheduler_func=None)
+        trainer = CollieMinimalTrainer(model=model, max_epochs=1)
+
+        with pytest.raises(ValueError):
+            trainer.fit(model)
+
+    @pytest.mark.parametrize('verbosity', [0, False])
+    @mock.patch('torch.cuda.is_available')
+    def test_no_verbosity(self,
+                          is_available_mock,
+                          train_val_implicit_sample_data,
+                          verbosity,
+                          capfd):
+        is_available_mock.return_value = False
+
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train,
+                                         val=val)
+        trainer = CollieMinimalTrainer(model=model,
+                                       max_epochs=1,
+                                       weights_summary='full',
+                                       verbosity=verbosity)
+        trainer.fit(model)
+
+        out, _ = capfd.readouterr()
+        assert out == ''
+
+
+def test_model_instantiation_no_train_data():
+    with pytest.raises(TypeError):
+        MatrixFactorizationModel()
+
+
 def test_instantiation_of_sparse_model_with_weight_decay(train_val_implicit_data, capfd):
     train, val = train_val_implicit_data
 
@@ -249,21 +564,30 @@ def test_instantiation_of_sparse_model_with_weight_decay(train_val_implicit_data
     assert model_2.hparams.weight_decay == 0
 
 
-def test_implicit_model(implicit_model, train_val_implicit_data):
+@pytest.mark.parametrize('model_type', ['with_lightning', 'no_lightning'])
+def test_implicit_model(implicit_model,
+                        implicit_model_no_lightning,
+                        train_val_implicit_data,
+                        model_type):
+    if model_type == 'with_lightning':
+        model = implicit_model
+    elif model_type == 'no_lightning':
+        model = implicit_model_no_lightning
+
     train, val = train_val_implicit_data
 
-    item_preds = implicit_model.get_item_predictions(user_id=0,
-                                                     unseen_items_only=True,
-                                                     sort_values=True)
+    item_preds = model.get_item_predictions(user_id=0,
+                                            unseen_items_only=True,
+                                            sort_values=True)
 
     assert isinstance(item_preds, pd.Series)
     assert len(item_preds) > 0
     assert len(item_preds) < len(train)
 
-    item_similarities = implicit_model.item_item_similarity(item_id=42)
+    item_similarities = model.item_item_similarity(item_id=42)
     assert item_similarities.index[0] == 42
 
-    mapk_score = evaluate_in_batches([mapk], val, implicit_model)
+    mapk_score = evaluate_in_batches([mapk], val, model)
 
     # The metrics used for evaluation have been determined through 30
     # trials of training the model and using the mean - 5 * std. dev.
