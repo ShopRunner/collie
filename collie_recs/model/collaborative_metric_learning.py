@@ -20,6 +20,9 @@ class CollaborativeMetricLearningModel(BasePipeline):
     single float, prediction is retrieved by taking the pairwise distance between the two
     embeddings.
 
+    The implementation here is meant to mimic its original implementation as specified here:
+    https://arxiv.org/pdf/1803.00202.pdf [1]_
+
     All ``CollaborativeMetricLearningModel`` instances are subclasses of the ``LightningModule``
     class provided by PyTorch Lightning. This means to train a model, you will need a
     ``collie_recs.model.CollieTrainer`` object, but the model can be saved and loaded without this
@@ -111,6 +114,11 @@ class CollaborativeMetricLearningModel(BasePipeline):
     map_location: str or torch.device
         If ``load_model_path`` is provided, device specifying how to remap storage locations when
         ``torch.load``-ing the state dictionary
+
+    References
+    -------------
+    .. [1] Campo, Miguel, et al. "Collaborative Metric Learning Recommendation System: Application
+        to Theatrical Movie Releases." ArXiv.org, 1 Mar. 2018, arxiv.org/abs/1803.00202.
 
     """
     def __init__(self,

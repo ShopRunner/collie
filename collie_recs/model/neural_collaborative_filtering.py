@@ -24,7 +24,7 @@ class NeuralCollaborativeFiltering(BasePipeline):
     score.
 
     The implementation here is meant to mimic its original implementation as specified here:
-    https://arxiv.org/pdf/1708.05031.pdf [1]_
+    https://arxiv.org/pdf/1708.05031.pdf [3]_
 
     All ``NeuralCollaborativeFiltering`` instances are subclasses of the ``LightningModule`` class
     provided by PyTorch Lightning. This means to train a model, you will need a
@@ -129,7 +129,7 @@ class NeuralCollaborativeFiltering(BasePipeline):
 
     References
     -------------
-    .. [1] Xiangnan et al. "Neural Collaborative Filtering." Neural Collaborative Filtering |
+    .. [3] Xiangnan et al. "Neural Collaborative Filtering." Neural Collaborative Filtering |
         Proceedings of the 26th International Conference on World Wide Web, 1 Apr. 2017,
         dl.acm.org/doi/10.1145/3038912.3052569.
 

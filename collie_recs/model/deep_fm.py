@@ -24,7 +24,7 @@ class DeepFM(BasePipeline):
     2) MLP output for the concatenation of both embeddings (deep).
 
     The implementation here is meant to mimic its original implementation as specified here:
-    https://arxiv.org/pdf/1703.04247.pdf
+    https://arxiv.org/pdf/1703.04247.pdf [2]_
 
     All ``DeepFM`` instances are subclasses of the ``LightningModule`` class
     provided by PyTorch Lightning. This means to train a model, you will need a
@@ -141,6 +141,11 @@ class DeepFM(BasePipeline):
     map_location: str or torch.device
         If ``load_model_path`` is provided, device specifying how to remap storage locations when
         ``torch.load``-ing the state dictionary
+
+    References
+    -------------
+    .. [2] Guo, Huifeng, et al. "DeepFM: A Factorization-Machine Based Neural Network for CTR
+        Prediction." ArXiv.org, 13 Mar. 2017, arxiv.org/abs/1703.04247.
 
     """
     def __init__(self,
