@@ -1,5 +1,9 @@
 coverage:
   status:
+    project:
+      default:
+        target: 90%  # we want at least 90% coverage in Collie
+        if_ci_failed: error
     patch:
       default:
         target: auto
