@@ -45,7 +45,7 @@ jobs:
   codecov:
 
     runs-on: ubuntu-latest
-    needs: [publish]
+    needs: [test]
     steps:
     - uses: actions/checkout@master
     - name: Set up Python
