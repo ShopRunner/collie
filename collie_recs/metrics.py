@@ -8,6 +8,7 @@ from torchmetrics.functional import auroc
 from tqdm.auto import tqdm
 
 import collie_recs
+from collie_recs.interactions import InteractionsDataLoader
 from collie_recs.model import BasePipeline
 
 
@@ -381,3 +382,115 @@ def evaluate_in_batches(
         logger.log_metrics(metrics=metrics_dict, step=step)
 
     return all_scores[0] if len(all_scores) == 1 else all_scores
+
+
+def evaluate_in_batches_explicit(
+    metric_list: Iterable[Callable],
+    test_interactions: collie_recs.interactions.Interactions,
+    model: collie_recs.model.BasePipeline,
+    logger: pytorch_lightning.loggers.base.LightningLoggerBase = None,
+    verbose: bool = True,
+    **kwargs,
+) -> List[float]:
+    """
+    Evaluate a model with potentially several different metrics.
+
+    Memory constraints require that most test sets will need to be evaluated in batches. This
+    function handles the looping and batching boilerplate needed to properly evaluate the model
+    without running out of memory.
+
+    Parameters
+    ----------
+    metric_list: list of functions
+        List of evaluation functions to apply. Each function must accept keyword arguments:
+
+        * ``targets``
+
+        * ``user_ids``
+
+        * ``preds``
+
+        * ``k``
+
+    test_interactions: collie_recs.interactions.Interactions
+        Interactions to use as labels
+    model: collie_recs.model.BasePipeline
+        Model that can take a (user_id, item_id) pair as input and return a recommendation score
+    batch_size: int
+        Number of users to score in a single batch. For best efficiency, this number should be as
+        high as possible without running out of memory
+    logger: pytorch_lightning.loggers.base.LightningLoggerBase
+        If provided, will log outputted metrics dictionary using the ``log_metrics`` method with
+        keys being the string representation of ``metric_list`` and values being
+        ``evaluation_results``. Additionally, if ``model.hparams.num_epochs_completed`` exists, this
+        will be logged as well, making it possible to track metrics progress over the course of
+        model training
+    verbose: bool
+        Display progress bar and print statements during function execution
+    kwargs: keyword arguments
+        Additional arguments sent to the ``InteractionsDataLoader``
+
+    Returns
+    ----------
+    evaluation_results: list
+        List of floats, with each metric value corresponding to the respective function passed in
+        ``metric_list``
+
+    Examples
+    -------------
+    .. code-block:: python
+
+        import torchmetrics
+
+        from collie_recs.metrics import evaluate_in_batches_explicit
+
+
+        accuracy_module = torchmetrics.Accuracy()
+
+        accuracy_score = evaluate_in_batches(
+            metric_list=[accuracy_module],
+            test_interactions=test,
+            model=model,
+        )
+
+        print(accuracy_score)
+
+    """
+    try:
+        device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        model.to(device)
+
+        test_loader = InteractionsDataLoader(interactions=test_interactions,
+                                             **kwargs)
+
+        data_to_iterate_over = test_loader
+        if verbose:
+            data_to_iterate_over = tqdm(test_loader)
+
+        for batch in data_to_iterate_over:
+            users, items, ratings = batch
+            preds = model(users, items)
+
+            for metric in metric_list:
+                metric(preds, ratings)
+
+        all_scores = [metric.compute() for metric in metric_list]
+
+        if logger is not None:
+            try:
+                step = model.hparams.get('num_epochs_completed')
+            except torch.nn.modules.module.ModuleAttributeError:
+                # if, somehow, there is no ``model.hparams`` attribute, this shouldn't fail
+                step = None
+
+            metrics_dict = dict(zip([x.__name__ for x in metric_list], all_scores))
+
+            if verbose:
+                print(f'Logging metrics {metrics_dict} to ``logger``...')
+
+            logger.log_metrics(metrics=metrics_dict, step=step)
+
+        return all_scores[0] if len(all_scores) == 1 else all_scores
+    finally:
+        for metric in metric_list:
+            metric.reset()

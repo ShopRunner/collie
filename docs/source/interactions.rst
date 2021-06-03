@@ -160,9 +160,16 @@ The table below shows the time differences to train a ``MatrixFactorizationModel
 Datasets
 --------
 
-Interactions Dataset
-^^^^^^^^^^^^^^^^^^^^
+Implicit Interactions Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: collie_recs.interactions.Interactions
+    :members:
+    :inherited-members:
+    :show-inheritance:
+
+Explicit Interactions Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: collie_recs.interactions.ExplicitInteractions
     :members:
     :inherited-members:
     :show-inheritance:

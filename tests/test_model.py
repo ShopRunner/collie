@@ -449,11 +449,11 @@ class TestCollieMinimalTrainer():
 
         assert simple_logger_more_saves.saved_count > simple_logger_less_saves.saved_count
 
-    @mock.patch.object(MatrixFactorizationModel, '_calculate_loss')
+    @mock.patch.object(MatrixFactorizationModel, 'calculate_loss')
     def test_terminate_on_nan(self,
-                              _calculate_loss_mock,
+                              calculate_loss_mock,
                               train_val_implicit_sample_data):
-        _calculate_loss_mock.return_value = torch.tensor(float('nan')).requires_grad_()
+        calculate_loss_mock.return_value = torch.tensor(float('nan')).requires_grad_()
 
         train, val = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train, val=val)

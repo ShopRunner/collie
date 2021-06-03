@@ -12,7 +12,6 @@ from pytorch_lightning.core.lightning import LightningModule
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.loggers.base import LightningLoggerBase
 import torch
-from torch import nn
 from tqdm.auto import tqdm
 
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
@@ -29,16 +28,18 @@ from collie_recs.utils import get_init_arguments
 INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoader,
                                 Interactions,
                                 InteractionsDataLoader]
+EXPECTED_BATCH_TYPE = Union[Tuple[Tuple[torch.tensor, torch.tensor], torch.tensor],
+                            Tuple[torch.tensor, torch.tensor, torch.tensor]]
 
 
-class ScaledEmbedding(nn.Embedding):
+class ScaledEmbedding(torch.nn.Embedding):
     """Embedding layer that initializes its values to use a truncated normal distribution."""
     def reset_parameters(self) -> None:
         """Overriding default ``reset_parameters`` method."""
         self.weight.data.normal_(0, 1.0 / (self.embedding_dim * 2.5))
 
 
-class ZeroEmbedding(nn.Embedding):
+class ZeroEmbedding(torch.nn.Embedding):
     """Embedding layer with weights zeroed-out."""
     def reset_parameters(self) -> None:
         """Overriding default ``reset_parameters`` method."""
@@ -413,7 +414,7 @@ class CollieMinimalTrainer():
         # move the model over to the GPU
         model.to(self.device)
 
-    def _train_loop_single_epoch(self, model: nn.Module, epoch: int) -> float:
+    def _train_loop_single_epoch(self, model: torch.nn.Module, epoch: int) -> float:
         """Training loop for a single epoch, where gradients are optimized for."""
         total_loss = 0
 
@@ -430,7 +431,7 @@ class CollieMinimalTrainer():
             self.optimizer.zero_grad()
 
             batch = self._move_batch_to_device(batch)
-            loss = model._calculate_loss(batch)
+            loss = model.calculate_loss(batch)
             loss.backward()
 
             self.optimizer.step()
@@ -452,13 +453,13 @@ class CollieMinimalTrainer():
 
         return (total_loss / len(self.train_dataloader)).item()
 
-    def _val_loop_single_epoch(self, model: nn.Module) -> float:
+    def _val_loop_single_epoch(self, model: torch.nn.Module) -> float:
         """Validation loop for a single epoch, where gradients are NOT optimized for."""
         total_loss = 0
 
         for batch_idx, batch in enumerate(self.val_dataloader):
             batch = self._move_batch_to_device(batch)
-            loss = model._calculate_loss(batch)
+            loss = model.calculate_loss(batch)
 
             self.val_steps += 1
 
@@ -546,6 +547,14 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         * ``'warp'``
 
         If ``train.num_negative_samples > 1``, the adaptive loss version will automatically be used
+        of the losses above (except for WARP loss, which is only adaptive by nature).
+
+        If a callable is passed, that function will be used for calculating the loss. For implicit
+        models, the first two arguments passed will be the positive and negative predictions,
+        respectively. Additional keyword arguments passed in order are ``num_items``,
+        ``positive_items``, ``negative_items``, ``metadata``, and ``metadata_weights``.
+        For explicit models, the only two arguments passed in will be the prediction and actual
+        rating values, in order.
     metadata_for_loss: dict
         Keys should be strings identifying each metadata type that match keys in
         ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_items x 1). Each
@@ -704,6 +713,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         elif self.loss == 'warp':
             if self.train_loader.num_negative_samples > 1:
                 self.loss_function = warp_loss
+                self._is_implicit = True
             else:
                 raise ValueError('Cannot use WARP loss with a single negative sample!')
         elif 'bpr' in self.loss:
@@ -711,11 +721,19 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                 self.loss_function = adaptive_bpr_loss
             else:
                 self.loss_function = bpr_loss
+                self._is_implicit = True
         elif 'hinge' in self.loss or 'adaptive' in self.loss:
             if self.train_loader.num_negative_samples > 1:
                 self.loss_function = adaptive_hinge_loss
             else:
                 self.loss_function = hinge_loss
+                self._is_implicit = True
+        elif self.loss == 'mse':
+            self.loss_function = torch.nn.MSELoss(reduction='sum')
+            self._is_implicit = False
+        elif self.loss == 'mae':
+            self.loss_function = torch.nn.L1Loss(reduction='sum')
+            self._is_implicit = False
         else:
             raise ValueError('{} is not a valid loss function.'.format(self.loss))
 
@@ -870,7 +888,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         This method will be called after ``train_dataloader``.
 
         """
-        loss = self._calculate_loss(batch)
+        loss = self.calculate_loss(batch)
 
         # add logging
         self.log(name='train_loss_step', value=loss)
@@ -919,7 +937,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         This method will be called after ``val_dataloader``.
 
         """
-        loss = self._calculate_loss(batch)
+        loss = self.calculate_loss(batch)
 
         # add logging
         self.log(name='val_loss_step', value=loss)
@@ -940,37 +958,77 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         self.log(name='val_loss_epoch', value=avg_loss)
 
-    def _calculate_loss(
-        self,
-        batch: Tuple[Tuple[torch.tensor, torch.tensor], torch.tensor]
-    ) -> torch.tensor:
-        ((users, pos_items), neg_items) = batch
+    def calculate_loss(self, batch: EXPECTED_BATCH_TYPE) -> torch.tensor:
+        """
+        Given a batch of data, calculate the loss value.
 
-        users = users.long()
-        pos_items = pos_items.long()
-        # TODO: see if there is a way to not have to transpose each time - probably a bit costly
-        neg_items = torch.transpose(neg_items, 0, 1).long()
+        Note that the data type (implicit or explicit) will be determined by the structure of the
+        batch sent to this method. See the table below for expected data types:
 
-        # get positive item predictions from model
-        pos_preds = self(users, pos_items)
+        .. list-table::
+            :header-rows: 1
 
-        # get negative item predictions from model
-        users_repeated = users.repeat(neg_items.shape[0])
-        neg_items_flattened = neg_items.flatten()
-        neg_preds = self(users_repeated, neg_items_flattened).view(
-            neg_items.shape[0], len(users)
-        )
+            * - ``__getitem__`` Format
+              - Expected Meaning
+              - Model Type
+            * - ``((X, Y), Z)``
+              - ``((user IDs, item IDs), negative item IDs)``
+              - **Implicit**
+            * - ``(X, Y, Z)``
+              - ``(user IDs, item IDs, ratings)``
+              - **Explicit**
 
-        # implicit loss function
-        loss = self.loss_function(
-            pos_preds,
-            neg_preds,
-            num_items=self.hparams.num_items,
-            positive_items=pos_items,
-            negative_items=neg_items,
-            metadata=self.hparams.metadata_for_loss,
-            metadata_weights=self.hparams.metadata_for_loss_weights,
-        )
+        """
+        if isinstance(batch[0], tuple) and len(batch) == 2:
+            if getattr(self, '_is_implicit', None) is False:
+                raise ValueError('Explicit loss with implicit data is invalid!')
+
+            # implicit data
+            ((users, pos_items), neg_items) = batch
+
+            users = users.long()
+            pos_items = pos_items.long()
+            # TODO: see if there is a way to not have to transpose each time - probably a bit costly
+            neg_items = torch.transpose(neg_items, 0, 1).long()
+
+            # get positive item predictions from model
+            pos_preds = self(users, pos_items)
+
+            # get negative item predictions from model
+            users_repeated = users.repeat(neg_items.shape[0])
+            neg_items_flattened = neg_items.flatten()
+            neg_preds = self(users_repeated, neg_items_flattened).view(
+                neg_items.shape[0], len(users)
+            )
+
+            # implicit loss function
+            loss = self.loss_function(
+                pos_preds,
+                neg_preds,
+                num_items=self.hparams.num_items,
+                positive_items=pos_items,
+                negative_items=neg_items,
+                metadata=self.hparams.metadata_for_loss,
+                metadata_weights=self.hparams.metadata_for_loss_weights,
+            )
+        elif not isinstance(batch[0], tuple) and len(batch) == 3:
+            if getattr(self, '_is_implicit', None) is True:
+                raise ValueError('Implicit loss with explicit data is invalid!')
+
+            # explicit data
+            (users, items, ratings) = batch
+
+            users = users.long()
+            items = items.long()
+            ratings = ratings.long()
+
+            # get predictions from model
+            preds = self(users, items)
+
+            # explicit loss function
+            loss = self.loss_function(preds, ratings)
+        else:
+            raise ValueError(f'Unexpected format for batch: {batch}. See docs for expected format.')
 
         return loss
 
