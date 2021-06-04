@@ -24,6 +24,7 @@ setup(
     keywords=['deep learning', 'pytorch', 'recommender'],
     python_requires='>=3.6',
     install_requires=[
+        'docstring_parser',
         'fire',
         'joblib',
         'numpy',

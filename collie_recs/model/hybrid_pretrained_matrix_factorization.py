@@ -17,6 +17,7 @@ from collie_recs.config import DATA_PATH
 from collie_recs.model.base import (BasePipeline,
                                     INTERACTIONS_LIKE_INPUT,
                                     ScaledEmbedding)
+from collie_recs.model.base.docstring import merge_docstrings
 from collie_recs.model.matrix_factorization import MatrixFactorizationModel
 from collie_recs.utils import get_init_arguments
 
@@ -61,14 +62,6 @@ class HybridPretrainedModel(BasePipeline):
 
     Parameters
     ----------
-    train: ``collie_recs.interactions`` object
-        Data loader for training data. If an ``Interactions`` object is supplied, an
-        ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=True``. Note
-        that when the model class is saved, datasets will NOT be saved as well
-    val: ``collie_recs.interactions`` object
-        Data loader for validation data. If an ``Interactions`` object is supplied, an
-        ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=False``. Note
-        that when the model class is saved, datasets will NOT be saved as well
     item_metadata: torch.tensor, pd.DataFrame, or np.array, 2-dimensional
         The shape of the item metadata should be (num_items x metadata_features), and each item's
         metadata should be available when indexing a row by an item ID
@@ -87,10 +80,6 @@ class HybridPretrainedModel(BasePipeline):
         When initializing the model, whether or not to freeze ``trained_model``'s embeddings
     dropout_p: float
         Probability of dropout
-    lr: float
-        Model learning rate
-    lr_scheduler_func: torch.optim.lr_scheduler
-        Learning rate scheduler to use during fitting
     weight_decay: float
         Weight decay passed to the optimizer, if optimizer permits
     optimizer: torch.optim or str
@@ -99,44 +88,6 @@ class HybridPretrainedModel(BasePipeline):
         * ``'sgd'`` (for ``torch.optim.SGD``)
 
         * ``'adam'`` (for ``torch.optim.Adam``)
-
-    loss: function or str
-        If a string, one of the following implemented losses:
-
-        * ``'bpr'`` / ``'adaptive_bpr'``
-
-        * ``'hinge'`` / ``'adaptive_hinge'``
-
-        * ``'warp'``
-
-        If ``train.num_negative_samples > 1``, the adaptive loss version will automatically be used
-    metadata_for_loss: dict
-        Keys should be strings identifying each metadata type that match keys in
-        ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_items x 1). Each
-        tensor should contain categorical metadata information about items (e.g. a number
-        representing the genre of the item)
-    metadata_for_loss_weights: dict
-        Keys should be strings identifying each metadata type that match keys in ``metadata``.
-        Values should be the amount of weight to place on a match of that type of metadata, with
-        the sum of all values ``<= 1``.
-        e.g. If ``metadata_for_loss_weights = {'genre': .3, 'director': .2}``, then an item is:
-
-        * a 100% match if it's the same item,
-
-        * a 50% match if it's a different item with the same genre and same director,
-
-        * a 30% match if it's a different item with the same genre and different director,
-
-        * a 20% match if it's a different item with a different genre and same director,
-
-        * a 0% match if it's a different item with a different genre and different director,
-          which is equivalent to the loss without any partial credit
-    load_model_path: str or Path
-        To load a previously-saved model, pass in path to output of ``model.save_model()`` method.
-        If ``None``, will initialize model as normal
-    map_location: str or torch.device
-        If ``load_model_path`` is provided, device specifying how to remap storage locations when
-        ``torch.load``-ing the state dictionary
 
     """
     def __init__(self,
@@ -178,6 +129,8 @@ class HybridPretrainedModel(BasePipeline):
 
         super().__init__(**get_init_arguments(),
                          item_metadata_num_cols=item_metadata_num_cols)
+
+    __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
 
     def _load_model_init_helper(self, load_model_path: str, map_location: str, **kwargs) -> None:
         self.item_metadata = joblib.load(os.path.join(load_model_path, 'metadata.pkl'))

@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from collie_recs.model.base import BasePipeline, INTERACTIONS_LIKE_INPUT, ScaledEmbedding
+from collie_recs.model.base.docstring import merge_docstrings
 from collie_recs.utils import get_init_arguments, trunc_normal
 
 
@@ -24,7 +25,7 @@ class NeuralCollaborativeFiltering(BasePipeline):
     score.
 
     The implementation here is meant to mimic its original implementation as specified here:
-    https://arxiv.org/pdf/1708.05031.pdf [1]_
+    https://arxiv.org/pdf/1708.05031.pdf [2]_
 
     All ``NeuralCollaborativeFiltering`` instances are subclasses of the ``LightningModule`` class
     provided by PyTorch Lightning. This means to train a model, you will need a
@@ -50,14 +51,6 @@ class NeuralCollaborativeFiltering(BasePipeline):
 
     Parameters
     ----------
-    train: ``collie_recs.interactions`` object
-        Data loader for training data. If an ``Interactions`` object is supplied, an
-        ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=True``. Note
-        that when the model class is saved, datasets will NOT be saved as well
-    val: ``collie_recs.interactions`` object
-        Data loader for validation data. If an ``Interactions`` object is supplied, an
-        ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=False``. Note
-        that when the model class is saved, datasets will NOT be saved as well
     embedding_dim: int
         Number of latent factors to use for the matrix factorization embedding table. For the MLP
         embedding table, the dimensionality will be calculated with the formula
@@ -76,10 +69,6 @@ class NeuralCollaborativeFiltering(BasePipeline):
 
     dropout_p: float
         Probability of dropout on the MLP layers
-    lr: float
-        Model learning rate
-    lr_scheduler_func: torch.optim.lr_scheduler
-        Learning rate scheduler to use during fitting
     weight_decay: float
         Weight decay passed to the optimizer, if optimizer permits
     optimizer: torch.optim or str
@@ -89,47 +78,9 @@ class NeuralCollaborativeFiltering(BasePipeline):
 
         * ``'adam'`` (for ``torch.optim.Adam``)
 
-    loss: function or str
-        If a string, one of the following implemented losses:
-
-        * ``'bpr'`` / ``'adaptive_bpr'``
-
-        * ``'hinge'`` / ``'adaptive_hinge'``
-
-        * ``'warp'``
-
-        If ``train.num_negative_samples > 1``, the adaptive loss version will automatically be used
-    metadata_for_loss: dict
-        Keys should be strings identifying each metadata type that match keys in
-        ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_items x 1). Each
-        tensor should contain categorical metadata information about items (e.g. a number
-        representing the genre of the item)
-    metadata_for_loss_weights: dict
-        Keys should be strings identifying each metadata type that match keys in ``metadata``.
-        Values should be the amount of weight to place on a match of that type of metadata, with
-        the sum of all values ``<= 1``.
-        e.g. If ``metadata_for_loss_weights = {'genre': .3, 'director': .2}``, then an item is:
-
-        * a 100% match if it's the same item,
-
-        * a 50% match if it's a different item with the same genre and same director,
-
-        * a 30% match if it's a different item with the same genre and different director,
-
-        * a 20% match if it's a different item with a different genre and same director,
-
-        * a 0% match if it's a different item with a different genre and different director,
-          which is equivalent to the loss without any partial credit
-    load_model_path: str or Path
-        To load a previously-saved model, pass in path to output of ``model.save_model()`` method.
-        If ``None``, will initialize model as normal
-    map_location: str or torch.device
-        If ``load_model_path`` is provided, device specifying how to remap storage locations when
-        ``torch.load``-ing the state dictionary
-
     References
     -------------
-    .. [1] Xiangnan et al. "Neural Collaborative Filtering." Neural Collaborative Filtering |
+    .. [2] Xiangnan et al. "Neural Collaborative Filtering." Neural Collaborative Filtering |
         Proceedings of the 26th International Conference on World Wide Web, 1 Apr. 2017,
         dl.acm.org/doi/10.1145/3038912.3052569.
 
@@ -154,6 +105,8 @@ class NeuralCollaborativeFiltering(BasePipeline):
                  load_model_path: Optional[str] = None,
                  map_location: Optional[str] = None):
         super().__init__(**get_init_arguments())
+
+    __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
 
     def _setup_model(self, **kwargs) -> None:
         """

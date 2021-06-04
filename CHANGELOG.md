@@ -3,11 +3,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
-# [0.5.0] - 2021-5-14
+# [0.5.0] - 2021-6-4
 ### Added
  - new model architectures ``CollaborativeMetricLearningModel``, ``MLPMatrixFactorizationModel``, and ``DeepFM``
 ### Changed
- - filename for ``HybridPretrainedModel`` to ``hybrid_pretrained_matrix_factorization.py``. The former model filepath is now deprecated and will be removed in future version ``0.X.0``
+ - filename for ``HybridPretrainedModel`` to ``hybrid_pretrained_matrix_factorization.py``. The former model filepath is now deprecated and will be removed in future version ``0.6.0``
+ - ``collie.model.base`` is now split into its own directory with the same name
  - all ``model.freeze() -> model.eval()``
 
 # [0.4.0] - 2021-5-13
