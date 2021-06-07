@@ -17,12 +17,12 @@ from collie_recs.config import DATA_PATH
 from collie_recs.model.base import (BasePipeline,
                                     INTERACTIONS_LIKE_INPUT,
                                     ScaledEmbedding)
-from collie_recs.model.base.docstring import merge_docstrings
 from collie_recs.model.matrix_factorization import MatrixFactorizationModel
-from collie_recs.utils import get_init_arguments
+from collie_recs.utils import get_init_arguments, merge_docstrings
 
 
 class HybridPretrainedModel(BasePipeline):
+    # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``
     """
     Training pipeline for a hybrid recommendation model.
 
@@ -80,8 +80,6 @@ class HybridPretrainedModel(BasePipeline):
         When initializing the model, whether or not to freeze ``trained_model``'s embeddings
     dropout_p: float
         Probability of dropout
-    weight_decay: float
-        Weight decay passed to the optimizer, if optimizer permits
     optimizer: torch.optim or str
         If a string, one of the following supported optimizers:
 

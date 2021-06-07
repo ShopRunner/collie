@@ -1,9 +1,11 @@
 from datetime import datetime
 import inspect
 from pathlib import Path
+import re
 import time
 from typing import Any, Dict, Iterable, List, Optional, Union
 
+import docstring_parser
 import numpy as np
 import pandas as pd
 import pytorch_lightning
@@ -11,6 +13,12 @@ from scipy.sparse import coo_matrix
 import torch
 
 from collie_recs.interactions import Interactions
+
+
+# helpful constants just for clearer code
+NEWLINE_CHARACTER = '\n'
+FOUR_SPACES = '    '
+NEWLINE_CHARACTER_FOUR_SPACES = NEWLINE_CHARACTER + FOUR_SPACES
 
 
 def get_random_seed() -> int:
@@ -421,3 +429,163 @@ class Timer(object):
         print('{0}: {1:.2f} min'.format(message, total_time))
 
         return total_time
+
+
+def merge_docstrings(parent_class, child_docstring, child_class__init__):
+    """
+    Merge docstrings for Collie models to reduce the amount of repeated, shared docstrings.
+
+    This method notes the arguments of the ``child_class``'s ``__init__`` function and searches
+    the docstrings of both the child and parent (in order) to construct the docstring for the child
+    class.
+
+    Specifically, the final docstring returned will be, in order:
+
+    ```
+    CHILD SHORT DESCRIPTION
+
+    CHILD LONG DESCRIPTION
+
+    Parameters
+    ----------
+    for each ``arg`` in CHILD ``__init__`` ARGUMENTS:
+        CHILD ARGUMENT DOCSTRING (if it exists in child docstring), else PARENT ARGUMENT DOCSTRING
+    ...
+
+    POST ``Parameters`` CHILD DOCSTRING, SIGNIFIED BY A REPEATED HYPHEN SEPARATOR
+
+    ```
+
+    Note that ``Parameters`` must exist in both the parent and child docstring for this function
+    to properly work.
+
+    """
+    # get parent class documentation
+    parent_docstring = parent_class.__doc__
+
+    # find the line where the ``Parameters`` section begins
+    child_docstring_list = child_docstring.split(NEWLINE_CHARACTER)
+
+    child_parameters_idx = [
+        idx for idx, arg in enumerate(child_docstring_list)
+        if re.search('\\sParameters\\s?$', arg)
+    ]
+
+    if len(child_parameters_idx) == 0:
+        # no ``Parameters`` section is bad, fail early
+        return child_docstring
+
+    child_parameters_idx = child_parameters_idx[0]
+
+    # find if a section directly following ``Parameters`` occurs, signified by a `---` block
+    child_post_parameters_separator_idx = [
+        idx for idx, arg in enumerate(child_docstring_list)
+        if re.search(r'(-)\1{2,}$', arg)
+        and idx > (child_parameters_idx + 1)
+    ]
+
+    if len(child_post_parameters_separator_idx) > 0:
+        # we have a post-``Parameters`` section!
+        child_post_parameters_separator_idx = min(child_post_parameters_separator_idx)
+        rest_of_child_docstring = NEWLINE_CHARACTER.join(
+            child_docstring_list[(child_post_parameters_separator_idx - 1):]
+        )
+    else:
+        # we don't have anything past the ``Parameters`` section, and that's okay
+        rest_of_child_docstring = ''
+
+    # parse both parent and child docstrings
+    parent_parse = docstring_parser.numpydoc.NumpydocParser().parse(parent_docstring)
+    child_parse = docstring_parser.numpydoc.NumpydocParser().parse(child_docstring)
+
+    parent_arg_name_idx_dict = {
+        param.arg_name: idx for idx, param in enumerate(parent_parse.params)
+    }
+    child_arg_name_idx_dict = {
+        param.arg_name: idx for idx, param in enumerate(child_parse.params)
+    }
+
+    # list all arguments the child class's ``__init__`` method defines
+    child_class_inspect_result = inspect.getfullargspec(child_class__init__)
+    child_class_has_args = child_class_inspect_result.varargs is not None
+    child_class_has_kwargs = child_class_inspect_result.varkw is not None
+
+    child_class__init__args = child_class_inspect_result.args
+
+    if child_class_has_args:
+        child_class__init__args.append('*' + child_class_inspect_result.varargs)
+    if child_class_has_kwargs:
+        child_class__init__args.append('**' + child_class_inspect_result.varkw)
+
+    # format the description of the class prior to the ``Parameters`` section
+    short_description = child_parse.short_description if child_parse.short_description else ''
+    long_description = child_parse.long_description if child_parse.long_description else ''
+
+    if short_description:
+        short_description = (
+            NEWLINE_CHARACTER_FOUR_SPACES
+            + short_description.replace(NEWLINE_CHARACTER, NEWLINE_CHARACTER_FOUR_SPACES)
+            + NEWLINE_CHARACTER
+        )
+
+    if long_description:
+        long_description = (
+            NEWLINE_CHARACTER_FOUR_SPACES
+            + long_description.replace(NEWLINE_CHARACTER, NEWLINE_CHARACTER_FOUR_SPACES)
+            + NEWLINE_CHARACTER * 2
+        )
+    else:
+        long_description = NEWLINE_CHARACTER
+
+    final_docstring = short_description + long_description
+
+    # loop through each expected argument, check if the docstring exists in the child (preferred)
+    # or the parent docuementation, then add that to the final docstring
+    if len(child_class__init__args) > 0:
+        final_docstring += (
+            FOUR_SPACES
+            + 'Parameters'
+            + NEWLINE_CHARACTER_FOUR_SPACES
+            + '----------'
+            + NEWLINE_CHARACTER
+        )
+
+        for arg in child_class__init__args:
+            if arg in child_arg_name_idx_dict:
+                param_idx = child_arg_name_idx_dict[arg]
+                param = child_parse.params[param_idx]
+            elif arg in parent_arg_name_idx_dict:
+                param_idx = parent_arg_name_idx_dict[arg]
+                param = parent_parse.params[param_idx]
+            else:
+                # argument isn't in the docstring, we can skip it
+                continue
+
+            arg_name = param.arg_name if param.arg_name else ''
+            type_name = ': ' + param.type_name if param.type_name else ''
+            description = param.description if param.description else ''
+
+            final_docstring += (
+                f'{FOUR_SPACES}{arg_name.strip()}{type_name.strip()}'
+                f'{NEWLINE_CHARACTER}'
+            )
+
+            if description != '':
+                final_docstring += FOUR_SPACES + FOUR_SPACES + (
+                    description
+                    .strip()
+                    .replace(NEWLINE_CHARACTER, NEWLINE_CHARACTER_FOUR_SPACES + FOUR_SPACES)
+                ) + NEWLINE_CHARACTER
+
+    # add in the rest of the docstring post-``Parameters`` section
+    final_docstring += NEWLINE_CHARACTER + rest_of_child_docstring
+
+    if not rest_of_child_docstring:
+        final_docstring += FOUR_SPACES
+
+    # replace lines that are just spaces with a newline character only
+    final_docstring = re.sub(r'\n(\s)*\n',
+                             NEWLINE_CHARACTER + NEWLINE_CHARACTER,
+                             final_docstring)
+
+    return final_docstring

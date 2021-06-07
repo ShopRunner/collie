@@ -8,11 +8,11 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from collie_recs.model.base import BasePipeline, INTERACTIONS_LIKE_INPUT, ScaledEmbedding
-from collie_recs.model.base.docstring import merge_docstrings
-from collie_recs.utils import get_init_arguments, trunc_normal
+from collie_recs.utils import get_init_arguments, merge_docstrings, trunc_normal
 
 
 class NeuralCollaborativeFiltering(BasePipeline):
+    # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``
     """
     Training pipeline for a neural matrix factorization model.
 
@@ -69,8 +69,6 @@ class NeuralCollaborativeFiltering(BasePipeline):
 
     dropout_p: float
         Probability of dropout on the MLP layers
-    weight_decay: float
-        Weight decay passed to the optimizer, if optimizer permits
     optimizer: torch.optim or str
         If a string, one of the following supported optimizers:
 

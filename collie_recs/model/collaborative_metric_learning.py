@@ -9,11 +9,11 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from collie_recs.model.base import (BasePipeline,
                                     INTERACTIONS_LIKE_INPUT,
                                     ScaledEmbedding)
-from collie_recs.model.base.docstring import merge_docstrings
-from collie_recs.utils import get_init_arguments
+from collie_recs.utils import get_init_arguments, merge_docstrings
 
 
 class CollaborativeMetricLearningModel(BasePipeline):
+    # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``
     """
     Training pipeline for the collaborative metric learning model.
 
@@ -52,8 +52,6 @@ class CollaborativeMetricLearningModel(BasePipeline):
     sparse: bool
         Whether or not to treat embeddings as sparse tensors. If ``True``, cannot use weight decay
         on the optimizer
-    weight_decay: float
-        Weight decay passed to the optimizer, if optimizer permits
     y_range: tuple
         Specify as ``(min, max)`` to apply a sigmoid layer to the output score of the model to get
         predicted ratings within the range of ``min`` and ``max``

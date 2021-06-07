@@ -10,11 +10,11 @@ from collie_recs.model.base import (BasePipeline,
                                     INTERACTIONS_LIKE_INPUT,
                                     ScaledEmbedding,
                                     ZeroEmbedding)
-from collie_recs.model.base.docstring import merge_docstrings
-from collie_recs.utils import get_init_arguments
+from collie_recs.utils import get_init_arguments, merge_docstrings
 
 
 class MatrixFactorizationModel(BasePipeline):
+    # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``
     """
     Training pipeline for the matrix factorization model.
 
@@ -63,8 +63,6 @@ class MatrixFactorizationModel(BasePipeline):
         on the optimizer
     bias_lr: float
         Bias terms learning rate. If 'infer', will set equal to ``lr``
-    weight_decay: float
-        Weight decay passed to the optimizer, if optimizer permits
     bias_optimizer: torch.optim or str
         Optimizer for the bias terms. This supports the same string options as ``optimizer``, with
         the addition of ``infer``, which will set the optimizer equal to ``optimizer``. If

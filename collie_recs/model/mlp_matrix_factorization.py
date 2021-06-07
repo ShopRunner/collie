@@ -10,11 +10,11 @@ from collie_recs.model.base import (BasePipeline,
                                     INTERACTIONS_LIKE_INPUT,
                                     ScaledEmbedding,
                                     ZeroEmbedding)
-from collie_recs.model.base.docstring import merge_docstrings
-from collie_recs.utils import get_init_arguments
+from collie_recs.utils import get_init_arguments, merge_docstrings
 
 
 class MLPMatrixFactorizationModel(BasePipeline):
+    # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``
     """
     Training pipeline for the matrix factorization model with MLP layers instead of a final dot
     product (like in ``MatrixFactorizationModel``).
@@ -55,8 +55,6 @@ class MLPMatrixFactorizationModel(BasePipeline):
         Probability of dropout on the linear layers
     bias_lr: float
         Bias terms learning rate. If 'infer', will set equal to ``lr``
-    weight_decay: float
-        Weight decay passed to the optimizer, if optimizer permits
     optimizer: torch.optim or str
         If a string, one of the following supported optimizers:
 
