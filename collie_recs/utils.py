@@ -198,7 +198,8 @@ def trunc_normal(embedding_weight: torch.tensor,
     return embedding_weight.normal_().fmod_(2).mul_(std).add_(mean)
 
 
-def get_init_arguments(exclude: Optional[Iterable] = [], verbose: bool = False) -> Dict[str, Any]:
+def get_init_arguments(exclude: Optional[Iterable[str]] = [],
+                       verbose: bool = False) -> Dict[str, Any]:
     """
     Get all input arguments (*args and **kwargs) sent to the most-recently called method, given it
     is an ``__init__`` of a class.

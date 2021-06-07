@@ -12,5 +12,6 @@
  - [ ] ``README`` has been updated (if applicable)
  - [ ] Documentation in ``docs`` has been updated (if applicable)
  - [ ] ``requirements.txt`` and ``requirements-dev.txt`` have been recompiled (if applicable)
+ - [ ] Docker image can be built using ``docker build -t collie_recs .``
 
 ## Screenshots or GIFs?

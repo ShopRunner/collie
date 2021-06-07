@@ -32,16 +32,6 @@ jobs:
         pip install --upgrade pip wheel twine
         python setup.py sdist bdist_wheel
 
-  docker_build:
-
-    runs-on: ubuntu-latest
-    needs: [test]
-    steps:
-    - uses: actions/checkout@v2
-    - name: Build Docker image
-      run: |
-        docker build -t collie_recs .
-
   codecov:
 
     runs-on: ubuntu-latest
