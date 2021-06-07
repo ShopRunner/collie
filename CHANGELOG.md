@@ -11,6 +11,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
  - ``collie.model.base`` is now split into its own directory with the same name
  - reduced boilerplate docstrings required for models
  - all ``model.freeze() -> model.eval()``
+ - bumped version of ``sphinx-rtd-theme`` to ``0.5.2``
 
 # [0.4.0] - 2021-5-13
 ### Added

@@ -51,7 +51,7 @@ setup(
             'pytest',
             'pytest-cov<3.0.0',
             'sphinx-copybutton',
-            'sphinx-rtd-theme==0.5.1',
+            'sphinx-rtd-theme==0.5.2',
             'widgetsnbextension',
         ]
     },

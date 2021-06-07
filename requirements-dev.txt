@@ -18,6 +18,10 @@ alabaster==0.7.12
     # via sphinx
 anyio==3.0.1
     # via jupyter-server
+appnope==0.1.2
+    # via
+    #   ipykernel
+    #   ipython
 argon2-cffi==20.1.0
     # via
     #   jupyter-server
@@ -71,10 +75,11 @@ docstring-parser==0.8.1
     # via
     #   -c requirements.txt
     #   collie-recs
-docutils==0.17.1
+docutils==0.16
     # via
     #   m2r2
     #   sphinx
+    #   sphinx-rtd-theme
 entrypoints==0.3
     # via nbconvert
 fire==0.4.0
@@ -421,7 +426,7 @@ snowballstemmer==2.1.0
     #   sphinx
 sphinx-copybutton==0.3.1
     # via collie-recs
-sphinx-rtd-theme==0.5.1
+sphinx-rtd-theme==0.5.2
     # via collie-recs
 sphinx==4.0.1
     # via

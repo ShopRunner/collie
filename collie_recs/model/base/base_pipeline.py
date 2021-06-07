@@ -99,6 +99,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
     map_location: str or torch.device
         If ``load_model_path`` is provided, device specifying how to remap storage locations when
         ``torch.load``-ing the state dictionary
+    **kwargs: keyword arguments
+        All keyword arguments will be saved to ``self.hparams`` by default
 
     """
     def __init__(self,
