@@ -21,7 +21,7 @@ def run_movielens_example(epochs: int = 20, gpus: int = 0) -> None:
         python collie_recs/movielens/run.py  --epochs 20
 
     Parameters
-    -------------
+    ----------
     epochs: int
         Number of epochs for model training
     gpus: int

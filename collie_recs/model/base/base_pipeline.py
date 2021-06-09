@@ -575,7 +575,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             the item ID
 
         Note
-        ----------
+        ----
         Returned array is unfiltered, so the first element, being the most similar item, will
         always be the item itself.
 

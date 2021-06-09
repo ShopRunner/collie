@@ -77,7 +77,7 @@ class NeuralCollaborativeFiltering(BasePipeline):
         * ``'adam'`` (for ``torch.optim.Adam``)
 
     References
-    -------------
+    ----------
     .. [2] Xiangnan et al. "Neural Collaborative Filtering." Neural Collaborative Filtering |
         Proceedings of the 26th International Conference on World Wide Web, 1 Apr. 2017,
         dl.acm.org/doi/10.1145/3038912.3052569.

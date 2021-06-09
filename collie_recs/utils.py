@@ -35,7 +35,7 @@ def create_ratings_matrix(df: pd.DataFrame,
     Helper function to convert a Pandas DataFrame to 2-dimensional matrix.
 
     Parameters
-    -------------
+    ----------
     df: pd.DataFrame
         Dataframe with columns for user IDs, item IDs, and ratings
     user_col: str
@@ -48,7 +48,7 @@ def create_ratings_matrix(df: pd.DataFrame,
         Whether to return data as a sparse ``coo_matrix`` (True) or np.array (False)
 
     Returns
-    -------------
+    -------
     ratings_matrix: np.array or scipy.sparse.coo_matrix, 2-d
         Data with users as rows, items as columns, and ratings as values
 
@@ -103,7 +103,7 @@ def df_to_interactions(df: pd.DataFrame,
     Helper function to convert a DataFrame to an ``Interactions`` object.
 
     Parameters
-    -------------
+    ----------
     df: pd.DataFrame
         Dataframe with columns for user IDs, item IDs, and (optionally) ratings
     user_col: str
@@ -116,7 +116,7 @@ def df_to_interactions(df: pd.DataFrame,
         Keyword arguments to pass to ``Interactions``
 
     Returns
-    -------------
+    -------
     interactions: collie_recs.interactions.Interactions
 
     """
@@ -137,7 +137,7 @@ def convert_to_implicit(explicit_df: pd.DataFrame,
     ``< min_rating_to_keep``. All remaining interactions will have a rating of ``1``.
 
     Parameters
-    -------------
+    ----------
     explicit_df: pd.DataFrame
         Dataframe with explicit ratings in the rating column
     min_rating_to_keep: int
@@ -146,7 +146,7 @@ def convert_to_implicit(explicit_df: pd.DataFrame,
         Column name for the ratings column
 
     Returns
-    -------------
+    -------
     implicit_df: pd.DataFrame
         Dataframe that converts all ``ratings >= min_rating_to_keep`` to 1 and drops the rest with a
         reset index. Note that the order of ``implicit_df`` will not be equal to ``explicit_df``
@@ -172,7 +172,7 @@ def remove_users_with_fewer_than_n_interactions(df: pd.DataFrame,
     Remove DataFrame rows with users who appear fewer than ``min_num_of_interactions`` times.
 
     Parameters
-    -------------
+    ----------
     df: pd.DataFrame
     min_num_of_interactions: int
         Minimum number of interactions a user can have while remaining in ``filtered_df``
@@ -180,7 +180,7 @@ def remove_users_with_fewer_than_n_interactions(df: pd.DataFrame,
         Column name for the user IDs
 
     Returns
-    -------------
+    -------
     filtered_df: pd.DataFrame
 
     """
@@ -221,12 +221,12 @@ def get_init_arguments(exclude: Optional[Iterable[str]] = [],
         Print keys in ``exclude`` not found in ``init_args``
 
     Returns
-    ----------
+    -------
     init_args: dict
         Argument dictionary with keys being argument names and values being arguments
 
-    Notes
-    ----------
+    Note
+    ----
     If the most-recently called method is not an ``__init__`` of a class, this function will return
     an empty dictionary.
 
@@ -270,7 +270,7 @@ def df_to_html(df: pd.DataFrame,
     Convert a Pandas DataFrame to HTML.
 
     Parameters
-    -------------
+    ----------
     df: DataFrame
         DataFrame to convert to HTML
     image_cols: str or list
@@ -302,12 +302,12 @@ def df_to_html(df: pd.DataFrame,
         https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_html.html
 
     Returns
-    -------------
+    -------
     df_html: HTML
         DataFrame converted to a HTML string, ready for displaying
 
     Examples
-    -------------
+    --------
     In a Jupyter notebook:
 
     .. code-block:: python
@@ -332,8 +332,8 @@ def df_to_html(df: pd.DataFrame,
             )
         )
 
-    Notes
-    -------------
+    Note
+    ----
     Converted table will have CSS class 'dataframe', unless otherwise specified.
 
     """
@@ -456,8 +456,14 @@ def merge_docstrings(parent_class, child_docstring, child_class__init__):
 
     ```
 
-    Note that ``Parameters`` must exist in both the parent and child docstring for this function
-    to properly work.
+    Notes
+    -----
+    * The docstring returned will be ordered with a description immediately followed by the
+      ``Parameters`` section.
+    * ``Returns``, ``Raises``, and ``Deprecated`` sections are currently not supported and will be
+      filtered out in the returned docstring.
+    * Additional sections will be returned following the ``Parameters`` section if they are noted
+      with a line of `-` the length of the title. If not, it will be filtered out.
 
     """
     # get parent class documentation
@@ -474,25 +480,6 @@ def merge_docstrings(parent_class, child_docstring, child_class__init__):
     if len(child_parameters_idx) == 0:
         # no ``Parameters`` section is bad, fail early
         return child_docstring
-
-    child_parameters_idx = child_parameters_idx[0]
-
-    # find if a section directly following ``Parameters`` occurs, signified by a `---` block
-    child_post_parameters_separator_idx = [
-        idx for idx, arg in enumerate(child_docstring_list)
-        if re.search(r'(-)\1{2,}$', arg)
-        and idx > (child_parameters_idx + 1)
-    ]
-
-    if len(child_post_parameters_separator_idx) > 0:
-        # we have a post-``Parameters`` section!
-        child_post_parameters_separator_idx = min(child_post_parameters_separator_idx)
-        rest_of_child_docstring = NEWLINE_CHARACTER.join(
-            child_docstring_list[(child_post_parameters_separator_idx - 1):]
-        )
-    else:
-        # we don't have anything past the ``Parameters`` section, and that's okay
-        rest_of_child_docstring = ''
 
     # parse both parent and child docstrings
     parent_parse = docstring_parser.numpydoc.NumpydocParser().parse(parent_docstring)
@@ -578,14 +565,28 @@ def merge_docstrings(parent_class, child_docstring, child_class__init__):
                 ) + NEWLINE_CHARACTER
 
     # add in the rest of the docstring post-``Parameters`` section
-    final_docstring += NEWLINE_CHARACTER + rest_of_child_docstring
+    for x in child_parse.meta:
+        if type(x) == docstring_parser.DocstringMeta:
+            final_docstring += (
+                NEWLINE_CHARACTER_FOUR_SPACES
+                + x.args[0].title()
+                + NEWLINE_CHARACTER_FOUR_SPACES
+                + '-' * len(x.args[0])
+                + NEWLINE_CHARACTER_FOUR_SPACES
+            )
 
-    if not rest_of_child_docstring:
-        final_docstring += FOUR_SPACES
+            if x.description != '':
+                final_docstring += (
+                    x.description
+                    .strip()
+                    .replace(NEWLINE_CHARACTER, NEWLINE_CHARACTER_FOUR_SPACES)
+                ) + NEWLINE_CHARACTER
 
     # replace lines that are just spaces with a newline character only
     final_docstring = re.sub(r'\n(\s)*\n',
                              NEWLINE_CHARACTER + NEWLINE_CHARACTER,
                              final_docstring)
+
+    final_docstring += NEWLINE_CHARACTER_FOUR_SPACES
 
     return final_docstring

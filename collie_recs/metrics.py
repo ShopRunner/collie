@@ -27,14 +27,14 @@ def _get_user_item_pairs(user_ids: (np.array, torch.tensor),
         Device to store tensors on
 
     Returns
-    ----------
+    -------
     users: torch.tensor, 1-d
         Tensor with ``n_items`` copies of each user ID
     items: torch.tensor, 1-d
         Tensor with ``len(user_ids)`` copies of each item ID
 
     Example
-    ----------
+    -------
     .. code-block:: python
 
         >>> user_ids = np.array([10, 11, 12])
@@ -88,7 +88,7 @@ def get_preds(model: BasePipeline,
         Device torch should use
 
     Returns
-    ----------
+    -------
     predicted_scores: torch.tensor
         Tensor of shape ``n_users x n_items``
 
@@ -121,7 +121,7 @@ def _get_labels(targets: csr_matrix,
         Device torch should use
 
     Returns
-    ----------
+    -------
     labels: torch.tensor
         Tensor with the same dimensions as input ``preds``
 
@@ -154,7 +154,7 @@ def mapk(targets: csr_matrix,
         Number of recommendations to consider per user
 
     Returns
-    ----------
+    -------
     mapk_score: float
 
     """
@@ -211,7 +211,7 @@ def mrr(targets: csr_matrix,
         Ignored, included only for compatibility with ``mapk``
 
     Returns
-    ----------
+    -------
     mrr_score: float
 
     """
@@ -253,7 +253,7 @@ def auc(targets: csr_matrix,
         Ignored, included only for compatibility with ``mapk``
 
     Returns
-    ----------
+    -------
     auc_score: float
 
     """
@@ -321,13 +321,13 @@ def evaluate_in_batches(
         Display progress bar and print statements during function execution
 
     Returns
-    ----------
+    -------
     evaluation_results: list
         List of floats, with each metric value corresponding to the respective function passed in
         ``metric_list``
 
     Examples
-    -------------
+    --------
     .. code-block:: python
 
         from collie_recs.metrics import auc, evaluate_in_batches, mapk, mrr

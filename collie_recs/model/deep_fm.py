@@ -91,7 +91,7 @@ class DeepFM(BasePipeline):
         predicted ratings within the range of ``min`` and ``max``
 
     References
-    -------------
+    ----------
     .. [3] Guo, Huifeng, et al. "DeepFM: A Factorization-Machine Based Neural Network for CTR
         Prediction." ArXiv.org, 13 Mar. 2017, arxiv.org/abs/1703.04247.
 

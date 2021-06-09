@@ -40,7 +40,7 @@ class CollieTrainer(Trainer):
         If set to ``True``, enables ``cudnn.benchmark``
     deterministic: bool
         If set to ``True``, enables ``cudnn.deterministic``
-    kwargs: keyword arguments
+    **kwargs: keyword arguments
         Additional keyword arguments to be sent to the ``Trainer`` class:
         https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html#trainer-class-api
 

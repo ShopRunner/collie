@@ -24,7 +24,7 @@ def ideal_difference_from_metadata(
     (since all metadata passed in to this function must be categorical).
 
     Parameters
-    -------------
+    ----------
     positive_items: torch.tensor, 1-d
         Tensor containing IDs for known positive items
     negative_items: torch.tensor, 1-d
@@ -52,7 +52,7 @@ def ideal_difference_from_metadata(
           which is equivalent to the loss without any partial credit
 
     Returns
-    -------------
+    -------
     ideal difference: torch.tensor
         Tensor with the same shape as ``positive_items``, with each element between 0 and 1
 

@@ -22,7 +22,7 @@ def warp_loss(
     See ``ideal_difference_from_metadata`` docstring for more info on how metadata is used.
 
     Parameters
-    -------------
+    ----------
     positive_scores: torch.tensor, 1-d
         Tensor containing scores for known positive items of shape
         ``num_negative_samples x batch_size``
@@ -61,11 +61,11 @@ def warp_loss(
           which is equivalent to the loss without any partial credit
 
     Returns
-    -------------
+    -------
     loss: torch.tensor
 
     References
-    -------------
+    ----------
     .. [4] Weston et al. WSABIE: Scaling Up To Large Vocabulary Image Annotation.
         www.thespermwhale.com/jaseweston/papers/wsabie-ijcai.pdf.
 

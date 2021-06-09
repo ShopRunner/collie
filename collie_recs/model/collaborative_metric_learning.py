@@ -57,7 +57,7 @@ class CollaborativeMetricLearningModel(BasePipeline):
         predicted ratings within the range of ``min`` and ``max``
 
     References
-    -------------
+    ----------
     .. [1] Campo, Miguel, et al. "Collaborative Metric Learning Recommendation System: Application
         to Theatrical Movie Releases." ArXiv.org, 1 Mar. 2018, arxiv.org/abs/1803.00202.
 
