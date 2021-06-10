@@ -4,6 +4,7 @@ import numpy as np
 import pytorch_lightning
 from scipy.sparse import csr_matrix
 import torch
+from torchmetrics import Metric
 from torchmetrics.functional import auroc
 from tqdm.auto import tqdm
 
@@ -385,8 +386,8 @@ def evaluate_in_batches(
 
 
 def evaluate_in_batches_explicit(
-    metric_list: Iterable[Callable],
-    test_interactions: collie_recs.interactions.Interactions,
+    metric_list: Iterable[Metric],
+    test_interactions: collie_recs.interactions.ExplicitInteractions,
     model: collie_recs.model.BasePipeline,
     logger: pytorch_lightning.loggers.base.LightningLoggerBase = None,
     verbose: bool = True,
@@ -399,21 +400,16 @@ def evaluate_in_batches_explicit(
     function handles the looping and batching boilerplate needed to properly evaluate the model
     without running out of memory.
 
+    # TODO: add checks for right Interactions type
+    # TODO: make logger logic shared
+    # TODO: write a bunch of tests
+
     Parameters
     ----------
-    metric_list: list of functions
-        List of evaluation functions to apply. Each function must accept keyword arguments:
-
-        * ``targets``
-
-        * ``user_ids``
-
-        * ``preds``
-
-        * ``k``
-
-    test_interactions: collie_recs.interactions.Interactions
-        Interactions to use as labels
+    metric_list: list of ``torchmetrics.Metric``
+        List of evaluation functions to apply. Each function must accept arguments for predictions
+        and targets, in order
+    test_interactions: collie_recs.interactions.ExplicitInteractions
     model: collie_recs.model.BasePipeline
         Model that can take a (user_id, item_id) pair as input and return a recommendation score
     batch_size: int
@@ -445,15 +441,13 @@ def evaluate_in_batches_explicit(
         from collie_recs.metrics import evaluate_in_batches_explicit
 
 
-        accuracy_module = torchmetrics.Accuracy()
-
-        accuracy_score = evaluate_in_batches(
-            metric_list=[accuracy_module],
+        mse_score, mae_score = evaluate_in_batches(
+            metric_list=[torchmetrics.MeanSquaredError(), torchmetrics.MeanAbsoluteError()],
             test_interactions=test,
             model=model,
         )
 
-        print(accuracy_score)
+        print(mse_score, mae_score)
 
     """
     try:

@@ -106,7 +106,20 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
 
         * ``'warp'``
 
-        If ``train.num_negative_samples > 1``, the adaptive loss version will automatically be used
+        * ``'mse'`` (explicit data)
+
+        * ``'mae'`` (explicit data)
+
+        For implicit data, if ``train.num_negative_samples > 1``, the adaptive loss version will
+        automatically be used of the losses above (except for WARP loss, which is only adaptive by
+        nature).
+
+        If a callable is passed, that function will be used for calculating the loss. For implicit
+        models, the first two arguments passed will be the positive and negative predictions,
+        respectively. Additional keyword arguments passed in order are ``num_items``,
+        ``positive_items``, ``negative_items``, ``metadata``, and ``metadata_weights``.
+        For explicit models, the only two arguments passed in will be the prediction and actual
+        rating values, in order.
     metadata_for_loss: dict
         Keys should be strings identifying each metadata type that match keys in
         ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_items x 1). Each

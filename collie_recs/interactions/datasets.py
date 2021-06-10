@@ -527,16 +527,16 @@ class ExplicitInteractions(BaseInteractions):
                          num_users=num_users,
                          num_items=num_items)
 
-        self.min_rating = ''
-        self.max_rating = ''
+        self.min_rating = self.mat.data.min()
+        self.max_rating = self.mat.data.max()
 
     def __repr__(self) -> str:
         """String representation of ``ExplicitInteractions`` class."""
         return textwrap.dedent(
             f'''
             ExplicitInteractions object with {self.num_interactions} interactions between
-            {self.num_users} users and {self.num_items} items, with minimum rating of {self.x}
-            and maximum rating of {self.x}.
+            {self.num_users} users and {self.num_items} items, with minimum rating of
+            {self.min_rating} and maximum rating of {self.max_rating}.
             '''
         ).replace('\n', ' ').strip()
 

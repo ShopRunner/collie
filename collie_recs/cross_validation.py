@@ -8,7 +8,7 @@ import numpy as np
 from scipy.sparse import coo_matrix
 from sklearn.model_selection import train_test_split
 
-from collie_recs.interactions import Interactions
+from collie_recs.interactions import ExplicitInteractions, Interactions
 from collie_recs.utils import get_random_seed
 
 
@@ -22,17 +22,26 @@ def _subset_interactions(interactions: Interactions, idxs: Iterable[int]) -> Int
 
     # disable all ``Interactions`` checks for the data splits, since we assume the initial
     # ``Interactions`` object would have these checks already applied prior to the data split
-    return Interactions(
-        mat=coo_mat,
-        num_negative_samples=interactions.num_negative_samples,
-        allow_missing_ids=True,
-        remove_duplicate_user_item_pairs=False,
-        num_users=interactions.num_users,
-        num_items=interactions.num_items,
-        check_num_negative_samples_is_valid=False,
-        max_number_of_samples_to_consider=interactions.max_number_of_samples_to_consider,
-        seed=interactions.seed,
-    )
+    if isinstance(interactions, Interactions):
+        return Interactions(
+            mat=coo_mat,
+            num_negative_samples=interactions.num_negative_samples,
+            allow_missing_ids=True,
+            remove_duplicate_user_item_pairs=False,
+            num_users=interactions.num_users,
+            num_items=interactions.num_items,
+            check_num_negative_samples_is_valid=False,
+            max_number_of_samples_to_consider=interactions.max_number_of_samples_to_consider,
+            seed=interactions.seed,
+        )
+    else:
+        return ExplicitInteractions(
+            mat=coo_mat,
+            allow_missing_ids=True,
+            remove_duplicate_user_item_pairs=False,
+            num_users=interactions.num_users,
+            num_items=interactions.num_items,
+        )
 
 
 def random_split(interactions: Interactions,
