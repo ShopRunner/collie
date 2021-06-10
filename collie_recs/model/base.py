@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from collections.abc import Iterable
 from pathlib import Path
 import sys
 import textwrap
@@ -990,7 +991,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
               - **Explicit**
 
         """
-        if isinstance(batch[0], tuple) and len(batch) == 2:
+        if len(batch) == 2 and isinstance(batch[0], Iterable) and len(batch[0]) == 2:
             if getattr(self, '_is_implicit', None) is False:
                 raise ValueError('Explicit loss with implicit data is invalid!')
 
@@ -1022,7 +1023,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                 metadata=self.hparams.metadata_for_loss,
                 metadata_weights=self.hparams.metadata_for_loss_weights,
             )
-        elif not isinstance(batch[0], tuple) and len(batch) == 3:
+        elif len(batch) == 3:
             if getattr(self, '_is_implicit', None) is True:
                 raise ValueError('Implicit loss with explicit data is invalid!')
 

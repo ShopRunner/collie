@@ -1,3 +1,4 @@
+from abc import ABCMeta, abstractmethod
 import collections
 import random
 import textwrap
@@ -13,7 +14,7 @@ from tqdm.auto import tqdm
 import collie_recs
 
 
-class BaseInteractions(torch.utils.data.Dataset):
+class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
     """
     PyTorch ``Dataset`` for implicit user-item interactions data.
 
@@ -150,23 +151,26 @@ class BaseInteractions(torch.utils.data.Dataset):
         self.num_items = num_items
 
         self.num_interactions = self.mat.nnz
+        self.min_rating = self.mat.data.min()
+        self.max_rating = self.mat.data.max()
 
+    @abstractmethod
     def __getitem__(self, index: Union[int, Iterable[int]]) -> (
         Union[Tuple[Tuple[int, int], np.array], Tuple[Tuple[np.array, np.array], np.array]]
     ):
-        """Access item in the ``Interactions`` instance, returning negative samples as well."""
+        """Access item in the ``BaseInteractions`` instance."""
         pass
 
     def __len__(self) -> int:
-        """Number of non-zero interactions in the ``Interactions`` instance."""
+        """Number of non-zero interactions in the ``BaseInteractions`` instance."""
         return self.num_interactions
 
     def todense(self) -> np.matrix:
-        """Transforms ``Interactions`` instance sparse matrix to np.matrix, 2-d."""
+        """Transforms ``BaseInteractions`` instance sparse matrix to np.matrix, 2-d."""
         return self.mat.todense()
 
     def toarray(self) -> np.array:
-        """Transforms ``Interactions`` instance sparse matrix to np.array, 2-d."""
+        """Transforms ``BaseInteractions`` instance sparse matrix to np.array, 2-d."""
         return self.mat.toarray()
 
     def head(self, n: int = 5) -> np.array:
@@ -518,6 +522,12 @@ class ExplicitInteractions(BaseInteractions):
                  remove_duplicate_user_item_pairs: bool = True,
                  num_users: int = 'infer',
                  num_items: int = 'infer'):
+        if mat is None and ratings is None:
+            raise ValueError(
+                'Ratings must be provided to ``ExplicitInteractions`` with ``mat`` or ``ratings``'
+                ' - both cannot be ``None``!'
+            )
+
         super().__init__(mat=mat,
                          users=users,
                          items=items,
@@ -527,8 +537,10 @@ class ExplicitInteractions(BaseInteractions):
                          num_users=num_users,
                          num_items=num_items)
 
-        self.min_rating = self.mat.data.min()
-        self.max_rating = self.mat.data.max()
+    @property
+    def num_negative_samples(self) -> int:
+        """Does not exist for explicit data."""
+        raise AttributeError('``num_negative_samples`` does not exist for explicit datasets.')
 
     def __repr__(self) -> str:
         """String representation of ``ExplicitInteractions`` class."""

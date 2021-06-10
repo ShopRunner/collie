@@ -369,23 +369,16 @@ def evaluate_in_batches(
     all_scores = [acc_score / len(test_users) for acc_score in accumulators]
 
     if logger is not None:
-        try:
-            step = model.hparams.get('num_epochs_completed')
-        except torch.nn.modules.module.ModuleAttributeError:
-            # if, somehow, there is no ``model.hparams`` attribute, this shouldn't fail
-            step = None
-
-        metrics_dict = dict(zip([x.__name__ for x in metric_list], all_scores))
-
-        if verbose:
-            print(f'Logging metrics {metrics_dict} to ``logger``...')
-
-        logger.log_metrics(metrics=metrics_dict, step=step)
+        _log_metrics(model=model,
+                     logger=logger,
+                     metric_list=metric_list,
+                     all_scores=all_scores,
+                     verbose=verbose)
 
     return all_scores[0] if len(all_scores) == 1 else all_scores
 
 
-def evaluate_in_batches_explicit(
+def explicit_evaluate_in_batches(
     metric_list: Iterable[Metric],
     test_interactions: collie_recs.interactions.ExplicitInteractions,
     model: collie_recs.model.BasePipeline,
@@ -401,8 +394,6 @@ def evaluate_in_batches_explicit(
     without running out of memory.
 
     # TODO: add checks for right Interactions type
-    # TODO: make logger logic shared
-    # TODO: write a bunch of tests
 
     Parameters
     ----------
@@ -438,7 +429,7 @@ def evaluate_in_batches_explicit(
 
         import torchmetrics
 
-        from collie_recs.metrics import evaluate_in_batches_explicit
+        from collie_recs.metrics import explicit_evaluate_in_batches
 
 
         mse_score, mae_score = evaluate_in_batches(
@@ -471,20 +462,35 @@ def evaluate_in_batches_explicit(
         all_scores = [metric.compute() for metric in metric_list]
 
         if logger is not None:
-            try:
-                step = model.hparams.get('num_epochs_completed')
-            except torch.nn.modules.module.ModuleAttributeError:
-                # if, somehow, there is no ``model.hparams`` attribute, this shouldn't fail
-                step = None
-
-            metrics_dict = dict(zip([x.__name__ for x in metric_list], all_scores))
-
-            if verbose:
-                print(f'Logging metrics {metrics_dict} to ``logger``...')
-
-            logger.log_metrics(metrics=metrics_dict, step=step)
+            _log_metrics(model=model,
+                         logger=logger,
+                         metric_list=metric_list,
+                         all_scores=all_scores,
+                         verbose=verbose)
 
         return all_scores[0] if len(all_scores) == 1 else all_scores
     finally:
         for metric in metric_list:
             metric.reset()
+
+
+def _log_metrics(model: BasePipeline,
+                 logger: pytorch_lightning.loggers.base.LightningLoggerBase,
+                 metric_list: List[Union[Callable, Metric]],
+                 all_scores: List[float],
+                 verbose: bool):
+    try:
+        step = model.hparams.get('num_epochs_completed')
+    except torch.nn.modules.module.ModuleAttributeError:
+        # if, somehow, there is no ``model.hparams`` attribute, this shouldn't fail
+        step = None
+
+    try:
+        metrics_dict = dict(zip([x.__name__ for x in metric_list], all_scores))
+    except AttributeError:
+        metrics_dict = dict(zip([type(x).__name__ for x in metric_list], all_scores))
+
+    if verbose:
+        print(f'Logging metrics {metrics_dict} to ``logger``...')
+
+    logger.log_metrics(metrics=metrics_dict, step=step)

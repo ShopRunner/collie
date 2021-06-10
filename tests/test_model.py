@@ -594,6 +594,37 @@ def test_implicit_model(implicit_model,
     assert mapk_score > 0.044
 
 
+# @pytest.mark.parametrize('model_type', ['with_lightning', 'no_lightning'])
+# def test_explicit_model(explicit_model,
+#                         explicit_model_no_lightning,
+#                         train_val_explicit_data,
+#                         model_type):
+#     if model_type == 'with_lightning':
+#         model = explicit_model
+#     elif model_type == 'no_lightning':
+#         model = explicit_model_no_lightning
+#
+#     train, val = train_val_explicit_data
+#
+#     item_preds = model.get_item_predictions(user_id=0,
+#                                             unseen_items_only=True,
+#                                             sort_values=True)
+#
+#     assert isinstance(item_preds, pd.Series)
+#     assert len(item_preds) > 0
+#     assert len(item_preds) < len(train)
+#
+#     item_similarities = model.item_item_similarity(item_id=42)
+#     assert item_similarities.index[0] == 42
+#
+#     mapk_score = explicit_evaluate_in_batches([mapk], val, model)
+#
+#     # The metrics used for evaluation have been determined through 30
+#     # trials of training the model and using the mean - 5 * std. dev.
+#     # as the minimum score the model must achieve to pass the test.
+#     assert mapk_score > 0.044
+
+
 def test_bad_final_layer_of_neucf(train_val_implicit_data):
     train, val = train_val_implicit_data
 
@@ -752,5 +783,22 @@ def test_models_trained_for_one_step(models_trained_for_one_step, train_val_impl
         assert len(item_preds) < len(train)
 
     item_similarities = models_trained_for_one_step.item_item_similarity(item_id=42)
+
+    assert item_similarities.index[0] == 42
+
+
+def test_explicit_models_trained_for_one_step(explicit_models_trained_for_one_step,
+                                              train_val_explicit_data):
+    train, _ = train_val_explicit_data
+
+    item_preds = explicit_models_trained_for_one_step.get_item_predictions(user_id=0,
+                                                                           unseen_items_only=True,
+                                                                           sort_values=True)
+
+    assert isinstance(item_preds, pd.Series)
+    assert len(item_preds) > 0
+    assert len(item_preds) < len(train)
+
+    item_similarities = explicit_models_trained_for_one_step.item_item_similarity(item_id=42)
 
     assert item_similarities.index[0] == 42

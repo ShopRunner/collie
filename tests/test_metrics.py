@@ -5,12 +5,14 @@ import numpy as np
 import pytest
 from sklearn.metrics import roc_auc_score
 import torch
+import torchmetrics
 
 from collie_recs.metrics import (
     _get_labels,
     _get_user_item_pairs,
     auc,
     evaluate_in_batches,
+    explicit_evaluate_in_batches,
     get_preds,
     mapk,
     mrr,
@@ -18,7 +20,7 @@ from collie_recs.metrics import (
 
 
 def get_model_scores(user, item, scores):
-    return scores[user, item]
+    return scores[user.long(), item.long()]
 
 
 @pytest.mark.parametrize('n_items_type', ['int', 'np.int64'])
@@ -205,3 +207,55 @@ def test_evaluate_in_batches_logger(
     assert auc_score == logger.metrics['auc']
 
     assert logger.step == implicit_model.hparams.num_epochs_completed
+
+
+@pytest.mark.parametrize('batch_size', [20, 2, 1])  # default, uneven, single
+@mock.patch('collie_recs.model.MatrixFactorizationModel')
+def test_explicit_evaluate_in_batches(
+    model,
+    test_explicit_interactions,
+    test_explicit_predicted_scores,
+    metrics,
+    batch_size,
+):
+    model.side_effect = partial(get_model_scores, scores=test_explicit_predicted_scores)
+
+    mse_score, mae_score = explicit_evaluate_in_batches(
+        metric_list=[torchmetrics.MeanSquaredError(), torchmetrics.MeanAbsoluteError()],
+        test_interactions=test_explicit_interactions,
+        model=model,
+        batch_size=batch_size,
+    )
+
+    np.testing.assert_almost_equal(mse_score, metrics['mse'])
+    np.testing.assert_almost_equal(mae_score, metrics['mae'])
+
+
+def test_explicit_evaluate_in_batches_logger(
+    explicit_model,
+    test_explicit_interactions,
+    test_explicit_predicted_scores,
+):
+    class LightningLoggerFixture():
+        """A simple logger base class with a method ``log_metrics``."""
+        def __init__(self):
+            pass
+
+        def log_metrics(self, metrics, step):
+            """Save ``metrics`` and ``step`` as class-level attributes for testing."""
+            self.metrics = metrics
+            self.step = step
+
+    logger = LightningLoggerFixture()
+
+    mse_score, mae_score = explicit_evaluate_in_batches(
+        metric_list=[torchmetrics.MeanSquaredError(), torchmetrics.MeanAbsoluteError()],
+        test_interactions=test_explicit_interactions,
+        model=explicit_model,
+        logger=logger,
+    )
+
+    assert mse_score == logger.metrics['MeanSquaredError']
+    assert mae_score == logger.metrics['MeanAbsoluteError']
+
+    assert logger.step == explicit_model.hparams.num_epochs_completed

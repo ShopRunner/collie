@@ -6,7 +6,10 @@ import numpy as np
 from scipy.sparse import coo_matrix
 import torch
 
-from collie_recs.interactions.datasets import HDF5Interactions, Interactions
+from collie_recs.interactions.datasets import (BaseInteractions,
+                                               ExplicitInteractions,
+                                               HDF5Interactions,
+                                               Interactions)
 from collie_recs.interactions.samplers import ApproximateNegativeSampler, HDF5Sampler
 
 
@@ -67,15 +70,19 @@ class BaseInteractionsDataLoader(torch.utils.data.DataLoader):
 
 class InteractionsDataLoader(BaseInteractionsDataLoader):
     """
-    A light wrapper around a ``torch.utils.data.DataLoader`` for ``Interactions`` datasets. Batches
-    will be created one-point-at-a-time using exact negative sampling (unless configured not to
-    in ``interactions``), which is optimal when datasets are smaller (< 1M+ interactions) and model
-    training speed is not a concern. This is the default ``DataLoader`` for ``Interactions``
-    datasets.
+    A light wrapper around a ``torch.utils.data.DataLoader`` for ``Interactions``-type datasets.
+
+    For implicit data, batches will be created one-point-at-a-time using exact negative sampling
+    (unless configured not to in ``interactions``), which is optimal when datasets are smaller
+    (< 1M+ interactions) and model training speed is not a concern. This is the default
+    ``DataLoader`` for ``Interactions`` datasets.
+
+    For explicit data, negative sampling is not used, but batches will still be created
+    one-point-at-a-time.
 
     Parameters
     -------------
-    interactions: Interactions
+    interactions: BaseInteractions
         If not provided, an ``Interactions`` object will be created with ``mat`` or all of
         ``users``, ``items``, and ``ratings``
     mat: scipy.sparse.coo_matrix or numpy.array, 2-dimensional
@@ -106,11 +113,11 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
 
     Attributes
     -------------
-    interactions: Interactions
+    interactions: Interactions (default) or ExplicitInteractions
 
     """
     def __init__(self,
-                 interactions: Interactions = None,
+                 interactions: BaseInteractions = None,
                  mat: Optional[Union[coo_matrix, np.array]] = None,
                  users: Optional[Iterable[int]] = None,
                  items: Optional[Iterable[int]] = None,
@@ -150,11 +157,18 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
 
     def __repr__(self) -> str:
         """String representation of ``InteractionsDataLoader`` class."""
+        if hasattr(self.interactions, 'num_negative_samples'):
+            extra_repr_str = (
+                f'{self.num_negative_samples} negative samples per implicit interaction in'
+            )
+        else:
+            extra_repr_str = 'explicit,'
+
         return textwrap.dedent(
             f'''
             InteractionsDataLoader object with {self.num_interactions} interactions between
             {self.num_users} users and {self.num_items} items, returning
-            {self.num_negative_samples} negative samples per interaction in
+            {extra_repr_str}
             {'shuffled' if self.shuffle else 'non-shuffled'} batches of size {self.batch_size}.
             '''
         ).replace('\n', ' ').strip()
@@ -222,6 +236,12 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
                  shuffle: bool = False,
                  num_workers: int = multiprocessing.cpu_count(),
                  **kwargs):
+        if isinstance(interactions, ExplicitInteractions):
+            raise ValueError(
+                '``ApproximateNegativeSamplingInteractionsDataLoader`` does not support explicit'
+                ' data types!'
+            )
+
         if interactions is None:
             interactions_only_kwargs = {
                 k: v for k, v in kwargs.items()
@@ -266,7 +286,7 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
             f'''
             ApproximateNegativeSamplingInteractionsDataLoader object with {self.num_interactions}
             interactions between {self.num_users} users and {self.num_items} items, returning
-            {self.num_negative_samples} negative samples per interaction in
+            {self.num_negative_samples} negative samples per implicit interaction in
             {'shuffled' if self.shuffle else 'non-shuffled'} batches of size
             {self.approximate_negative_sampler.batch_size}.
             '''
@@ -370,7 +390,7 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
             HDF5InteractionsDataLoader object with {self.interactions.num_interactions}
             interactions between {self.interactions.num_users} users and
             {self.interactions.num_items} items, returning {self.num_negative_samples} negative
-            samples per interaction in {'shuffled' if self.shuffle else 'non-shuffled'} batches of
-            size {self.hdf5_sampler.batch_size}.
+            samples per implicit interaction in {'shuffled' if self.shuffle else 'non-shuffled'}
+            batches of size {self.hdf5_sampler.batch_size}.
             '''
         ).replace('\n', ' ').strip()
