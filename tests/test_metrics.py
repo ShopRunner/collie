@@ -225,6 +225,7 @@ def test_explicit_evaluate_in_batches(
         test_interactions=test_explicit_interactions,
         model=model,
         batch_size=batch_size,
+        num_workers=0,
     )
 
     np.testing.assert_almost_equal(mse_score, metrics['mse'])
@@ -253,6 +254,7 @@ def test_explicit_evaluate_in_batches_logger(
         test_interactions=test_explicit_interactions,
         model=explicit_model,
         logger=logger,
+        num_workers=0,
     )
 
     assert mse_score == logger.metrics['MeanSquaredError']
