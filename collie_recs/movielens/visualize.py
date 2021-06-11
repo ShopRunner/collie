@@ -29,7 +29,7 @@ def get_recommendation_visualizations(
     Visualize Movielens 100K recommendations for a given user.
 
     Parameters
-    -------------
+    ----------
     model: collie_recs.model.BasePipeline
     user_id: int
         User ID to retrieve recommendations for
@@ -75,7 +75,7 @@ def get_recommendation_visualizations(
         Image width for HTML images
 
     Returns
-    -------------
+    -------
     html: str
         HTML string of movies a user loved and the model recommended for a given user, ready for
         displaying

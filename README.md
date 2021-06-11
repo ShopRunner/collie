@@ -60,7 +60,7 @@ model = MatrixFactorizationModel(train=train,
                                  optimizer='adam')
 trainer = CollieTrainer(model, max_epochs=10)
 trainer.fit(model)
-model.freeze()
+model.eval()
 
 # evaluate the model
 auc_score, mrr_score, mapk_score = evaluate_in_batches([auc, mrr, mapk], val, model)

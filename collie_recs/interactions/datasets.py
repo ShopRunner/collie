@@ -37,7 +37,7 @@ class Interactions(torch.utils.data.Dataset):
     building a positive item lookup dictionary during initialization.
 
     Parameters
-    -------------
+    ----------
     mat: scipy.sparse.coo_matrix or numpy.array, 2-dimensional
         Interactions matrix, which, if provided, will be used instead of ``users``, ``items``, and
         ``ratings`` arguments
@@ -342,7 +342,7 @@ class HDF5Interactions(torch.utils.data.Dataset):
     approximate negative sampling will always be used.
 
     Parameters
-    -------------
+    ----------
     hdf5_path: str
     user_col: str
         Column in HDF5 file with user IDs. IDs must begin at 0

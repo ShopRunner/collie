@@ -1,9 +1,11 @@
 from datetime import datetime
 import inspect
 from pathlib import Path
+import re
 import time
 from typing import Any, Dict, Iterable, List, Optional, Union
 
+import docstring_parser
 import numpy as np
 import pandas as pd
 import pytorch_lightning
@@ -11,6 +13,12 @@ from scipy.sparse import coo_matrix
 import torch
 
 from collie_recs.interactions import Interactions
+
+
+# helpful constants just for clearer code
+NEWLINE_CHARACTER = '\n'
+FOUR_SPACES = '    '
+NEWLINE_CHARACTER_FOUR_SPACES = NEWLINE_CHARACTER + FOUR_SPACES
 
 
 def get_random_seed() -> int:
@@ -27,7 +35,7 @@ def create_ratings_matrix(df: pd.DataFrame,
     Helper function to convert a Pandas DataFrame to 2-dimensional matrix.
 
     Parameters
-    -------------
+    ----------
     df: pd.DataFrame
         Dataframe with columns for user IDs, item IDs, and ratings
     user_col: str
@@ -40,7 +48,7 @@ def create_ratings_matrix(df: pd.DataFrame,
         Whether to return data as a sparse ``coo_matrix`` (True) or np.array (False)
 
     Returns
-    -------------
+    -------
     ratings_matrix: np.array or scipy.sparse.coo_matrix, 2-d
         Data with users as rows, items as columns, and ratings as values
 
@@ -95,7 +103,7 @@ def df_to_interactions(df: pd.DataFrame,
     Helper function to convert a DataFrame to an ``Interactions`` object.
 
     Parameters
-    -------------
+    ----------
     df: pd.DataFrame
         Dataframe with columns for user IDs, item IDs, and (optionally) ratings
     user_col: str
@@ -108,7 +116,7 @@ def df_to_interactions(df: pd.DataFrame,
         Keyword arguments to pass to ``Interactions``
 
     Returns
-    -------------
+    -------
     interactions: collie_recs.interactions.Interactions
 
     """
@@ -129,7 +137,7 @@ def convert_to_implicit(explicit_df: pd.DataFrame,
     ``< min_rating_to_keep``. All remaining interactions will have a rating of ``1``.
 
     Parameters
-    -------------
+    ----------
     explicit_df: pd.DataFrame
         Dataframe with explicit ratings in the rating column
     min_rating_to_keep: int
@@ -138,7 +146,7 @@ def convert_to_implicit(explicit_df: pd.DataFrame,
         Column name for the ratings column
 
     Returns
-    -------------
+    -------
     implicit_df: pd.DataFrame
         Dataframe that converts all ``ratings >= min_rating_to_keep`` to 1 and drops the rest with a
         reset index. Note that the order of ``implicit_df`` will not be equal to ``explicit_df``
@@ -164,7 +172,7 @@ def remove_users_with_fewer_than_n_interactions(df: pd.DataFrame,
     Remove DataFrame rows with users who appear fewer than ``min_num_of_interactions`` times.
 
     Parameters
-    -------------
+    ----------
     df: pd.DataFrame
     min_num_of_interactions: int
         Minimum number of interactions a user can have while remaining in ``filtered_df``
@@ -172,7 +180,7 @@ def remove_users_with_fewer_than_n_interactions(df: pd.DataFrame,
         Column name for the user IDs
 
     Returns
-    -------------
+    -------
     filtered_df: pd.DataFrame
 
     """
@@ -198,7 +206,8 @@ def trunc_normal(embedding_weight: torch.tensor,
     return embedding_weight.normal_().fmod_(2).mul_(std).add_(mean)
 
 
-def get_init_arguments(exclude: Optional[Iterable] = [], verbose: bool = False) -> Dict[str, Any]:
+def get_init_arguments(exclude: Optional[Iterable[str]] = [],
+                       verbose: bool = False) -> Dict[str, Any]:
     """
     Get all input arguments (*args and **kwargs) sent to the most-recently called method, given it
     is an ``__init__`` of a class.
@@ -212,12 +221,12 @@ def get_init_arguments(exclude: Optional[Iterable] = [], verbose: bool = False) 
         Print keys in ``exclude`` not found in ``init_args``
 
     Returns
-    ----------
+    -------
     init_args: dict
         Argument dictionary with keys being argument names and values being arguments
 
-    Notes
-    ----------
+    Note
+    ----
     If the most-recently called method is not an ``__init__`` of a class, this function will return
     an empty dictionary.
 
@@ -261,7 +270,7 @@ def df_to_html(df: pd.DataFrame,
     Convert a Pandas DataFrame to HTML.
 
     Parameters
-    -------------
+    ----------
     df: DataFrame
         DataFrame to convert to HTML
     image_cols: str or list
@@ -293,12 +302,12 @@ def df_to_html(df: pd.DataFrame,
         https://pandas.pydata.org/pandas-docs/stable/reference/api/pandas.DataFrame.to_html.html
 
     Returns
-    -------------
+    -------
     df_html: HTML
         DataFrame converted to a HTML string, ready for displaying
 
     Examples
-    -------------
+    --------
     In a Jupyter notebook:
 
     .. code-block:: python
@@ -323,8 +332,8 @@ def df_to_html(df: pd.DataFrame,
             )
         )
 
-    Notes
-    -------------
+    Note
+    ----
     Converted table will have CSS class 'dataframe', unless otherwise specified.
 
     """
@@ -420,3 +429,164 @@ class Timer(object):
         print('{0}: {1:.2f} min'.format(message, total_time))
 
         return total_time
+
+
+def merge_docstrings(parent_class, child_docstring, child_class__init__):
+    """
+    Merge docstrings for Collie models to reduce the amount of repeated, shared docstrings.
+
+    This method notes the arguments of the ``child_class``'s ``__init__`` function and searches
+    the docstrings of both the child and parent (in order) to construct the docstring for the child
+    class.
+
+    Specifically, the final docstring returned will be, in order:
+
+    ```
+    CHILD SHORT DESCRIPTION
+
+    CHILD LONG DESCRIPTION
+
+    Parameters
+    ----------
+    for each ``arg`` in CHILD ``__init__`` ARGUMENTS:
+        CHILD ARGUMENT DOCSTRING (if it exists in child docstring), else PARENT ARGUMENT DOCSTRING
+    ...
+
+    POST ``Parameters`` CHILD DOCSTRING, SIGNIFIED BY A REPEATED HYPHEN SEPARATOR
+
+    ```
+
+    Notes
+    -----
+    * The docstring returned will be ordered with a description immediately followed by the
+      ``Parameters`` section.
+    * ``Returns``, ``Raises``, and ``Deprecated`` sections are currently not supported and will be
+      filtered out in the returned docstring.
+    * Additional sections will be returned following the ``Parameters`` section if they are noted
+      with a line of `-` the length of the title. If not, it will be filtered out.
+
+    """
+    # get parent class documentation
+    parent_docstring = parent_class.__doc__
+
+    # find the line where the ``Parameters`` section begins
+    child_docstring_list = child_docstring.split(NEWLINE_CHARACTER)
+
+    child_parameters_idx = [
+        idx for idx, arg in enumerate(child_docstring_list)
+        if re.search('\\sParameters\\s?$', arg)
+    ]
+
+    if len(child_parameters_idx) == 0:
+        # no ``Parameters`` section is bad, fail early
+        return child_docstring
+
+    # parse both parent and child docstrings
+    parent_parse = docstring_parser.numpydoc.NumpydocParser().parse(parent_docstring)
+    child_parse = docstring_parser.numpydoc.NumpydocParser().parse(child_docstring)
+
+    parent_arg_name_idx_dict = {
+        param.arg_name: idx for idx, param in enumerate(parent_parse.params)
+    }
+    child_arg_name_idx_dict = {
+        param.arg_name: idx for idx, param in enumerate(child_parse.params)
+    }
+
+    # list all arguments the child class's ``__init__`` method defines
+    child_class_inspect_result = inspect.getfullargspec(child_class__init__)
+    child_class_has_args = child_class_inspect_result.varargs is not None
+    child_class_has_kwargs = child_class_inspect_result.varkw is not None
+
+    child_class__init__args = child_class_inspect_result.args
+
+    if child_class_has_args:
+        child_class__init__args.append('*' + child_class_inspect_result.varargs)
+    if child_class_has_kwargs:
+        child_class__init__args.append('**' + child_class_inspect_result.varkw)
+
+    # format the description of the class prior to the ``Parameters`` section
+    short_description = child_parse.short_description if child_parse.short_description else ''
+    long_description = child_parse.long_description if child_parse.long_description else ''
+
+    if short_description:
+        short_description = (
+            NEWLINE_CHARACTER_FOUR_SPACES
+            + short_description.replace(NEWLINE_CHARACTER, NEWLINE_CHARACTER_FOUR_SPACES)
+            + NEWLINE_CHARACTER
+        )
+
+    if long_description:
+        long_description = (
+            NEWLINE_CHARACTER_FOUR_SPACES
+            + long_description.replace(NEWLINE_CHARACTER, NEWLINE_CHARACTER_FOUR_SPACES)
+            + NEWLINE_CHARACTER * 2
+        )
+    else:
+        long_description = NEWLINE_CHARACTER
+
+    final_docstring = short_description + long_description
+
+    # loop through each expected argument, check if the docstring exists in the child (preferred)
+    # or the parent docuementation, then add that to the final docstring
+    if len(child_class__init__args) > 0:
+        final_docstring += (
+            FOUR_SPACES
+            + 'Parameters'
+            + NEWLINE_CHARACTER_FOUR_SPACES
+            + '----------'
+            + NEWLINE_CHARACTER
+        )
+
+        for arg in child_class__init__args:
+            if arg in child_arg_name_idx_dict:
+                param_idx = child_arg_name_idx_dict[arg]
+                param = child_parse.params[param_idx]
+            elif arg in parent_arg_name_idx_dict:
+                param_idx = parent_arg_name_idx_dict[arg]
+                param = parent_parse.params[param_idx]
+            else:
+                # argument isn't in the docstring, we can skip it
+                continue
+
+            arg_name = param.arg_name if param.arg_name else ''
+            type_name = ': ' + param.type_name if param.type_name else ''
+            description = param.description if param.description else ''
+
+            final_docstring += (
+                f'{FOUR_SPACES}{arg_name.strip()}{type_name.strip()}'
+                f'{NEWLINE_CHARACTER}'
+            )
+
+            if description != '':
+                final_docstring += FOUR_SPACES + FOUR_SPACES + (
+                    description
+                    .strip()
+                    .replace(NEWLINE_CHARACTER, NEWLINE_CHARACTER_FOUR_SPACES + FOUR_SPACES)
+                ) + NEWLINE_CHARACTER
+
+    # add in the rest of the docstring post-``Parameters`` section
+    for x in child_parse.meta:
+        if type(x) == docstring_parser.DocstringMeta:
+            final_docstring += (
+                NEWLINE_CHARACTER_FOUR_SPACES
+                + x.args[0].title()
+                + NEWLINE_CHARACTER_FOUR_SPACES
+                + '-' * len(x.args[0])
+                + NEWLINE_CHARACTER_FOUR_SPACES
+            )
+
+            if x.description != '':
+                final_docstring += (
+                    x.description
+                    .strip()
+                    .replace(NEWLINE_CHARACTER, NEWLINE_CHARACTER_FOUR_SPACES)
+                ) + NEWLINE_CHARACTER
+
+    # replace lines that are just spaces with a newline character only
+    final_docstring = re.sub(r'\n(\s)*\n',
+                             NEWLINE_CHARACTER + NEWLINE_CHARACTER,
+                             final_docstring)
+
+    final_docstring += NEWLINE_CHARACTER_FOUR_SPACES
+
+    return final_docstring

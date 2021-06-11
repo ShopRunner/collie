@@ -7,38 +7,38 @@ from torch import nn
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from collie_recs.model.base import BasePipeline, INTERACTIONS_LIKE_INPUT, ScaledEmbedding
+from collie_recs.model.base import (BasePipeline,
+                                    INTERACTIONS_LIKE_INPUT,
+                                    ScaledEmbedding,
+                                    ZeroEmbedding)
 from collie_recs.utils import get_init_arguments, merge_docstrings, trunc_normal
 
 
-class NeuralCollaborativeFiltering(BasePipeline):
+class DeepFM(BasePipeline):
     # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``.
     # Only the description of new or changed parameters are included in this docstring
     """
-    Training pipeline for a neural matrix factorization model.
+    Training pipeline for a deep factorization model.
 
-    ``NeuralCollaborativeFiltering`` models combine a collaborative filtering and multilayer
-    perceptron network in a single, unified model. The model consists of two sections: the first
-    is a simple matrix factorization that calculates a score by multiplying together user and item
-    embeddings (lookups through an embedding table); the second is a MLP network that feeds
-    embeddings from a second set of embedding tables (one for user, one for item). Both output
-    vectors are combined and sent through a final MLP layer before returning a single recommendation
-    score.
+    ``DeepFM`` models combine a shallow factorization machine and a deep multilayer perceptron
+    network in a single, unified model. The model consists of embedding tables for users and items,
+    and model output is the sum of 1) factorization machine output of both embeddings (shallow) and
+    2) MLP output for the concatenation of both embeddings (deep).
 
     The implementation here is meant to mimic its original implementation as specified here:
-    https://arxiv.org/pdf/1708.05031.pdf [2]_
+    https://arxiv.org/pdf/1703.04247.pdf [3]_
 
-    All ``NeuralCollaborativeFiltering`` instances are subclasses of the ``LightningModule`` class
+    All ``DeepFM`` instances are subclasses of the ``LightningModule`` class
     provided by PyTorch Lightning. This means to train a model, you will need a
     ``collie_recs.model.CollieTrainer`` object, but the model can be saved and loaded without this
     ``Trainer`` instance. Example usage may look like:
 
     .. code-block:: python
 
-        from collie_recs.model import CollieTrainer, NeuralCollaborativeFiltering
+        from collie.model import CollieTrainer, DeepFM
 
 
-        model = NeuralCollaborativeFiltering(train=train)
+        model = DeepFM(train=train)
         trainer = CollieTrainer(model)
         trainer.fit(model)
         model.eval()
@@ -46,7 +46,7 @@ class NeuralCollaborativeFiltering(BasePipeline):
         # do evaluation as normal with ``model``
 
         model.save_model(filename='model.pth')
-        new_model = NeuralCollaborativeFiltering(load_model_path='model.pth')
+        new_model = DeepFM(load_model_path='model.pth')
 
         # do evaluation as normal with ``new_model``
 
@@ -69,7 +69,12 @@ class NeuralCollaborativeFiltering(BasePipeline):
         * 'leaky_relu'
 
     dropout_p: float
-        Probability of dropout on the MLP layers
+        Probability of dropout
+    sparse: bool
+        Whether or not to treat embeddings as sparse tensors. If ``True``, cannot use weight decay
+        on the optimizer
+    bias_lr: float
+        Bias terms learning rate. If 'infer', will set equal to ``lr``
     optimizer: torch.optim or str
         If a string, one of the following supported optimizers:
 
@@ -77,11 +82,19 @@ class NeuralCollaborativeFiltering(BasePipeline):
 
         * ``'adam'`` (for ``torch.optim.Adam``)
 
+    bias_optimizer: torch.optim or str
+        Optimizer for the bias terms. This supports the same string options as ``optimizer``, with
+        the addition of ``infer``, which will set the optimizer equal to ``optimizer``. If
+        ``bias_optimizer`` is ``None``, only a single optimizer will be created for all model
+        parameters
+    y_range: tuple
+        Specify as ``(min, max)`` to apply a sigmoid layer to the output score of the model to get
+        predicted ratings within the range of ``min`` and ``max``
+
     References
     ----------
-    .. [2] Xiangnan et al. "Neural Collaborative Filtering." Neural Collaborative Filtering |
-        Proceedings of the 26th International Conference on World Wide Web, 1 Apr. 2017,
-        dl.acm.org/doi/10.1145/3038912.3052569.
+    .. [3] Guo, Huifeng, et al. "DeepFM: A Factorization-Machine Based Neural Network for CTR
+        Prediction." ArXiv.org, 13 Mar. 2017, arxiv.org/abs/1703.04247.
 
     """
     def __init__(self,
@@ -92,11 +105,13 @@ class NeuralCollaborativeFiltering(BasePipeline):
                  final_layer: Optional[Union[str, Callable]] = None,
                  dropout_p: float = 0.0,
                  lr: float = 1e-3,
+                 bias_lr: Optional[Union[float, str]] = 1e-2,
                  lr_scheduler_func: Optional[Callable] = partial(ReduceLROnPlateau,
                                                                  patience=1,
                                                                  verbose=True),
                  weight_decay: float = 0.0,
                  optimizer: Union[str, Callable] = 'adam',
+                 bias_optimizer: Optional[Union[str, Callable]] = 'sgd',
                  loss: Union[str, Callable] = 'hinge',
                  metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
                  metadata_for_loss_weights: Optional[Dict[str, float]] = None,
@@ -111,38 +126,42 @@ class NeuralCollaborativeFiltering(BasePipeline):
         """
         Method for building model internals that rely on the data passed in.
 
-        This method will be called after ``prepare_data``.
+        This method will be called after `prepare_data`.
 
         """
-        self.user_embeddings_cf = ScaledEmbedding(num_embeddings=self.hparams.num_users,
-                                                  embedding_dim=self.hparams.embedding_dim)
-        self.item_embeddings_cf = ScaledEmbedding(num_embeddings=self.hparams.num_items,
-                                                  embedding_dim=self.hparams.embedding_dim)
-
-        mlp_embedding_dim = self.hparams.embedding_dim * (2 ** (self.hparams.num_layers - 1))
-        self.user_embeddings_mlp = ScaledEmbedding(
-            num_embeddings=self.hparams.num_users,
-            embedding_dim=mlp_embedding_dim,
-        )
-        self.item_embeddings_mlp = ScaledEmbedding(
-            num_embeddings=self.hparams.num_items,
-            embedding_dim=mlp_embedding_dim,
-        )
+        self.user_embeddings = ScaledEmbedding(num_embeddings=self.hparams.num_users,
+                                               embedding_dim=self.hparams.embedding_dim)
+        self.item_embeddings = ScaledEmbedding(num_embeddings=self.hparams.num_items,
+                                               embedding_dim=self.hparams.embedding_dim)
+        self.user_biases = ZeroEmbedding(num_embeddings=self.hparams.num_users,
+                                         embedding_dim=1)
+        self.item_biases = ZeroEmbedding(num_embeddings=self.hparams.num_items,
+                                         embedding_dim=1)
+        self.user_global_bias = nn.Parameter(torch.zeros(1))
+        self.item_global_bias = nn.Parameter(torch.zeros(1))
 
         mlp_modules = []
+        input_size = self.hparams.embedding_dim * 2
         for i in range(self.hparams.num_layers):
-            input_size = self.hparams.embedding_dim * (2 ** (self.hparams.num_layers - i))
-            mlp_modules.append(nn.Dropout(p=self.hparams.dropout_p))
-            mlp_modules.append(nn.Linear(input_size, input_size//2))
+            next_input_size = (
+                int(
+                    self.hparams.embedding_dim
+                    * 2
+                    * ((self.hparams.num_layers - i) / (self.hparams.num_layers + 1))
+                )
+            )
+            mlp_modules.append(nn.Linear(input_size, next_input_size))
             mlp_modules.append(nn.ReLU())
+            mlp_modules.append(nn.Dropout(p=self.hparams.dropout_p))
+            input_size = next_input_size
         self.mlp_layers = nn.Sequential(*mlp_modules)
 
-        self.predict_layer = nn.Linear(self.hparams.embedding_dim * 2, 1)
+        self.predict_layer = nn.Linear(next_input_size, 1)
 
         for m in self.mlp_layers:
             if isinstance(m, nn.Linear):
                 # initialization taken from the official repo:
-                # https://github.com/hexiangnan/neural_collaborative_filtering/blob/master/NeuMF.py#L63  # noqa: E501
+                # https://github.com/hexiangnan/neural_collaborative_filtering/blob/master/NeuMF.py
                 trunc_normal(m.weight.data, std=0.01)
 
         nn.init.kaiming_uniform_(self.predict_layer.weight, nonlinearity='relu')
@@ -168,18 +187,20 @@ class NeuralCollaborativeFiltering(BasePipeline):
             Predicted ratings or rankings
 
         """
-        user_embedding_cf = self.user_embeddings_cf(users)
-        item_embedding_cf = self.item_embeddings_cf(items)
-        output_cf = user_embedding_cf * item_embedding_cf
+        user_embeddings = self.user_embeddings(users)
+        item_embeddings = self.item_embeddings(items)
 
-        user_embedding_mlp = self.user_embeddings_mlp(users)
-        item_embedding_mlp = self.item_embeddings_mlp(items)
-        interaction = torch.cat((user_embedding_mlp, item_embedding_mlp), -1)
-        output_mlp = self.mlp_layers(interaction)
+        # FM output
+        embedding_sum = user_embeddings + item_embeddings
+        embedding_squared_sum = torch.pow(user_embeddings, 2) + torch.pow(item_embeddings, 2)
+        embeddings_difference = embedding_sum - embedding_squared_sum
+        fm_output = torch.sum(embeddings_difference, dim=1)
 
-        concat = torch.cat((output_cf, output_mlp), -1)
+        # MLP output
+        concatenated_embeddings = torch.cat((user_embeddings, item_embeddings), -1)
+        mlp_output = self.predict_layer(self.mlp_layers(concatenated_embeddings)).squeeze()
 
-        prediction = self.predict_layer(concat)
+        prediction = fm_output + mlp_output
 
         if callable(self.hparams.final_layer):
             prediction = self.hparams.final_layer(prediction)
@@ -195,10 +216,7 @@ class NeuralCollaborativeFiltering(BasePipeline):
         return prediction.view(-1)
 
     def _get_item_embeddings(self) -> np.array:
-        """Get item embeddings, which are the concatenated CF and MLP item embeddings."""
-        items = torch.arange(self.hparams.num_items, device=self.device)
-
-        return np.concatenate((
-            self.item_embeddings_cf(items).detach().cpu(),
-            self.item_embeddings_mlp(items).detach().cpu()
-        ), axis=1)
+        """Get item embeddings."""
+        return self.item_embeddings(
+            torch.arange(self.hparams.num_items, device=self.device)
+        ).detach().cpu()

@@ -22,6 +22,7 @@ from collie_recs.metrics import evaluate_in_batches, mapk
 from collie_recs.model import (BasePipeline,
                                CollieMinimalTrainer,
                                CollieTrainer,
+                               DeepFM,
                                HybridPretrainedModel,
                                MatrixFactorizationModel,
                                NeuralCollaborativeFiltering)
@@ -600,6 +601,18 @@ def test_bad_final_layer_of_neucf(train_val_implicit_data):
     model = NeuralCollaborativeFiltering(train=train,
                                          val=val,
                                          final_layer='nonexistent_final_layer')
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+
+    with pytest.raises(ValueError):
+        trainer.fit(model)
+
+
+def test_bad_final_layer_of_deep_fm(train_val_implicit_data):
+    train, val = train_val_implicit_data
+
+    model = DeepFM(train=train,
+                   val=val,
+                   final_layer='nonexistent_final_layer')
     trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
 
     with pytest.raises(ValueError):

@@ -26,7 +26,7 @@ def bpr_loss(
     * https://github.com/maciejkula/spotlight/blob/master/spotlight/losses.py
 
     Parameters
-    -------------
+    ----------
     positive_scores: torch.tensor, 1-d
         Tensor containing predictions for known positive items of shape ``1 x batch_size``
     negative_scores: torch.tensor, 1-d
@@ -62,11 +62,11 @@ def bpr_loss(
           which is equivalent to the loss without any partial credit
 
     Returns
-    -------------
+    -------
     loss: torch.tensor
 
     References
-    -------------
+    ----------
     .. [1] Hildesheim et al. "BPR: Bayesian Personalized Ranking from Implicit Feedback." BPR |
         Proceedings of the Twenty-Fifth Conference on Uncertainty in Artificial Intelligence, 1 June
         2009, dl.acm.org/doi/10.5555/1795114.1795167.
@@ -107,7 +107,7 @@ def adaptive_bpr_loss(
     See ``ideal_difference_from_metadata`` docstring for more info on how metadata is used.
 
     Parameters
-    -------------
+    ----------
     positive_scores: torch.tensor, 1-d
         Tensor containing scores for known positive items of shape
         ``num_negative_samples x batch_size``
@@ -146,7 +146,7 @@ def adaptive_bpr_loss(
           which is equivalent to the loss without any partial credit
 
     Returns
-    -------------
+    -------
     loss: torch.tensor
 
     """

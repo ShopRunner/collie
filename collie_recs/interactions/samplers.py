@@ -13,7 +13,7 @@ class ApproximateNegativeSampler(torch.utils.data.sampler.Sampler):
     Custom ``Sampler`` for bulk-sampling approximate negative items in ``Interactions`` data.
 
     Parameters
-    -------------
+    ----------
     interactions: Interactions
     batch_size: int
         Number of samples per batch to load
@@ -70,7 +70,7 @@ class HDF5Sampler(torch.utils.data.sampler.Sampler):
     to use in ``HDF5Interactions.__getitem__``.
 
     Parameters
-    -------------
+    ----------
     hdf5_interactions: HDF5Interactions
     batch_size: int
         Number of samples per batch to load
