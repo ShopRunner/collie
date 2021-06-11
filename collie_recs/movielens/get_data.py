@@ -20,13 +20,13 @@ def read_movielens_df(decrement_ids: bool = True) -> pd.DataFrame:
     https://files.grouplens.org/datasets/movielens/ml-100k-README.txt
 
     Parameters
-    -------------
+    ----------
     decrement_ids: bool
         Decrement user and item IDs by 1 before returning, which is required for Collie's
         ``Interactions`` dataset
 
     Returns
-    -------------
+    -------
     df: pd.DataFrame
         MovieLens 100K ``u.data`` comprising of columns:
 
@@ -39,7 +39,7 @@ def read_movielens_df(decrement_ids: bool = True) -> pd.DataFrame:
             * timestamp
 
     Side Effects
-    -------------
+    ------------
     Creates directory at ``$DATA_PATH/ml-100k`` and downloads data files if data does not exist.
 
     """
@@ -70,7 +70,7 @@ def read_movielens_df_item() -> pd.DataFrame:
     https://files.grouplens.org/datasets/movielens/ml-100k-README.txt
 
     Returns
-    -------------
+    -------
     df_item: pd.DataFrame
         MovieLens 100K ``u.item`` containing columns:
 
@@ -121,7 +121,7 @@ def read_movielens_df_item() -> pd.DataFrame:
             * Wester
 
     Side Effects
-    -------------
+    ------------
     Creates directory at ``$DATA_PATH/ml-100k`` and downloads data files if data does not exist.
 
     """
@@ -174,7 +174,7 @@ def read_movielens_posters_df() -> pd.DataFrame:
     https://raw.githubusercontent.com/ShopRunner/collie_recs/main/data/movielens_posters.csv.
 
     Returns
-    -------------
+    -------
     posters_df: pd.DataFrame
         DataFrame comprising columns:
 
@@ -222,13 +222,13 @@ def get_movielens_metadata(df_item: pd.DataFrame = None) -> pd.DataFrame:
     https://files.grouplens.org/datasets/movielens/ml-100k-README.txt
 
     Parameters
-    -------------
+    ----------
     df_item: pd.DataFrame
         DataFrame of MovieLens 100K ``u.item`` containing binary columns of movie names and
         metadata. If ``None``, will automatically read the output of ``read_movielens_df_item()``
 
     Returns
-    -------------
+    -------
     metadata_df: pd.DataFrame
 
     """

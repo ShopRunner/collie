@@ -20,11 +20,11 @@ class BaseInteractionsDataLoader(torch.utils.data.DataLoader):
     training.
 
     Parameters
-    -------------
+    ----------
     interactions: Interactions or HDF5Interactions
     num_workers: int
         Number of subprocesses to use for data loading
-    kwargs: keyword arguments
+    **kwargs: keyword arguments
         Keyword arguments passed into ``torch.utils.data.DataLoader.__init__``:
         https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
 
@@ -81,7 +81,7 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
     one-point-at-a-time.
 
     Parameters
-    -------------
+    ----------
     interactions: BaseInteractions
         If not provided, an ``Interactions`` object will be created with ``mat`` or all of
         ``users``, ``items``, and ``ratings``
@@ -104,7 +104,7 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
         data to ensure the model does not overfit to a specific order of data
     num_workers: int
         Number of subprocesses to use for data loading
-    kwargs: keyword arguments
+    **kwargs: keyword arguments
         Relevant keyword arguments will be passed into ``Interactions`` object creation, if
         ``interactions is None`` and the keyword argument matches one of
         ``Interactions.__init__.__code__.co_varnames``. All other keyword arguments will be passed
@@ -112,7 +112,7 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
         https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
 
     Attributes
-    -------------
+    ----------
     interactions: Interactions (default) or ExplicitInteractions
 
     """
@@ -193,7 +193,7 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
     ``ApproximateNegativeSamplingInteractionsDataLoader.approximate_negative_sampler.batch_size``.
 
     Parameters
-    -------------
+    ----------
     interactions: Interactions
         If not provided, an ``Interactions`` object will be created with ``mat`` or all of
         ``users``, ``items``, and ``ratings`` with ``max_number_of_samples_to_consider=0``
@@ -214,7 +214,7 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
     shuffle: bool
         Whether to shuffle the order of data returned or not. This is especially useful for training
         data to ensure the model does not overfit to a specific order of data
-    kwargs: keyword arguments
+    **kwargs: keyword arguments
         Relevant keyword arguments will be passed into ``Interactions`` object creation, if
         ``interactions is None`` and the keyword argument matches one of
         ``Interactions.__init__.__code__.co_varnames``. All other keyword arguments will be passed
@@ -222,7 +222,7 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
         https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
 
     Attributes
-    -------------
+    ----------
     interactions: Interactions
 
     """
@@ -313,7 +313,7 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
     ``HDF5InteractionsDataLoader.hdf5_sampler.batch_size``.
 
     Parameters
-    -------------
+    ----------
     hdf5_interactions: HDF5Interactions
         If provided, will override input argument for ``hdf5_path``
     hdf5_path: str
@@ -328,7 +328,7 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
         training for a negligible effect on model performance
     num_workers: int
         Number of subprocesses to use for data loading
-    kwargs: keyword arguments
+    **kwargs: keyword arguments
         Relevant keyword arguments will be passed into ``HDF5Interactions`` object creation, if
         ``hdf5_interactions is None`` and the keyword argument matches one of
         ``HDF5Interactions.__init__.__code__.co_varnames``. All other keyword arguments will be

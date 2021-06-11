@@ -24,6 +24,7 @@ setup(
     keywords=['deep learning', 'pytorch', 'recommender'],
     python_requires='>=3.6',
     install_requires=[
+        'docstring_parser',
         'fire',
         'joblib',
         'numpy',
@@ -50,7 +51,7 @@ setup(
             'pytest',
             'pytest-cov<3.0.0',
             'sphinx-copybutton',
-            'sphinx-rtd-theme==0.5.1',
+            'sphinx-rtd-theme==0.5.2',
             'widgetsnbextension',
         ]
     },

@@ -73,7 +73,7 @@ def random_split(interactions: Interactions,
         Random seed for splits
 
     Returns
-    ----------
+    -------
     train_interactions: collie_recs.interactions.Interactions
         Training data of size proportional to ``1 - val_p - test_p``
     validate_interactions: collie_recs.interactions.Interactions
@@ -82,7 +82,7 @@ def random_split(interactions: Interactions,
         Testing data of size proportional to ``test_p``
 
     Examples
-    -------------
+    --------
     .. code-block:: python
 
         >>> interactions = Interactions(...)
@@ -154,7 +154,7 @@ def stratified_split(interactions: Interactions,
     done using a big data processing technology, like Spark.
 
     Parameters
-    -------------
+    ----------
     interactions: collie_recs.interactions.Interactions
         ``Interactions`` instance containing the data to split
     val_p: float
@@ -170,7 +170,7 @@ def stratified_split(interactions: Interactions,
         Random seed for splits
 
     Returns
-    -------------
+    -------
     train_interactions: collie_recs.interactions.Interactions
         Training data of size proportional to ``1 - val_p - test_p``
     validate_interactions: collie_recs.interactions.Interactions
@@ -179,7 +179,7 @@ def stratified_split(interactions: Interactions,
         Testing data of size proportional to ``test_p``
 
     Examples
-    -------------
+    --------
     .. code-block:: python
 
         >>> interactions = Interactions(...)

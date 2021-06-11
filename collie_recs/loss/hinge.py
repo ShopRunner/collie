@@ -23,7 +23,7 @@ def hinge_loss(
     https://github.com/maciejkula/spotlight/blob/master/spotlight/losses.py
 
     Parameters
-    -------------
+    ----------
     positive_scores: torch.tensor, 1-d
         Tensor containing scores for known positive items
     negative_scores: torch.tensor, 1-d
@@ -59,11 +59,11 @@ def hinge_loss(
           which is equivalent to the loss without any partial credit
 
     Returns
-    -------------
+    -------
     loss: torch.tensor
 
     References
-    -------------
+    ----------
     .. [2] "Hinge Loss." Wikipedia, Wikimedia Foundation, 5 Mar. 2021, en.wikipedia.org/wiki/
         Hinge_loss.
 
@@ -106,7 +106,7 @@ def adaptive_hinge_loss(
     https://github.com/maciejkula/spotlight/blob/master/spotlight/losses.py
 
     Parameters
-    -------------
+    ----------
     positive_scores: torch.tensor, 1-d
         Tensor containing scores for known positive items of shape
         ``num_negative_samples x batch_size``
@@ -145,11 +145,11 @@ def adaptive_hinge_loss(
           which is equivalent to the loss without any partial credit
 
     Returns
-    -------------
+    -------
     loss: torch.tensor
 
     References
-    -------------
+    ----------
     .. [3] Kula, Maciej. "Loss Functions." Loss Functions - Spotlight Documentation,
         maciejkula.github.io/spotlight/losses.html.
 

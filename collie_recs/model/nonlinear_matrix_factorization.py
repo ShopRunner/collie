@@ -11,10 +11,12 @@ from collie_recs.model.base import (BasePipeline,
                                     INTERACTIONS_LIKE_INPUT,
                                     ScaledEmbedding,
                                     ZeroEmbedding)
-from collie_recs.utils import get_init_arguments
+from collie_recs.utils import get_init_arguments, merge_docstrings
 
 
 class NonlinearMatrixFactorizationModel(BasePipeline):
+    # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``.
+    # Only the description of new or changed parameters are included in this docstring
     """
     Training pipeline for a nonlinear matrix factorization model.
 
@@ -44,7 +46,7 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         model = NonlinearMatrixFactorizationModel(train=train)
         trainer = CollieTrainer(model)
         trainer.fit(model)
-        model.freeze()
+        model.eval()
 
         # do evaluation as normal with ``model``
 
@@ -55,14 +57,6 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
 
     Parameters
     ----------
-    train: ``collie_recs.interactions`` object
-        Data loader for training data. If an ``Interactions`` object is supplied, an
-        ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=True``. Note
-        that when the model class is saved, datasets will NOT be saved as well
-    val: ``collie_recs.interactions`` object
-        Data loader for validation data. If an ``Interactions`` object is supplied, an
-        ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=False``. Note
-        that when the model class is saved, datasets will NOT be saved as well
     user_embedding_dim: int
         Number of latent factors to use for user embeddings
     item_embedding_dim: int
@@ -77,14 +71,8 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         Probability of dropout on the embedding layers
     dense_dropout_p: float
         Probability of dropout on the dense layers
-    lr: float
-        Embedding layer learning rate
     bias_lr: float
         Bias terms learning rate. If 'infer', will set equal to ``lr``
-    lr_scheduler_func: torch.optim.lr_scheduler
-        Learning rate scheduler to use during fitting
-    weight_decay: float
-        Weight decay passed to the optimizer, if optimizer permits
     optimizer: torch.optim or str
         If a string, one of the following supported optimizers:
 
@@ -97,58 +85,9 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         the addition of ``infer``, which will set the optimizer equal to ``optimizer``. If
         ``bias_optimizer`` is ``None``, only a single optimizer will be created for all model
         parameters
-    loss: function or str
-        If a string, one of the following implemented losses:
-
-        * ``'bpr'`` / ``'adaptive_bpr'``
-
-        * ``'hinge'`` / ``'adaptive_hinge'``
-
-        * ``'warp'``
-
-        * ``'mse'`` (explicit data)
-
-        * ``'mae'`` (explicit data)
-
-        For implicit data, if ``train.num_negative_samples > 1``, the adaptive loss version will
-        automatically be used of the losses above (except for WARP loss, which is only adaptive by
-        nature).
-
-        If a callable is passed, that function will be used for calculating the loss. For implicit
-        models, the first two arguments passed will be the positive and negative predictions,
-        respectively. Additional keyword arguments passed in order are ``num_items``,
-        ``positive_items``, ``negative_items``, ``metadata``, and ``metadata_weights``.
-        For explicit models, the only two arguments passed in will be the prediction and actual
-        rating values, in order.
-    metadata_for_loss: dict
-        Keys should be strings identifying each metadata type that match keys in
-        ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_items x 1). Each
-        tensor should contain categorical metadata information about items (e.g. a number
-        representing the genre of the item)
-    metadata_for_loss_weights: dict
-        Keys should be strings identifying each metadata type that match keys in ``metadata``.
-        Values should be the amount of weight to place on a match of that type of metadata, with
-        the sum of all values ``<= 1``.ights = {'genre': .3, 'director': .2}``, then an item is:
-
-        * a 100% match if it's the same item,
-
-        * a 50% match if it's a different item with the same genre and same director,
-
-        * a 30% match if it's a different item with the same genre and different director,
-
-        * a 20% match if it's a different item with a different genre and same director,
-
-        * a 0% match if it's a different item with a different genre and different director,
-          which is equivalent to the loss without any partial credit
     y_range: tuple
         Specify as ``(min, max)`` to apply a sigmoid layer to the output score of the model to get
         predicted ratings within the range of ``min`` and ``max``
-    load_model_path: str or Path
-        To load a previously-saved model, pass in path to output of ``model.save_model()`` method.
-        If ``None``, will initialize model as normal
-    map_location: str or torch.device
-        If ``load_model_path`` is provided, device specifying how to remap storage locations when
-        ``torch.load``-ing the state dictionary
 
     """
     def __init__(self,
@@ -175,6 +114,8 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
                  load_model_path: Optional[str] = None,
                  map_location: Optional[str] = None):
         super().__init__(**get_init_arguments())
+
+    __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
 
     def _setup_model(self, **kwargs) -> None:
         """
