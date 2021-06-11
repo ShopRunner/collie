@@ -14,7 +14,8 @@ from collie_recs.utils import get_init_arguments, merge_docstrings
 
 
 class MLPMatrixFactorizationModel(BasePipeline):
-    # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``
+    # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``.
+    # Only the description of new or changed parameters are included in this docstring
     """
     Training pipeline for the matrix factorization model with MLP layers instead of a final dot
     product (like in ``MatrixFactorizationModel``).
