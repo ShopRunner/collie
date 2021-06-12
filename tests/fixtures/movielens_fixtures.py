@@ -74,6 +74,16 @@ def train_val_implicit_data(movielens_implicit_interactions):
 
 
 @pytest.fixture(scope='session')
+def train_val_explicit_data(movielens_explicit_interactions):
+    return stratified_split(
+        interactions=movielens_explicit_interactions,
+        val_p=0.,
+        test_p=0.2,
+        seed=42,
+    )
+
+
+@pytest.fixture(scope='session')
 def train_val_implicit_sample_data(movielens_implicit_interactions):
     _, train, val = random_split(
         interactions=movielens_implicit_interactions,
@@ -83,16 +93,6 @@ def train_val_implicit_sample_data(movielens_implicit_interactions):
     )
 
     return train, val
-
-
-@pytest.fixture(scope='session')
-def train_val_explicit_data(movielens_explicit_interactions):
-    return stratified_split(
-        interactions=movielens_explicit_interactions,
-        val_p=0.,
-        test_p=0.2,
-        seed=42,
-    )
 
 
 @pytest.fixture(scope='session')

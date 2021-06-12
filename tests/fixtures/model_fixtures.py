@@ -63,8 +63,9 @@ def explicit_model(train_val_explicit_data, gpu_count):
     model = MatrixFactorizationModel(train=train,
                                      val=val,
                                      embedding_dim=10,
-                                     lr=1e-1,
-                                     loss='mse')
+                                     lr=1e-2,
+                                     loss='mse',
+                                     y_range=[1, 5])
     model_trainer = CollieTrainer(model=model,
                                   gpus=gpu_count,
                                   max_epochs=10,
@@ -83,8 +84,9 @@ def explicit_model_no_lightning(train_val_explicit_data, gpu_count):
     model = MatrixFactorizationModel(train=train,
                                      val=val,
                                      embedding_dim=10,
-                                     lr=1e-1,
-                                     loss='mse')
+                                     lr=1e-2,
+                                     loss='mse',
+                                     y_range=[1, 5])
     model_trainer = CollieMinimalTrainer(model=model,
                                          gpus=gpu_count,
                                          max_epochs=10,

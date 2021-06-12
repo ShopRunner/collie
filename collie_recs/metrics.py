@@ -9,7 +9,7 @@ from torchmetrics.functional import auroc
 from tqdm.auto import tqdm
 
 import collie_recs
-from collie_recs.interactions import InteractionsDataLoader
+from collie_recs.interactions import ExplicitInteractions, Interactions, InteractionsDataLoader
 from collie_recs.model import BasePipeline
 
 
@@ -344,6 +344,12 @@ def evaluate_in_batches(
         print(map_10_score, mrr_score, auc_score)
 
     """
+    if not isinstance(test_interactions, Interactions):
+        raise ValueError(
+            '``test_interactions`` must be of type ``Interactions``, not '
+            f'{type(test_interactions)}. Try using ``explicit_evaluate_in_batches`` instead.'
+        )
+
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     model.to(device)
 
@@ -393,8 +399,6 @@ def explicit_evaluate_in_batches(
     function handles the looping and batching boilerplate needed to properly evaluate the model
     without running out of memory.
 
-    # TODO: add checks for right Interactions type
-
     Parameters
     ----------
     metric_list: list of ``torchmetrics.Metric``
@@ -441,6 +445,12 @@ def explicit_evaluate_in_batches(
         print(mse_score, mae_score)
 
     """
+    if not isinstance(test_interactions, ExplicitInteractions):
+        raise ValueError(
+            '``test_interactions`` must be of type ``ExplicitInteractions``, not '
+            f'{type(test_interactions)}. Try using ``evaluate_in_batches`` instead.'
+        )
+
     try:
         device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
         model.to(device)

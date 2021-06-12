@@ -153,6 +153,24 @@ def test_auc(targets, test_implicit_predicted_scores):
     np.testing.assert_almost_equal(actual_score, expected_score)
 
 
+def test_bad_evaluate_in_batches_with_explicit_data(test_explicit_interactions):
+    with pytest.raises(ValueError):
+        evaluate_in_batches(
+            metric_list=[mapk],
+            test_interactions=test_explicit_interactions,
+            model='test_model',
+        )
+
+
+def test_bad_explicit_evaluate_in_batches_with_implicit_data(test_implicit_interactions):
+    with pytest.raises(ValueError):
+        explicit_evaluate_in_batches(
+            metric_list=[torchmetrics.MeanSquaredError()],
+            test_interactions=test_implicit_interactions,
+            model='test_model',
+        )
+
+
 @pytest.mark.parametrize('batch_size', [20, 2, 1])  # default, uneven, single
 @mock.patch('collie_recs.model.MatrixFactorizationModel')
 def test_evaluate_in_batches(
@@ -209,14 +227,12 @@ def test_evaluate_in_batches_logger(
     assert logger.step == implicit_model.hparams.num_epochs_completed
 
 
-@pytest.mark.parametrize('batch_size', [20, 2, 1])  # default, uneven, single
 @mock.patch('collie_recs.model.MatrixFactorizationModel')
 def test_explicit_evaluate_in_batches(
     model,
     test_explicit_interactions,
     test_explicit_predicted_scores,
     metrics,
-    batch_size,
 ):
     model.side_effect = partial(get_model_scores, scores=test_explicit_predicted_scores)
 
@@ -224,7 +240,6 @@ def test_explicit_evaluate_in_batches(
         metric_list=[torchmetrics.MeanSquaredError(), torchmetrics.MeanAbsoluteError()],
         test_interactions=test_explicit_interactions,
         model=model,
-        batch_size=batch_size,
         num_workers=0,
     )
 

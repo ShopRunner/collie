@@ -11,14 +11,15 @@ from pytorch_lightning.loggers.base import rank_zero_experiment
 from pytorch_lightning.utilities import rank_zero_only
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
+import torchmetrics
 
-from collie_recs.interactions import HDF5InteractionsDataLoader
+from collie_recs.interactions import HDF5InteractionsDataLoader, InteractionsDataLoader
 from collie_recs.loss import (adaptive_bpr_loss,
                               adaptive_hinge_loss,
                               bpr_loss,
                               hinge_loss,
                               warp_loss)
-from collie_recs.metrics import evaluate_in_batches, mapk
+from collie_recs.metrics import evaluate_in_batches, explicit_evaluate_in_batches, mapk
 from collie_recs.model import (BasePipeline,
                                CollieMinimalTrainer,
                                CollieTrainer,
@@ -541,6 +542,26 @@ class TestCollieMinimalTrainer():
         out, _ = capfd.readouterr()
         assert out == ''
 
+    def test_unexpected_batch_format(self, train_val_implicit_sample_data):
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train, val=val)
+        trainer = CollieMinimalTrainer(model=model)
+
+        # ensure this runs without error
+        unexpected_batch_format = [
+            torch.tensor([1, 2, 3]),
+            torch.tensor([1, 2, 3]),
+            torch.tensor([1, 2, 3]),
+            torch.tensor([1, 2, 3]),
+        ]
+        actual = trainer._move_batch_to_device(unexpected_batch_format)
+
+        for actual_batch in actual:
+            if torch.cuda.is_available():
+                assert str(actual_batch.device) == 'cuda'
+            else:
+                assert str(actual_batch.device) == 'cpu'
+
 
 def test_model_instantiation_no_train_data():
     with pytest.raises(TypeError):
@@ -595,35 +616,49 @@ def test_implicit_model(implicit_model,
     assert mapk_score > 0.044
 
 
-# @pytest.mark.parametrize('model_type', ['with_lightning', 'no_lightning'])
-# def test_explicit_model(explicit_model,
-#                         explicit_model_no_lightning,
-#                         train_val_explicit_data,
-#                         model_type):
-#     if model_type == 'with_lightning':
-#         model = explicit_model
-#     elif model_type == 'no_lightning':
-#         model = explicit_model_no_lightning
-#
-#     train, val = train_val_explicit_data
-#
-#     item_preds = model.get_item_predictions(user_id=0,
-#                                             unseen_items_only=True,
-#                                             sort_values=True)
-#
-#     assert isinstance(item_preds, pd.Series)
-#     assert len(item_preds) > 0
-#     assert len(item_preds) < len(train)
-#
-#     item_similarities = model.item_item_similarity(item_id=42)
-#     assert item_similarities.index[0] == 42
-#
-#     mapk_score = explicit_evaluate_in_batches([mapk], val, model)
-#
-#     # The metrics used for evaluation have been determined through 30
-#     # trials of training the model and using the mean - 5 * std. dev.
-#     # as the minimum score the model must achieve to pass the test.
-#     assert mapk_score > 0.044
+@pytest.mark.parametrize('model_type', ['with_lightning', 'no_lightning'])
+def test_explicit_model(explicit_model,
+                        explicit_model_no_lightning,
+                        train_val_explicit_data,
+                        model_type):
+    if model_type == 'with_lightning':
+        model = explicit_model
+    elif model_type == 'no_lightning':
+        model = explicit_model_no_lightning
+
+    train, val = train_val_explicit_data
+
+    item_preds = model.get_item_predictions(user_id=0,
+                                            unseen_items_only=True,
+                                            sort_values=True)
+
+    assert isinstance(item_preds, pd.Series)
+    assert len(item_preds) > 0
+    assert len(item_preds) < len(train)
+
+    item_similarities = model.item_item_similarity(item_id=42)
+    assert item_similarities.index[0] == 42
+
+    mse_score = explicit_evaluate_in_batches([torchmetrics.MeanSquaredError()],
+                                             val,
+                                             model,
+                                             num_workers=0)
+
+    # The metrics used for evaluation have been determined through 30
+    # trials of training the model and using the mean - 5 * std. dev.
+    # as the minimum score the model must achieve to pass the test.
+    assert mse_score < 0.913
+
+
+def test_unexpected_batch_format_calculate_loss(train_val_implicit_data):
+    train, val = train_val_implicit_data
+    model = MatrixFactorizationModel(train=train, val=val)
+
+    # ensure this runs without error
+    unexpected_batch_format = torch.tensor([1, 2, 3]), torch.tensor([1, 2, 3])
+
+    with pytest.raises(ValueError):
+        model.calculate_loss(batch=unexpected_batch_format)
 
 
 def test_bad_final_layer_of_neucf(train_val_implicit_data):
@@ -815,3 +850,40 @@ def test_explicit_models_trained_for_one_step(explicit_models_trained_for_one_st
     item_similarities = explicit_models_trained_for_one_step.item_item_similarity(item_id=42)
 
     assert item_similarities.index[0] == 42
+
+
+def test_bad_implicit_model_explicit_data(train_val_explicit_data):
+    train, val = train_val_explicit_data
+
+    with pytest.raises(ValueError):
+        MatrixFactorizationModel(train=train, val=val, loss='hinge')
+
+
+def test_really_bad_implicit_model_explicit_data(train_val_explicit_data, train_val_implicit_data):
+    explicit_train, explicit_val = train_val_explicit_data
+    implicit_train, implicit_val = train_val_implicit_data
+
+    model = MatrixFactorizationModel(train=implicit_train,
+                                     val=implicit_val,
+                                     loss='hinge')
+
+    # if we somehow make it past the initial data quality check, ensure we still fail later on
+    model.train_loader = InteractionsDataLoader(explicit_train)
+    model.val_loader = InteractionsDataLoader(explicit_val)
+
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+
+    with pytest.raises(ValueError):
+        trainer.fit(model)
+
+
+def test_bad_explicit_model_implicit_data(train_val_implicit_sample_data):
+    train, val = train_val_implicit_sample_data
+
+    model = MatrixFactorizationModel(train=train,
+                                     val=val,
+                                     loss='mse')
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+
+    with pytest.raises(ValueError):
+        trainer.fit(model)

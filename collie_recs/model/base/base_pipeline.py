@@ -251,10 +251,28 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         if callable(self.loss):
             self.loss_function = self.loss
+            return
+
+        # explicit losses first
+        self.hparams._is_implicit = False
+        if self.loss == 'mse':
+            self.loss_function = torch.nn.MSELoss(reduction='mean')
+            return
+        elif self.loss == 'mae':
+            self.loss_function = torch.nn.L1Loss(reduction='mean')
+            return
+
+        # followed by implicit losses
+        self.hparams._is_implicit = True
+        if not hasattr(self.train_loader, 'num_negative_samples'):
+            raise ValueError(
+                '``num_negative_samples`` attribute not found in ``train_loader`` - are you using '
+                'explicit data with an implicit loss function?'
+            )
         elif self.loss == 'warp':
             if self.train_loader.num_negative_samples > 1:
                 self.loss_function = warp_loss
-                self._is_implicit = True
+                return
             else:
                 raise ValueError('Cannot use WARP loss with a single negative sample!')
         elif 'bpr' in self.loss:
@@ -262,19 +280,13 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                 self.loss_function = adaptive_bpr_loss
             else:
                 self.loss_function = bpr_loss
-                self._is_implicit = True
+            return
         elif 'hinge' in self.loss or 'adaptive' in self.loss:
             if self.train_loader.num_negative_samples > 1:
                 self.loss_function = adaptive_hinge_loss
             else:
                 self.loss_function = hinge_loss
-                self._is_implicit = True
-        elif self.loss == 'mse':
-            self.loss_function = torch.nn.MSELoss(reduction='mean')
-            self._is_implicit = False
-        elif self.loss == 'mae':
-            self.loss_function = torch.nn.L1Loss(reduction='mean')
-            self._is_implicit = False
+            return
         else:
             raise ValueError('{} is not a valid loss function.'.format(self.loss))
 
@@ -521,7 +533,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         """
         if len(batch) == 2 and isinstance(batch[0], Iterable) and len(batch[0]) == 2:
-            if getattr(self, '_is_implicit', None) is False:
+            if self.hparams.get('_is_implicit') is False:
                 raise ValueError('Explicit loss with implicit data is invalid!')
 
             # implicit data
@@ -553,7 +565,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                 metadata_weights=self.hparams.metadata_for_loss_weights,
             )
         elif len(batch) == 3:
-            if getattr(self, '_is_implicit', None) is True:
+            if self.hparams.get('_is_implicit') is True:
                 raise ValueError('Implicit loss with explicit data is invalid!')
 
             # explicit data

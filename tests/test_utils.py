@@ -1,3 +1,4 @@
+import copy
 from unittest import mock
 
 import numpy as np
@@ -37,6 +38,30 @@ def test_create_ratings_matrix_sparse(explicit_df):
                                    sparse=True)
 
     np.testing.assert_equal(actual.toarray(), EXPECTED_RATINGS_MATRIX)
+
+
+def test_bas_create_ratings_matrix_users_not_at_0(explicit_df):
+    explicit_df = copy.deepcopy(explicit_df)
+
+    explicit_df['userId'] += 1
+
+    with pytest.raises(ValueError):
+        create_ratings_matrix(df=explicit_df,
+                              user_col='userId',
+                              item_col='itemId',
+                              ratings_col='rating')
+
+
+def test_bas_create_ratings_matrix_items_not_at_0(explicit_df):
+    explicit_df = copy.deepcopy(explicit_df)
+
+    explicit_df['itemId'] -= 1
+
+    with pytest.raises(ValueError):
+        create_ratings_matrix(df=explicit_df,
+                              user_col='userId',
+                              item_col='itemId',
+                              ratings_col='rating')
 
 
 def test_df_to_interactions(df_to_turn_to_interactions):

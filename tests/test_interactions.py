@@ -633,6 +633,13 @@ def test_instantiate_data_loaders(ratings_matrix_for_interactions,
     )
 
 
+def test_explicit_interactions_does_not_work_with_approximate_dataloader(
+    explicit_interactions_pandas,
+):
+    with pytest.raises(ValueError):
+        ApproximateNegativeSamplingInteractionsDataLoader(interactions=explicit_interactions_pandas)
+
+
 def test_instantiate_data_loaders_explicit(explicit_interactions_pandas):
     common_data_loader_kwargs = {
         'batch_size': 5,

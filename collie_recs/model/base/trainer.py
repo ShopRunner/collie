@@ -4,6 +4,7 @@ from typing import Optional, Tuple, Union
 from pytorch_lightning import Trainer
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.loggers.base import LightningLoggerBase
+from pytorch_lightning.utilities.apply_func import move_data_to_device
 import torch
 from tqdm.auto import tqdm
 
@@ -390,13 +391,29 @@ class CollieMinimalTrainer():
         self, batch: Tuple[Tuple[torch.tensor, torch.tensor], torch.tensor],
     ) -> Tuple[Tuple[torch.tensor, torch.tensor], torch.tensor]:
         """Move a batch of data to the proper device."""
-        ((users, pos_items), neg_items) = batch
+        # TODO: does this actually speed anything up?
+        try:
+            # assume we have implicit data
+            ((users, pos_items), neg_items) = batch
 
-        users = users.to(self.device)
-        pos_items = pos_items.to(self.device)
-        neg_items = neg_items.to(self.device)
+            users = users.to(self.device)
+            pos_items = pos_items.to(self.device)
+            neg_items = neg_items.to(self.device)
 
-        return ((users, pos_items), neg_items)
+            return ((users, pos_items), neg_items)
+        except (AttributeError, ValueError):
+            try:
+                # now assume we have explicit data
+                users, pos_items, ratings = batch
+
+                users = users.to(self.device)
+                pos_items = pos_items.to(self.device)
+                ratings = ratings.to(self.device)
+
+                return users, pos_items, ratings
+            except (AttributeError, ValueError):
+                # we have an unexpected data format, fallback to PyTorch Lightning
+                return move_data_to_device(batch, self.device)
 
     def _log_step(self, name: str, steps: int, total_loss: torch.tensor, batch_idx: int) -> None:
         """Check if we should and, if so, log step-loss metrics to our logger."""
