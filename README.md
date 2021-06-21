@@ -79,7 +79,7 @@ More complicated examples of pipelines can be viewed [for MovieLens 100K data he
 | Aspect Included in Library | <a href="http://surpriselib.com" target="_blank">Surprise</a> | <a href="https://making.lyst.com/lightfm/docs/home.html" target="_blank">LightFM</a> | <a href="https://docs.fast.ai" target="_blank">FastAI</a> | <a href="https://maciejkula.github.io/spotlight/" target="_blank">Spotlight</a> | <a href="https://recbole.io" target="_blank">RecBole</a> | <a href="https://www.tensorflow.org/recommenders" target="_blank">TensorFlow Recommenders</a> | Collie |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Implicit data support** for when we only know when a user interacts with an item or not, not the explicit rating the user gave the item |  | ✓ |  | ✓ | ✓ | ✓ | ✓ |
-| **Explicit data support** for when we know the explicit rating the user gave the item | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | * |
+| **Explicit data support** for when we know the explicit rating the user gave the item | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Support for **side-data** incorporated directly into the models |  |  |  |  | ✓ | ✓ | ✓ |
 | Support a **flexible framework for new model architectures** and experimentation |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |
 | **Deep learning** libraries utilizing speed-ups with a GPU and able to implement new, cutting-edge deep learning algorithms  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -91,8 +91,6 @@ More complicated examples of pipelines can be viewed [for MovieLens 100K data he
 | Includes **implicit loss functions** for training and **metric functions** for model evaluation  |  | ✓ |  | ✓ | ✓ |  | ✓ |
 | Includes **adaptive loss functions** for multiple negative examples  |  | ✓ |  | ✓ |  |  | ✓ |
 | Includes **loss functions that account for side-data**  |  |  |  |  |  |  | ✓ |
-
-<sup>* Coming soon!</sup>
 
 The following table notes shows the results of an experiment training and evaluating recommendation models in some popular implicit recommendation model frameworks on a common [MovieLens 10M](https://grouplens.org/datasets/movielens/10m/) dataset. The data was split via a 90/5/5 stratified data split. Each model was trained for a maximum of 40 epochs using an embedding dimension of 32. For each model, we used default hyperparameters (unless otherwise noted below).
 

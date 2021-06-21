@@ -647,7 +647,7 @@ def test_explicit_model(explicit_model,
     # The metrics used for evaluation have been determined through 30
     # trials of training the model and using the mean - 5 * std. dev.
     # as the minimum score the model must achieve to pass the test.
-    assert mse_score < 0.913
+    assert mse_score < 0.943
 
 
 def test_unexpected_batch_format_calculate_loss(train_val_implicit_data):

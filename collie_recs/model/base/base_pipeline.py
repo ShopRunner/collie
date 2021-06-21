@@ -70,11 +70,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
     loss: function or str
         If a string, one of the following implemented losses:
 
-        * ``'bpr'`` / ``'adaptive_bpr'`` (implcit data)
+        * ``'bpr'`` / ``'adaptive_bpr'`` (implicit data)
 
-        * ``'hinge'`` / ``'adaptive_hinge'`` (implcit data)
+        * ``'hinge'`` / ``'adaptive_hinge'`` (implicit data)
 
-        * ``'warp'`` (implcit data)
+        * ``'warp'`` (implicit data)
 
         * ``'mse'`` (explicit data)
 
@@ -279,12 +279,32 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             if self.train_loader.num_negative_samples > 1:
                 self.loss_function = adaptive_bpr_loss
             else:
+                if 'adaptive' in self.loss:
+                    warnings.warn(
+                        textwrap.dedent(
+                            '''
+                            Adaptive BPR loss specified, but ``num_negative_samples`` == 1. Using
+                            standard BPR loss instead.
+                            '''
+                        ).replace('\n', ' ').strip()
+                    )
+
                 self.loss_function = bpr_loss
             return
         elif 'hinge' in self.loss or 'adaptive' in self.loss:
             if self.train_loader.num_negative_samples > 1:
                 self.loss_function = adaptive_hinge_loss
             else:
+                if 'adaptive' in self.loss:
+                    warnings.warn(
+                        textwrap.dedent(
+                            '''
+                            Adaptive hinge loss specified, but ``num_negative_samples`` == 1. Using
+                            standard hinge loss instead.
+                            '''
+                        ).replace('\n', ' ').strip()
+                    )
+
                 self.loss_function = hinge_loss
             return
         else:
