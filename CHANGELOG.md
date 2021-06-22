@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 ### Added
  - support for explicit data with ``ExplicitInteractions`` and ``explicit_evaluate_in_batches``
  - warnings for invalid adaptive loss vs. ``num_negative_samples`` combinations
+### Changed
+ - default ``Dockerfile`` image to be ``torch@1.9.0`` with CUDA 10.2
 
 # [0.5.0] - 2021-6-11
 ### Added
