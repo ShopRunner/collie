@@ -585,6 +585,20 @@ def test_instantiation_of_sparse_model_with_weight_decay(train_val_implicit_data
     assert model_2.hparams.weight_decay == 0
 
 
+@pytest.mark.parametrize('adaptive_loss_type', ['adaptive_hinge', 'adaptive', 'adaptive_bpr'])
+def test_bad_adaptive_implicit_loss_selected(train_val_implicit_data, adaptive_loss_type):
+    train, val = train_val_implicit_data
+
+    train = copy.copy(train)
+    val = copy.copy(val)
+
+    train.num_negative_samples = 1
+    val.num_negative_samples = 1
+
+    with pytest.warns(UserWarning):
+        MatrixFactorizationModel(train=train, val=val, loss=adaptive_loss_type)
+
+
 @pytest.mark.parametrize('model_type', ['with_lightning', 'no_lightning'])
 def test_implicit_model(implicit_model,
                         implicit_model_no_lightning,

@@ -291,7 +291,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
                 self.loss_function = bpr_loss
             return
-        elif 'hinge' in self.loss or 'adaptive' in self.loss:
+        elif 'hinge' in self.loss or self.loss == 'adaptive':
             if self.train_loader.num_negative_samples > 1:
                 self.loss_function = adaptive_hinge_loss
             else:
