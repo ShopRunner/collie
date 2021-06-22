@@ -1,3 +1,4 @@
+import copy
 from functools import partial
 from unittest import mock
 
@@ -8,6 +9,7 @@ import torch
 import torchmetrics
 
 from collie_recs.metrics import (
+    _get_evaluate_in_batches_device,
     _get_labels,
     _get_user_item_pairs,
     auc,
@@ -171,6 +173,52 @@ def test_bad_explicit_evaluate_in_batches_with_implicit_data(test_implicit_inter
         )
 
 
+class TestEvaluateInBatchesDevice:
+    @mock.patch('torch.cuda.is_available')
+    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    def test_cuda_available_model_cpu(self, model, is_available_mock):
+        is_available_mock.return_value = True
+        model.device = 'cpu'
+
+        with pytest.warns(UserWarning):
+            device = _get_evaluate_in_batches_device(model=model)
+
+        assert device == 'cpu'
+
+    @mock.patch('torch.cuda.is_available')
+    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    def test_cuda_not_available_model_cuda(self, model, is_available_mock):
+        is_available_mock.return_value = False
+        model.device = 'cuda:0'
+
+        with pytest.warns(None):  # assert no warning is raised here
+            device = _get_evaluate_in_batches_device(model=model)
+
+        assert device == 'cuda:0'
+
+    @mock.patch('torch.cuda.is_available')
+    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    def test_cuda_available_model_no_device(self, model, is_available_mock):
+        is_available_mock.return_value = True
+        model.device = None
+
+        with pytest.warns(None):  # assert no warning is raised here
+            device = _get_evaluate_in_batches_device(model=model)
+
+        assert device == 'cuda:0'
+
+    @mock.patch('torch.cuda.is_available')
+    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    def test_cuda_not_available_model_no_device(self, model, is_available_mock):
+        is_available_mock.return_value = False
+        model.device = None
+
+        with pytest.warns(None):  # assert no warning is raised here
+            device = _get_evaluate_in_batches_device(model=model)
+
+        assert device == 'cpu'
+
+
 @pytest.mark.parametrize('batch_size', [20, 2, 1])  # default, uneven, single
 @mock.patch('collie_recs.model.MatrixFactorizationModel')
 def test_evaluate_in_batches(
@@ -181,6 +229,9 @@ def test_evaluate_in_batches(
     batch_size,
 ):
     model.side_effect = partial(get_model_scores, scores=test_implicit_predicted_scores)
+
+    # need to do this for the Mock in order for the metrics to be on the right device
+    model.device = 'cpu'
 
     mapk_score, mrr_score, auc_score = evaluate_in_batches(
         metric_list=[mapk, mrr, auc],
@@ -211,11 +262,12 @@ def test_evaluate_in_batches_logger(
             self.step = step
 
     logger = LightningLoggerFixture()
+    model = copy.deepcopy(implicit_model)
 
     mapk_score, mrr_score, auc_score = evaluate_in_batches(
         metric_list=[mapk, mrr, auc],
         test_interactions=test_implicit_interactions,
-        model=implicit_model,
+        model=model,
         k=4,
         logger=logger,
     )
@@ -224,7 +276,7 @@ def test_evaluate_in_batches_logger(
     assert mrr_score == logger.metrics['mrr']
     assert auc_score == logger.metrics['auc']
 
-    assert logger.step == implicit_model.hparams.num_epochs_completed
+    assert logger.step == model.hparams.num_epochs_completed
 
 
 @mock.patch('collie_recs.model.MatrixFactorizationModel')
@@ -235,6 +287,9 @@ def test_explicit_evaluate_in_batches(
     metrics,
 ):
     model.side_effect = partial(get_model_scores, scores=test_explicit_predicted_scores)
+
+    # need to do this for the Mock in order for the metrics to be on the right device
+    model.device = 'cpu'
 
     mse_score, mae_score = explicit_evaluate_in_batches(
         metric_list=[torchmetrics.MeanSquaredError(), torchmetrics.MeanAbsoluteError()],

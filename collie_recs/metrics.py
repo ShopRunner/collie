@@ -1,4 +1,5 @@
 from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
+import warnings
 
 import numpy as np
 import pytorch_lightning
@@ -350,7 +351,7 @@ def evaluate_in_batches(
             f'{type(test_interactions)}. Try using ``explicit_evaluate_in_batches`` instead.'
         )
 
-    device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    device = _get_evaluate_in_batches_device(model=model)
     model.to(device)
 
     test_users = np.unique(test_interactions.mat.row)
@@ -452,7 +453,7 @@ def explicit_evaluate_in_batches(
         )
 
     try:
-        device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+        device = _get_evaluate_in_batches_device(model=model)
         model.to(device)
 
         test_loader = InteractionsDataLoader(interactions=test_interactions,
@@ -464,10 +465,16 @@ def explicit_evaluate_in_batches(
 
         for batch in data_to_iterate_over:
             users, items, ratings = batch
+
+            # move data to batch before sending to model
+            users = users.to(device)
+            items = items.to(device)
+            ratings = ratings.cpu()
+
             preds = model(users, items)
 
             for metric in metric_list:
-                metric(preds, ratings)
+                metric(preds.cpu(), ratings)
 
         all_scores = [metric.compute() for metric in metric_list]
 
@@ -482,6 +489,15 @@ def explicit_evaluate_in_batches(
     finally:
         for metric in metric_list:
             metric.reset()
+
+
+def _get_evaluate_in_batches_device(model: BasePipeline):
+    device = getattr(model, 'device') or ('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+    if torch.cuda.is_available() and getattr(model, 'device') == 'cpu':
+        warnings.warn('CUDA available but model device is set to CPU - is this desired?')
+
+    return device
 
 
 def _log_metrics(model: BasePipeline,
