@@ -295,25 +295,29 @@ def models_trained_for_one_step(request,
                                              embedding_dim=10,
                                              num_layers=1,
                                              dropout_p=0.1,
-                                             lr=1e-3,
+                                             lr=1e-4,
                                              weight_decay=0.,
                                              optimizer='adam',
                                              loss='adaptive')
     elif request.param == 'neucf_sigmoid':
         model = NeuralCollaborativeFiltering(train=train,
                                              val=val,
+                                             lr=1e-4,
                                              final_layer='sigmoid')
     elif request.param == 'neucf_relu':
         model = NeuralCollaborativeFiltering(train=train,
                                              val=val,
+                                             lr=1e-4,
                                              final_layer='relu')
     elif request.param == 'neucf_leaky_rulu':
         model = NeuralCollaborativeFiltering(train=train,
                                              val=val,
+                                             lr=1e-4,
                                              final_layer='leaky_relu')
     elif request.param == 'neucf_custom':
         model = NeuralCollaborativeFiltering(train=train,
                                              val=val,
+                                             lr=1e-4,
                                              final_layer=torch.tanh)
     elif request.param == 'deep_fm':
         model = DeepFM(train=train,
@@ -473,7 +477,7 @@ def explicit_models_trained_for_one_step(request,
                                              embedding_dim=10,
                                              num_layers=1,
                                              dropout_p=0.1,
-                                             lr=1e-3,
+                                             lr=1e-4,
                                              weight_decay=0.,
                                              optimizer='adam',
                                              loss='mae')
