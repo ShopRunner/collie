@@ -299,8 +299,7 @@ class Interactions(BaseInteractions):
 
             users = _drop_array_values_by_idx(array=users, indices_to_drop=indices_to_drop)
             items = _drop_array_values_by_idx(array=items, indices_to_drop=indices_to_drop)
-            ratings = _drop_array_values_by_idx(array=ratings,
-                                                indices_to_drop=indices_to_drop)
+            ratings = _drop_array_values_by_idx(array=ratings, indices_to_drop=indices_to_drop)
 
         super().__init__(mat=mat,
                          users=users,

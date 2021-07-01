@@ -244,7 +244,7 @@ class CollieMinimalTrainer():
             train_loss = self._train_loop_single_epoch(model, epoch)
             model.eval()
 
-            epoch_summary = f'Epoch {epoch: >5}: train loss: {train_loss :<1.5f}, '
+            epoch_summary = f'Epoch {epoch: >5}: train loss: {train_loss :<1.5f}'
             early_stop_loss = train_loss
 
             # save epoch loss metrics to the logger
@@ -254,7 +254,7 @@ class CollieMinimalTrainer():
             # run the validation loop logic, if we have the ``val_dataloader`` to do so
             if self.val_dataloader is not None:
                 val_loss = self._val_loop_single_epoch(model)
-                epoch_summary += f'val loss: {val_loss :<1.5f}'
+                epoch_summary += f', val loss: {val_loss :<1.5f}'
                 early_stop_loss = val_loss
 
                 if self.logger is not None:
