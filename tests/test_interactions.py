@@ -655,6 +655,8 @@ def test_instantiate_data_loaders_explicit(explicit_interactions_pandas):
 
     data_loader_class_first_batch = next(iter(data_loader_class))
 
+    # ensure that the format for implicit data is:
+    # ``(X, Y, Z) = (user IDs, item IDs, ratings)``
     assert len(data_loader_class_first_batch) == 3
     assert len(data_loader_class_first_batch[0]) == common_data_loader_kwargs['batch_size']
     assert len(data_loader_class_first_batch[1]) == common_data_loader_kwargs['batch_size']
@@ -772,3 +774,18 @@ def test_all_data_loaders_output_equal(df_for_interactions, hdf5_pandas_df_path,
     assert len(interactions_batches[-1][0][0]) < interactions_dl.batch_size
     assert len(approximate_batches[-1][0][0]) < approx_dl.approximate_negative_sampler.batch_size
     assert len(hdf5_batches[-1][0][0]) < hdf5_interactions_dl.hdf5_sampler.batch_size
+
+    # ensure that the format for implicit data is:
+    # ``((X, Y), Z) = ((user IDs, item IDs), negative item IDs)``
+    assert (
+        len(interactions_batches[0][0])
+        == len(approximate_batches[0][0])
+        == len(hdf5_batches[0][0])
+        == 2
+    )
+    assert (
+        len(interactions_batches[0])
+        == len(approximate_batches[0])
+        == len(hdf5_batches[0])
+        == 2
+    )
