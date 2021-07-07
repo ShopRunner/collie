@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from collie_recs.interactions import HDF5Interactions, Interactions
+from collie_recs.interactions import ExplicitInteractions, HDF5Interactions, Interactions
 from collie_recs.utils import create_ratings_matrix, pandas_df_to_hdf5
 
 
@@ -109,6 +109,23 @@ def interactions_matrix(ratings_matrix_for_interactions):
 def interactions_sparse_matrix(sparse_ratings_matrix_for_interactions):
     return Interactions(mat=sparse_ratings_matrix_for_interactions,
                         check_num_negative_samples_is_valid=False)
+
+
+@pytest.fixture()
+def explicit_interactions_pandas(df_for_interactions):
+    return ExplicitInteractions(users=df_for_interactions['user_id'],
+                                items=df_for_interactions['item_id'],
+                                ratings=df_for_interactions['ratings'])
+
+
+@pytest.fixture()
+def explicit_interactions_matrix(ratings_matrix_for_interactions):
+    return ExplicitInteractions(mat=ratings_matrix_for_interactions)
+
+
+@pytest.fixture()
+def explicit_interactions_sparse_matrix(sparse_ratings_matrix_for_interactions):
+    return ExplicitInteractions(mat=sparse_ratings_matrix_for_interactions)
 
 
 @pytest.fixture()

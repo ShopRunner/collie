@@ -1,4 +1,5 @@
 from unittest import mock
+import urllib
 
 import pandas as pd
 import pytest
@@ -33,7 +34,11 @@ def test_read_movielens_posters_df_no_local_file(os_path_exists_mock, movielens_
     os_path_exists_mock.return_value = False
 
     expected = movielens_posters_df
-    actual = read_movielens_posters_df()
+
+    try:
+        actual = read_movielens_posters_df()
+    except urllib.error.URLError:
+        pytest.skip('Internet connection not available - cannot run this test!')
 
     pd.testing.assert_frame_equal(actual, expected)
 

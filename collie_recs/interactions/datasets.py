@@ -1,3 +1,4 @@
+from abc import ABCMeta, abstractmethod
 import collections
 import random
 import textwrap
@@ -13,7 +14,7 @@ from tqdm.auto import tqdm
 import collie_recs
 
 
-class Interactions(torch.utils.data.Dataset):
+class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
     """
     PyTorch ``Dataset`` for implicit user-item interactions data.
 
@@ -75,8 +76,6 @@ class Interactions(torch.utils.data.Dataset):
         This should be greater than ``num_negative_samples``. If set to ``0``, approximate negative
         sampling will be used by default in ``__getitem__`` and a positive item lookup dictionary
         will NOT be built
-    seed: int
-        Seed for random sampling
 
     """
     def __init__(self,
@@ -84,14 +83,10 @@ class Interactions(torch.utils.data.Dataset):
                  users: Optional[Iterable[int]] = None,
                  items: Optional[Iterable[int]] = None,
                  ratings: Optional[Iterable[int]] = None,
-                 num_negative_samples: int = 10,
                  allow_missing_ids: bool = False,
                  remove_duplicate_user_item_pairs: bool = True,
                  num_users: int = 'infer',
-                 num_items: int = 'infer',
-                 check_num_negative_samples_is_valid: bool = True,
-                 max_number_of_samples_to_consider: int = 200,
-                 seed: Optional[int] = None):
+                 num_items: int = 'infer'):
         if mat is None:
             assert users is not None and items is not None, (
                 'Either 1) ``mat`` or 2) both ``users`` or ``items`` must be non-null!'
@@ -116,18 +111,6 @@ class Interactions(torch.utils.data.Dataset):
                     raise ValueError(
                         'Length of ``ratings`` must be equal to lengths of ``users``, ``items``.'
                     )
-
-                if 0 in set(ratings):
-                    warnings.warn(
-                        '``ratings`` contain ``0``s, which are ignored for implicit data.'
-                        ' Filtering these rows out.'
-                    )
-                    indices_to_drop = [idx for idx, rating in enumerate(ratings) if rating == 0]
-
-                    users = _drop_array_values_by_idx(array=users, indices_to_drop=indices_to_drop)
-                    items = _drop_array_values_by_idx(array=items, indices_to_drop=indices_to_drop)
-                    ratings = _drop_array_values_by_idx(array=ratings,
-                                                        indices_to_drop=indices_to_drop)
 
             mat = collie_recs.utils._create_sparse_ratings_matrix_helper(users=users,
                                                                          items=items,
@@ -161,19 +144,181 @@ class Interactions(torch.utils.data.Dataset):
             # trigger garbage collection early
             del dok_mat
 
+        self.mat = mat
+        self.allow_missing_ids = allow_missing_ids
+        self.remove_duplicate_user_item_pairs = remove_duplicate_user_item_pairs
+        self.num_users = num_users
+        self.num_items = num_items
+
+        self.num_interactions = self.mat.nnz
+        self.min_rating = self.mat.data.min()
+        self.max_rating = self.mat.data.max()
+
+    @abstractmethod
+    def __getitem__(self, index: Union[int, Iterable[int]]) -> (
+        Union[Tuple[Tuple[int, int], np.array], Tuple[Tuple[np.array, np.array], np.array]]
+    ):
+        """Access item in the ``BaseInteractions`` instance."""
+        pass
+
+    def __len__(self) -> int:
+        """Number of non-zero interactions in the ``BaseInteractions`` instance."""
+        return self.num_interactions
+
+    def todense(self) -> np.matrix:
+        """Transforms ``BaseInteractions`` instance sparse matrix to np.matrix, 2-d."""
+        return self.mat.todense()
+
+    def toarray(self) -> np.array:
+        """Transforms ``BaseInteractions`` instance sparse matrix to np.array, 2-d."""
+        return self.mat.toarray()
+
+    def head(self, n: int = 5) -> np.array:
+        """Return the first ``n`` rows of the dense matrix as a np.array, 2-d."""
+        n = self._prep_head_tail_n(n=n)
+        return self.mat.tocsr()[range(n), :].toarray()
+
+    def tail(self, n: int = 5) -> np.array:
+        """Return the last ``n`` rows of the dense matrix as a np.array, 2-d."""
+        n = self._prep_head_tail_n(n=n)
+        return self.mat.tocsr()[range(-n, 0), :].toarray()
+
+    def _prep_head_tail_n(self, n: int) -> int:
+        """Ensure we don't run into an ``IndexError`` when using ``head`` or ``tail`` methods."""
+        if n < 0:
+            n = self.num_users + n
+        if n > self.num_users:
+            n = self.num_users
+
+        return n
+
+
+class Interactions(BaseInteractions):
+    """
+    PyTorch ``Dataset`` for implicit user-item interactions data.
+
+    If ``mat`` is provided, the ``Interactions`` instance will act as a wrapper for a sparse matrix
+    in COOrdinate format, typically looking like:
+
+    * Users comprising the rows
+
+    * Items comprising the columns
+
+    * Ratings given by that user for that item comprising the elements of the matrix
+
+    ``Interactions`` can be instantiated instead by passing in single arrays with corresponding
+    user_ids, item_ids, and ratings (by default, set to 1 for implicit recommenders) values with
+    the same functionality as a matrix. Note that with this approach, the number of users and items
+    will be the maximum values in those two columns, respectively, and it is expected that all
+    integers between 0 and the maximum ID should appear somewhere in the data.
+
+    By default, exact negative sampling will be used during each ``__getitem__`` call. To use
+    approximate negative sampling, set ``max_number_of_samples_to_consider = 0``. This will avoid
+    building a positive item lookup dictionary during initialization.
+
+    Unlike in ``ExplicitInteractions``, we rely on negative sampling for implicit data. Each
+    ``__getitem__`` call will thus return a nested tuple containing user IDs, item IDs, and
+    sampled negative item IDs. This nested vs. non-nested structure is key for the model to
+    determine where it should be implicit or explicit. Use the table below for reference:
+
+    .. list-table::
+        :header-rows: 1
+
+        * - ``__getitem__`` Format
+          - Expected Meaning
+          - Model Type
+        * - ``((X, Y), Z)``
+          - ``((user IDs, item IDs), negative item IDs)``
+          - **Implicit**
+        * - ``(X, Y, Z)``
+          - ``(user IDs, item IDs, ratings)``
+          - **Explicit**
+
+    Parameters
+    -------------
+    mat: scipy.sparse.coo_matrix or numpy.array, 2-dimensional
+        Interactions matrix, which, if provided, will be used instead of ``users``, ``items``, and
+        ``ratings`` arguments
+    users: Iterable[int], 1-d
+        Array of user IDs, starting at 0
+    items: Iterable[int], 1-d
+        Array of corresponding item IDs to ``users``, starting at 0
+    ratings: Iterable[int], 1-d
+        Array of corresponding ratings to both ``users`` and ``items``. If ``None``, will default to
+        each user in ``user`` interacting with an item with a rating value of 1
+    num_negative_samples: int
+        Number of negative samples to return with each ``__getitem__`` call
+    allow_missing_ids: bool
+        If ``False``, will check that both ``users`` and ``items`` contain each integer from 0 to
+        the maximum value in the array. This check only applies when initializing an
+        ``Interactions`` instance using 1-dimensional arrays ``users`` and ``items``
+    remove_duplicate_user_item_pairs: bool
+        Will check for and remove any duplicate user, item ID pairs from the ``Interactions`` matrix
+        during initialization. Note that this will create a second sparse matrix held in memory
+        to efficiently check, which could cause memory concerns for larger data. If you are sure
+        that there are no duplicated, user, item ID pairs, set to ``False``
+    num_users: int
+        Number of users in the dataset. If ``num_users == 'infer'``, this will be set to the
+        ``mat.shape[0]`` or ``max(users) + 1``, depending on the input
+    num_items: int
+        Number of items in the dataset. If ``num_items == 'infer'``, this will be set to the
+        ``mat.shape[1]`` or ``max(items) + 1``, depending on the input
+    check_num_negative_samples_is_valid: bool
+        Check that ``num_negative_samples`` is less than the maximum number of items a user has
+        interacted with. If it is not, then for all users who have fewer than
+        ``num_negative_samples`` items not interacted with, a random sample including positive items
+        will be returned as negative
+    max_number_of_samples_to_consider: int
+        Number of samples to try for a given user before returning an approximate negative sample.
+        This should be greater than ``num_negative_samples``. If set to ``0``, approximate negative
+        sampling will be used by default in ``__getitem__`` and a positive item lookup dictionary
+        will NOT be built
+    seed: int
+        Seed for random sampling
+
+    """
+    def __init__(self,
+                 mat: Optional[Union[coo_matrix, np.array]] = None,
+                 users: Optional[Iterable[int]] = None,
+                 items: Optional[Iterable[int]] = None,
+                 ratings: Optional[Iterable[int]] = None,
+                 num_negative_samples: int = 10,
+                 allow_missing_ids: bool = False,
+                 remove_duplicate_user_item_pairs: bool = True,
+                 num_users: int = 'infer',
+                 num_items: int = 'infer',
+                 check_num_negative_samples_is_valid: bool = True,
+                 max_number_of_samples_to_consider: int = 200,
+                 seed: Optional[int] = None):
+        if mat is None and ratings is not None and 0 in set(ratings):
+            warnings.warn(
+                '``ratings`` contain ``0``s, which are ignored for implicit data.'
+                ' Filtering these rows out.'
+            )
+            indices_to_drop = [idx for idx, rating in enumerate(ratings) if rating == 0]
+
+            users = _drop_array_values_by_idx(array=users, indices_to_drop=indices_to_drop)
+            items = _drop_array_values_by_idx(array=items, indices_to_drop=indices_to_drop)
+            ratings = _drop_array_values_by_idx(array=ratings, indices_to_drop=indices_to_drop)
+
+        super().__init__(mat=mat,
+                         users=users,
+                         items=items,
+                         ratings=ratings,
+                         allow_missing_ids=allow_missing_ids,
+                         remove_duplicate_user_item_pairs=remove_duplicate_user_item_pairs,
+                         num_users=num_users,
+                         num_items=num_items)
+
         if seed is None:
             seed = collie_recs.utils.get_random_seed()
 
-        self.mat = mat
-        self.num_interactions = self.mat.nnz
         self.num_negative_samples = num_negative_samples
-        self.num_users = num_users
-        self.num_items = num_items
         self.max_number_of_samples_to_consider = max_number_of_samples_to_consider
-        self.allow_missing_ids = allow_missing_ids
-        self.remove_duplicate_user_item_pairs = remove_duplicate_user_item_pairs
         self.check_num_negative_samples_is_valid = check_num_negative_samples_is_valid
         self.seed = seed
+
+        random.seed(self.seed)
 
         assert self.num_negative_samples >= 1
 
@@ -186,8 +331,6 @@ class Interactions(torch.utils.data.Dataset):
                 '``num_negative_samples > max_number_of_samples_to_consider``. Approximate negative'
                 ' sampling will be used.'
             )
-
-        random.seed(self.seed)
 
         # When an ``Interactions`` is instantiated with exact negative sampling, a
         # ``positive_items`` attribute is created, a ``set`` of the ``mat`` object that enables
@@ -301,36 +444,122 @@ class Interactions(torch.utils.data.Dataset):
 
         return negative_item_ids_array
 
-    def __len__(self) -> int:
-        """Number of non-zero interactions in the ``Interactions`` instance."""
-        return self.num_interactions
 
-    def todense(self) -> np.matrix:
-        """Transforms ``Interactions`` instance sparse matrix to np.matrix, 2-d."""
-        return self.mat.todense()
+class ExplicitInteractions(BaseInteractions):
+    """
+    PyTorch ``Dataset`` for explicit user-item interactions data.
 
-    def toarray(self) -> np.array:
-        """Transforms ``Interactions`` instance sparse matrix to np.array, 2-d."""
-        return self.mat.toarray()
+    If ``mat`` is provided, the ``Interactions`` instance will act as a wrapper for a sparse matrix
+    in COOrdinate format, typically looking like:
 
-    def head(self, n: int = 5) -> np.array:
-        """Return the first ``n`` rows of the dense matrix as a np.array, 2-d."""
-        n = self._prep_head_tail_n(n=n)
-        return self.mat.tocsr()[range(n), :].toarray()
+    * Users comprising the rows
 
-    def tail(self, n: int = 5) -> np.array:
-        """Return the last ``n`` rows of the dense matrix as a np.array, 2-d."""
-        n = self._prep_head_tail_n(n=n)
-        return self.mat.tocsr()[range(-n, 0), :].toarray()
+    * Items comprising the columns
 
-    def _prep_head_tail_n(self, n: int) -> int:
-        """Ensure we don't run into an ``IndexError`` when using ``head`` or ``tail`` methods."""
-        if n < 0:
-            n = self.num_users + n
-        if n > self.num_users:
-            n = self.num_users
+    * Ratings given by that user for that item comprising the elements of the matrix
 
-        return n
+    ``Interactions`` can be instantiated instead by passing in single arrays with corresponding
+    user_ids, item_ids, and ratings values with the same functionality as a matrix. Note that with
+    this approach, the number of users and items will be the maximum values in those two columns,
+    respectively, and it is expected that all integers between 0 and the maximum ID should appear
+    somewhere in the user or item ID data.
+
+    Unlike in ``Interactions``, there is no need for negative sampling for explicit data. Each
+    ``__getitem__`` call will thus return a single, non-nested tuple containing user IDs, item IDs,
+    and ratings. This nested vs. non-nested structure is key for the model to determine where it
+    should be implicit or explicit. Use the table below for reference:
+
+    .. list-table::
+        :header-rows: 1
+
+        * - ``__getitem__`` Format
+          - Expected Meaning
+          - Model Type
+        * - ``((X, Y), Z)``
+          - ``((user IDs, item IDs), negative item IDs)``
+          - **Implicit**
+        * - ``(X, Y, Z)``
+          - ``(user IDs, item IDs, ratings)``
+          - **Explicit**
+
+    Parameters
+    -------------
+    mat: scipy.sparse.coo_matrix or numpy.array, 2-dimensional
+        Interactions matrix, which, if provided, will be used instead of ``users``, ``items``, and
+        ``ratings`` arguments
+    users: Iterable[int], 1-d
+        Array of user IDs, starting at 0
+    items: Iterable[int], 1-d
+        Array of corresponding item IDs to ``users``, starting at 0
+    ratings: Iterable[int], 1-d
+        Array of corresponding ratings to both ``users`` and ``items``. If ``None``, will default to
+        each user in ``user`` interacting with an item with a rating value of 1
+    allow_missing_ids: bool
+        If ``False``, will check that both ``users`` and ``items`` contain each integer from 0 to
+        the maximum value in the array. This check only applies when initializing an
+        ``ExplicitInteractions`` instance using 1-dimensional arrays ``users`` and ``items``
+    remove_duplicate_user_item_pairs: bool
+        Will check for and remove any duplicate user, item ID pairs from the
+        ``ExplicitInteractions`` matrix during initialization. Note that this will create a second
+        sparse matrix held in memory to efficiently check, which could cause memory concerns for
+        larger data. If you are sure that there are no duplicated, user, item ID pairs, set to
+        ``False``
+    num_users: int
+        Number of users in the dataset. If ``num_users == 'infer'``, this will be set to the
+        ``mat.shape[0]`` or ``max(users) + 1``, depending on the input
+    num_items: int
+        Number of items in the dataset. If ``num_items == 'infer'``, this will be set to the
+        ``mat.shape[1]`` or ``max(items) + 1``, depending on the input
+
+    """
+    def __init__(self,
+                 mat: Optional[Union[coo_matrix, np.array]] = None,
+                 users: Optional[Iterable[int]] = None,
+                 items: Optional[Iterable[int]] = None,
+                 ratings: Optional[Iterable[int]] = None,
+                 allow_missing_ids: bool = False,
+                 remove_duplicate_user_item_pairs: bool = True,
+                 num_users: int = 'infer',
+                 num_items: int = 'infer'):
+        if mat is None and ratings is None:
+            raise ValueError(
+                'Ratings must be provided to ``ExplicitInteractions`` with ``mat`` or ``ratings``'
+                ' - both cannot be ``None``!'
+            )
+
+        super().__init__(mat=mat,
+                         users=users,
+                         items=items,
+                         ratings=ratings,
+                         allow_missing_ids=allow_missing_ids,
+                         remove_duplicate_user_item_pairs=remove_duplicate_user_item_pairs,
+                         num_users=num_users,
+                         num_items=num_items)
+
+    @property
+    def num_negative_samples(self) -> int:
+        """Does not exist for explicit data."""
+        raise AttributeError('``num_negative_samples`` does not exist for explicit datasets.')
+
+    def __repr__(self) -> str:
+        """String representation of ``ExplicitInteractions`` class."""
+        return textwrap.dedent(
+            f'''
+            ExplicitInteractions object with {self.num_interactions} interactions between
+            {self.num_users} users and {self.num_items} items, with minimum rating of
+            {self.min_rating} and maximum rating of {self.max_rating}.
+            '''
+        ).replace('\n', ' ').strip()
+
+    def __getitem__(self, index: Union[int, Iterable[int]]) -> (
+        Union[Tuple[int, int, np.array], Tuple[np.array, np.array, np.array]]
+    ):
+        """Access item in the ``ExplicitInteractions`` instance."""
+        user_id = self.mat.row[index]
+        item_id = self.mat.col[index]
+        rating = self.mat.data[index]
+
+        return user_id, item_id, rating
 
 
 class HDF5Interactions(torch.utils.data.Dataset):

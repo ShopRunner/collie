@@ -4,10 +4,38 @@ import pytest
 from scipy.sparse import coo_matrix
 
 from collie_recs.cross_validation import random_split, stratified_split
-from collie_recs.interactions import Interactions
+from collie_recs.interactions import ExplicitInteractions, Interactions
 
 
-def test_random_split(interactions_to_split):
+def test_bad_random_split_HDF5Interactions(hdf5_interactions):
+    with pytest.raises(AssertionError):
+        random_split(
+            interactions=hdf5_interactions,
+        )
+
+
+def test_bad_stratified_split_HDF5Interactions(hdf5_interactions):
+    with pytest.raises(AssertionError):
+        stratified_split(
+            interactions=hdf5_interactions,
+        )
+
+
+@pytest.mark.parametrize('data_type', ['implicit', 'explicit'])
+def test_random_split(implicit_interactions_to_split,
+                      explicit_interactions_to_split,
+                      data_type):
+    if data_type == 'implicit':
+        interactions_class = Interactions
+        interactions_kwargs = {
+            'check_num_negative_samples_is_valid': False,
+        }
+        interactions_to_split = implicit_interactions_to_split
+    else:
+        interactions_class = ExplicitInteractions
+        interactions_kwargs = {}
+        interactions_to_split = explicit_interactions_to_split
+
     train_expected_df = pd.DataFrame(
         data={
             'user_id': [0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 2, 2, 2, 3, 4, 4],
@@ -15,7 +43,7 @@ def test_random_split(interactions_to_split):
             'rating': [1, 2, 3, 4, 5, 4, 1, 1, 3, 4, 2, 4, 5, 5, 3, 5],
         }
     )
-    train_expected = Interactions(
+    train_expected = interactions_class(
         mat=coo_matrix(
             (
                 train_expected_df['rating'],
@@ -24,13 +52,13 @@ def test_random_split(interactions_to_split):
             shape=(interactions_to_split.num_users, interactions_to_split.num_items),
         ),
         allow_missing_ids=True,
-        check_num_negative_samples_is_valid=False,
+        **interactions_kwargs,
     )
 
     validate_expected_df = pd.DataFrame(
         data={'user_id': [3, 4, 4], 'item_id': [1, 1, 5], 'rating': [1, 2, 4]}
     )
-    validate_expected = Interactions(
+    validate_expected = interactions_class(
         mat=coo_matrix(
             (
                 validate_expected_df['rating'],
@@ -39,7 +67,7 @@ def test_random_split(interactions_to_split):
             shape=(interactions_to_split.num_users, interactions_to_split.num_items),
         ),
         allow_missing_ids=True,
-        check_num_negative_samples_is_valid=False,
+        **interactions_kwargs,
     )
 
     test_expected_df = pd.DataFrame(
@@ -49,7 +77,7 @@ def test_random_split(interactions_to_split):
             'rating': [3, 2, 2, 3, 4],
         }
     )
-    test_expected = Interactions(
+    test_expected = interactions_class(
         mat=coo_matrix(
             (
                 test_expected_df['rating'],
@@ -58,7 +86,7 @@ def test_random_split(interactions_to_split):
             shape=(interactions_to_split.num_users, interactions_to_split.num_items),
         ),
         allow_missing_ids=True,
-        check_num_negative_samples_is_valid=False,
+        **interactions_kwargs,
     )
 
     (train_actual, validate_actual, test_actual) = random_split(
@@ -89,6 +117,16 @@ def test_random_split(interactions_to_split):
         == test_expected.num_items
     )
 
+    assert (
+        type(train_actual)
+        == type(train_expected)
+        == type(validate_actual)
+        == type(validate_expected)
+        == type(test_actual)
+        == type(test_expected)
+        == interactions_class
+    )
+
 
 def test_random_split_with_user_with_only_one_interaction(
     interactions_to_split_with_a_user_with_only_one_interaction,
@@ -99,7 +137,21 @@ def test_random_split_with_user_with_only_one_interaction(
     )
 
 
-def test_stratified_split(interactions_to_split):
+@pytest.mark.parametrize('data_type', ['implicit', 'explicit'])
+def test_stratified_split(implicit_interactions_to_split,
+                          explicit_interactions_to_split,
+                          data_type):
+    if data_type == 'implicit':
+        interactions_class = Interactions
+        interactions_kwargs = {
+            'check_num_negative_samples_is_valid': False,
+        }
+        interactions_to_split = implicit_interactions_to_split
+    else:
+        interactions_class = ExplicitInteractions
+        interactions_kwargs = {}
+        interactions_to_split = explicit_interactions_to_split
+
     train_expected_df = pd.DataFrame(
         data={
             'user_id': [0, 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 4, 4],
@@ -107,7 +159,7 @@ def test_stratified_split(interactions_to_split):
             'rating': [2, 3, 4, 5, 3, 1, 1, 2, 4, 5, 5, 5, 4],
         }
     )
-    train_expected = Interactions(
+    train_expected = interactions_class(
         mat=coo_matrix(
             (
                 train_expected_df['rating'],
@@ -116,7 +168,7 @@ def test_stratified_split(interactions_to_split):
             shape=(interactions_to_split.num_users, interactions_to_split.num_items),
         ),
         allow_missing_ids=True,
-        check_num_negative_samples_is_valid=False,
+        **interactions_kwargs,
     )
 
     validate_expected_df = pd.DataFrame(
@@ -126,7 +178,7 @@ def test_stratified_split(interactions_to_split):
             'rating': [2, 3, 3, 1, 3],
         }
     )
-    validate_expected = Interactions(
+    validate_expected = interactions_class(
         mat=coo_matrix(
             (
                 validate_expected_df['rating'],
@@ -135,7 +187,7 @@ def test_stratified_split(interactions_to_split):
             shape=(interactions_to_split.num_users, interactions_to_split.num_items),
         ),
         allow_missing_ids=True,
-        check_num_negative_samples_is_valid=False,
+        **interactions_kwargs,
     )
 
     test_expected_df = pd.DataFrame(
@@ -145,7 +197,7 @@ def test_stratified_split(interactions_to_split):
             'rating': [1, 4, 4, 2, 4, 2],
         }
     )
-    test_expected = Interactions(
+    test_expected = interactions_class(
         mat=coo_matrix(
             (
                 test_expected_df['rating'],
@@ -154,7 +206,7 @@ def test_stratified_split(interactions_to_split):
             shape=(interactions_to_split.num_users, interactions_to_split.num_items),
         ),
         allow_missing_ids=True,
-        check_num_negative_samples_is_valid=False,
+        **interactions_kwargs,
     )
 
     (train_actual, validate_actual, test_actual) = stratified_split(
@@ -185,6 +237,16 @@ def test_stratified_split(interactions_to_split):
         == test_expected.num_items
     )
 
+    assert (
+        type(train_actual)
+        == type(train_expected)
+        == type(validate_actual)
+        == type(validate_expected)
+        == type(test_actual)
+        == type(test_expected)
+        == interactions_class
+    )
+
 
 def test_stratified_split_with_user_with_only_one_interaction(
     interactions_to_split_with_a_user_with_only_one_interaction,
@@ -198,60 +260,68 @@ def test_stratified_split_with_user_with_only_one_interaction(
 
 
 class TestSplitsWithWrongP:
-    def test_combined_too_large_random(self, interactions_to_split):
+    def test_combined_too_large_random(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            random_split(interactions=interactions_to_split, val_p=0.9, test_p=0.2)
+            random_split(interactions=implicit_interactions_to_split, val_p=0.9, test_p=0.2)
 
-    def test_combined_too_large_stratified(self, interactions_to_split):
+    def test_combined_too_large_stratified(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            stratified_split(interactions=interactions_to_split, val_p=0.9, test_p=0.2)
+            stratified_split(interactions=implicit_interactions_to_split, val_p=0.9, test_p=0.2)
 
-    def test_combined_equal_one_random(self, interactions_to_split):
+    def test_combined_equal_one_random(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            random_split(interactions=interactions_to_split, val_p=0.7, test_p=0.3)
+            random_split(interactions=implicit_interactions_to_split, val_p=0.7, test_p=0.3)
 
-    def test_combined_equal_one_stratified(self, interactions_to_split):
+    def test_combined_equal_one_stratified(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            stratified_split(interactions=interactions_to_split, val_p=0.7, test_p=0.3)
+            stratified_split(interactions=implicit_interactions_to_split, val_p=0.7, test_p=0.3)
 
-    def test_val_negative_but_combined_good_random(self, interactions_to_split):
+    def test_val_negative_but_combined_good_random(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            random_split(interactions=interactions_to_split, val_p=-0.1, test_p=0.3)
+            random_split(interactions=implicit_interactions_to_split, val_p=-0.1, test_p=0.3)
 
-    def test_val_negative_but_combined_good_stratified(self, interactions_to_split):
+    def test_val_negative_but_combined_good_stratified(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            stratified_split(interactions=interactions_to_split, val_p=-0.1, test_p=0.3)
+            stratified_split(interactions=implicit_interactions_to_split, val_p=-0.1, test_p=0.3)
 
-    def test_test_p_too_large_random(self, interactions_to_split):
+    def test_test_p_too_large_random(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            random_split(interactions=interactions_to_split, test_p=1.1)
+            random_split(interactions=implicit_interactions_to_split, test_p=1.1)
 
-    def test_test_p_too_large_stratified(self, interactions_to_split):
+    def test_test_p_too_large_stratified(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            stratified_split(interactions=interactions_to_split, test_p=1.1)
+            stratified_split(interactions=implicit_interactions_to_split, test_p=1.1)
 
-    def test_test_p_equal_one_random(self, interactions_to_split):
+    def test_test_p_equal_one_random(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            random_split(interactions=interactions_to_split, test_p=1)
+            random_split(interactions=implicit_interactions_to_split, test_p=1)
 
-    def test_test_p_equal_one_stratified(self, interactions_to_split):
+    def test_test_p_equal_one_stratified(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            stratified_split(interactions=interactions_to_split, test_p=1)
+            stratified_split(interactions=implicit_interactions_to_split, test_p=1)
 
-    def test_test_p_negative_random(self, interactions_to_split):
+    def test_test_p_negative_random(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            random_split(interactions=interactions_to_split, test_p=-0.7)
+            random_split(interactions=implicit_interactions_to_split, test_p=-0.7)
 
-    def test_test_p_negative_stratified(self, interactions_to_split):
+    def test_test_p_negative_stratified(self, implicit_interactions_to_split):
         with pytest.raises(ValueError):
-            stratified_split(interactions=interactions_to_split, test_p=-0.7)
+            stratified_split(interactions=implicit_interactions_to_split, test_p=-0.7)
 
 
-def test_splits_vary_number_of_processes(interactions_to_split):
-    train_1, test_1 = stratified_split(interactions=interactions_to_split, seed=42, processes=-1)
-    train_2, test_2 = stratified_split(interactions=interactions_to_split, seed=42, processes=0)
-    train_3, test_3 = stratified_split(interactions=interactions_to_split, seed=42, processes=1)
-    train_4, test_4 = stratified_split(interactions=interactions_to_split, seed=42, processes=2)
+def test_splits_vary_number_of_processes(implicit_interactions_to_split):
+    train_1, test_1 = stratified_split(interactions=implicit_interactions_to_split,
+                                       seed=42,
+                                       processes=-1)
+    train_2, test_2 = stratified_split(interactions=implicit_interactions_to_split,
+                                       seed=42,
+                                       processes=0)
+    train_3, test_3 = stratified_split(interactions=implicit_interactions_to_split,
+                                       seed=42,
+                                       processes=1)
+    train_4, test_4 = stratified_split(interactions=implicit_interactions_to_split,
+                                       seed=42,
+                                       processes=2)
 
     # transitive property in action here
     np.testing.assert_array_equal(train_1.toarray(), train_2.toarray())

@@ -5,6 +5,7 @@ import pandas as pd
 import pytest
 
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
+                                      ExplicitInteractions,
                                       HDF5Interactions,
                                       HDF5InteractionsDataLoader,
                                       Interactions,
@@ -44,6 +45,41 @@ def test_Interactions(interactions_matrix,
         str(interactions_matrix)
         == str(interactions_sparse_matrix)
         == str(interactions_pandas)
+        == expected_repr
+    )
+
+
+def test_ExplicitInteractions(explicit_interactions_matrix,
+                              explicit_interactions_sparse_matrix,
+                              explicit_interactions_pandas):
+    np.testing.assert_equal(explicit_interactions_matrix.toarray(),
+                            explicit_interactions_sparse_matrix.toarray())
+    np.testing.assert_equal(explicit_interactions_matrix.toarray(),
+                            explicit_interactions_pandas.toarray())
+    assert (
+        explicit_interactions_matrix.num_users
+        == explicit_interactions_sparse_matrix.num_users
+        == explicit_interactions_pandas.num_users
+    )
+    assert (
+        explicit_interactions_matrix.num_items
+        == explicit_interactions_sparse_matrix.num_items
+        == explicit_interactions_pandas.num_items
+    )
+    assert (
+        explicit_interactions_matrix.num_interactions
+        == explicit_interactions_sparse_matrix.num_interactions
+        == explicit_interactions_pandas.num_interactions
+    )
+
+    expected_repr = (
+        'ExplicitInteractions object with 12 interactions between 6 users and 10 items,'
+        ' with minimum rating of 1 and maximum rating of 5.'
+    )
+    assert (
+        str(explicit_interactions_matrix)
+        == str(explicit_interactions_sparse_matrix)
+        == str(explicit_interactions_pandas)
         == expected_repr
     )
 
@@ -133,6 +169,20 @@ def test_Interactions_with_0_ratings(interactions_pandas, df_for_interactions_wi
     assert np.array_equal(interactions_pandas.toarray(), interactions_with_0s.toarray())
 
 
+def test_ExplicitInteractions_with_0_ratings(explicit_interactions_pandas,
+                                             df_for_interactions_with_0_ratings):
+    interactions_with_0s = ExplicitInteractions(
+        users=df_for_interactions_with_0_ratings['user_id'],
+        items=df_for_interactions_with_0_ratings['item_id'],
+        ratings=df_for_interactions_with_0_ratings['ratings'],
+    )
+
+    assert np.array_equal(explicit_interactions_pandas.toarray(), interactions_with_0s.toarray())
+
+    assert interactions_with_0s.min_rating == 0
+    assert explicit_interactions_pandas.num_interactions < interactions_with_0s.num_interactions
+
+
 class TestBadInteractionsInstantiation:
     def test_items_None(self, df_for_interactions):
         with pytest.raises(AssertionError):
@@ -154,6 +204,12 @@ class TestBadInteractionsInstantiation:
                      ratings=None,
                      check_num_negative_samples_is_valid=False)
 
+    def test_ratings_None_but_its_explicit_so_not_okay(self, df_for_interactions):
+        with pytest.raises(ValueError):
+            ExplicitInteractions(users=df_for_interactions['user_id'],
+                                 items=df_for_interactions['item_id'],
+                                 ratings=None)
+
     def test_duplicate_user_item_pairs(self,
                                        interactions_pandas,
                                        df_for_interactions_with_duplicates):
@@ -172,6 +228,27 @@ class TestBadInteractionsInstantiation:
         )
 
         assert non_duplicated_interactions.mat.getnnz() == interactions_pandas.mat.getnnz()
+
+    def test_duplicate_user_item_pairs_explicit(self,
+                                                explicit_interactions_pandas,
+                                                df_for_interactions_with_duplicates):
+        duplicated_interactions = ExplicitInteractions(
+            users=df_for_interactions_with_duplicates['user_id'],
+            items=df_for_interactions_with_duplicates['item_id'],
+            ratings=df_for_interactions_with_duplicates['ratings'],
+            remove_duplicate_user_item_pairs=False,
+        )
+
+        assert duplicated_interactions.mat.getnnz() != explicit_interactions_pandas.mat.getnnz()
+
+        non_duplicated_interactions = (
+            ExplicitInteractions(users=df_for_interactions_with_duplicates['user_id'],
+                                 items=df_for_interactions_with_duplicates['item_id'],
+                                 ratings=df_for_interactions_with_duplicates['ratings'],
+                                 remove_duplicate_user_item_pairs=True)
+        )
+
+        assert non_duplicated_interactions.mat.getnnz() == explicit_interactions_pandas.mat.getnnz()
 
 
 class TestInteractionsDataMethods:
@@ -556,6 +633,42 @@ def test_instantiate_data_loaders(ratings_matrix_for_interactions,
     )
 
 
+def test_explicit_interactions_does_not_work_with_approximate_dataloader(
+    explicit_interactions_pandas,
+):
+    with pytest.raises(ValueError):
+        ApproximateNegativeSamplingInteractionsDataLoader(interactions=explicit_interactions_pandas)
+
+
+def test_instantiate_data_loaders_explicit(explicit_interactions_pandas):
+    common_data_loader_kwargs = {
+        'batch_size': 5,
+        'shuffle': False,
+        'drop_last': False,
+    }
+
+    data_loader_class = InteractionsDataLoader(interactions=explicit_interactions_pandas,
+                                               **common_data_loader_kwargs)
+
+    assert data_loader_class.interactions.num_users == data_loader_class.num_users
+    assert data_loader_class.interactions.num_items == data_loader_class.num_items
+
+    data_loader_class_first_batch = next(iter(data_loader_class))
+
+    # ensure that the format for implicit data is:
+    # ``(X, Y, Z) = (user IDs, item IDs, ratings)``
+    assert len(data_loader_class_first_batch) == 3
+    assert len(data_loader_class_first_batch[0]) == common_data_loader_kwargs['batch_size']
+    assert len(data_loader_class_first_batch[1]) == common_data_loader_kwargs['batch_size']
+    assert len(data_loader_class_first_batch[2]) == common_data_loader_kwargs['batch_size']
+
+    expected_repr = (
+        'InteractionsDataLoader object with 12 interactions between 6 users and 10 items, returning'
+        ' explicit, non-shuffled batches of size 5.'
+    )
+    assert str(data_loader_class) == expected_repr
+
+
 def test_hdf5_interactions_dataloader_attributes(df_for_interactions, hdf5_pandas_df_path):
     interactions_dl = InteractionsDataLoader(users=df_for_interactions['user_id'],
                                              items=df_for_interactions['item_id'],
@@ -598,7 +711,7 @@ def test_all_data_loaders_output_equal(df_for_interactions, hdf5_pandas_df_path,
 
     expected_repr = (
         '{} object with 12 interactions between 6 users and 10 items, returning 4 negative samples'
-        ' per interaction in non-shuffled batches of size 5.'
+        ' per implicit interaction in non-shuffled batches of size 5.'
     )
 
     assert str(interactions_dl) == expected_repr.format(str(type(interactions_dl).__name__))
@@ -661,3 +774,18 @@ def test_all_data_loaders_output_equal(df_for_interactions, hdf5_pandas_df_path,
     assert len(interactions_batches[-1][0][0]) < interactions_dl.batch_size
     assert len(approximate_batches[-1][0][0]) < approx_dl.approximate_negative_sampler.batch_size
     assert len(hdf5_batches[-1][0][0]) < hdf5_interactions_dl.hdf5_sampler.batch_size
+
+    # ensure that the format for implicit data is:
+    # ``((X, Y), Z) = ((user IDs, item IDs), negative item IDs)``
+    assert (
+        len(interactions_batches[0][0])
+        == len(approximate_batches[0][0])
+        == len(hdf5_batches[0][0])
+        == 2
+    )
+    assert (
+        len(interactions_batches[0])
+        == len(approximate_batches[0])
+        == len(hdf5_batches[0])
+        == 2
+    )
