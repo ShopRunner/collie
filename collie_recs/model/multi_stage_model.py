@@ -1,5 +1,5 @@
 from collections import OrderedDict
-from functools import partial, reduce
+from functools import partial
 import multiprocessing
 import os
 from pathlib import Path
@@ -17,7 +17,7 @@ from collie_recs.config import DATA_PATH
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
                                       Interactions,
                                       InteractionsDataLoader)
-from collie_recs.model import BasePipeline, MultiStagePipeline, ScaledEmbedding, ZeroEmbedding
+from collie_recs.model import MultiStagePipeline, ScaledEmbedding, ZeroEmbedding
 
 
 INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoader,
@@ -73,7 +73,7 @@ class HybridModel(MultiStagePipeline):
                 item_metadata = item_metadata.float()
 
             item_metadata_num_cols = item_metadata.shape[1]
-            
+
             optimizer_config_list = [
                 {
                     'lr': embeddings_lr,
@@ -301,10 +301,14 @@ class ColdStartModel(MultiStagePipeline):
         self,
         train: INTERACTIONS_LIKE_INPUT = None,
         val: INTERACTIONS_LIKE_INPUT = None,
-        batch_size: int = 1024,
         item_buckets: torch.tensor = None,
         user_buckets: torch.tensor = None,
-        stage_learning_rates: List[float] = [],
+        both_buckets_lr,
+        item_buckets_lr,
+        no_buckets_lr,
+        both_buckets_optimizer,
+        item_buckets_optimizer,
+        no_buckets_optimizer,
         # old arguments
         embedding_dim: int = 30,
         sparse: bool = False,
@@ -316,7 +320,6 @@ class ColdStartModel(MultiStagePipeline):
             verbose=True,
         ),
         weight_decay: float = 0.0,
-        optimizer: Union[str, Callable] = 'adam',
         loss: Union[str, Callable] = 'hinge',
         metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
         metadata_for_loss_weights: Optional[Dict[str, float]] = None,
@@ -326,35 +329,38 @@ class ColdStartModel(MultiStagePipeline):
         map_location: Optional[str] = None,
     ):
         if load_model_path is None:
-            
-            stage_definitions = {
-                'both_buckets_base': {
-                    'lr': stage_learning_rates[0],
+            optimizer_config_list = [
+                {
+                    'lr': both_buckets_lr,
+                    'optimizer': both_buckets_optimizer,
                     'param_prefix_list': [
                         'user_bucket_embed', 'user_bucket_bias',
                         'item_bucket_embed', 'item_bucket_bias',
-                    ]
+                    ],
+                    'stage': 'both_buckets',
                 },
-                'item_buckets_base': {
-                    'lr': stage_learning_rates[1],
+                {
+                    'lr': item_buckets_lr,
+                    'optimizer': item_buckets_optimizer,
                     'param_prefix_list': [
                         'user_embed', 'user_bias',
                         'item_bucket_embed', 'item_bucket_bias',
-                    ]
+                    ],
+                    'stage': 'item_buckets',
                 },
-                'base': {
-                    'lr': stage_learning_rates[2],
+                {
+                    'lr': no_buckets_lr,
+                    'optimizer': no_buckets_optimizer,
                     'param_prefix_list': [
                         'user_embed', 'user_bias',
                         'item_embed', 'item_bias',
-                    ]
+                    ],
+                    'stage': 'no_buckets',
                 },
-            }
+            ]
 
-            self.stage = 'both_buckets_base'
+            self.stage = 'both_buckets'
 
-        print('user_buckets max:', user_buckets.max())
-        print('item_buckets max:', item_buckets.max())
         self.hparams.num_user_buckets = user_buckets.max().item() + 1
         self.hparams.num_item_buckets = item_buckets.max().item() + 1
         self.item_buckets = item_buckets.long()
@@ -369,8 +375,8 @@ class ColdStartModel(MultiStagePipeline):
             sparse=sparse,
             batch_size=batch_size,
             dropout_p=dropout_p,
-            stage_definitions=stage_definitions,
-            stage='both_buckets_base',
+            optimizer_config_list=optimizer_config_list,
+            stage='both_buckets',  # initial stage
             lr_scheduler_func=lr_scheduler_func,
             weight_decay=weight_decay,
             optimizer=optimizer,
@@ -387,37 +393,29 @@ class ColdStartModel(MultiStagePipeline):
     def set_eval_stage(self, stage):
         print(f'set to stage {stage}')
         self.stage = stage
-        if 'both' in stage:
-            bucket_key = 'both_buckets'
-        elif 'item' in stage:
-            bucket_key = 'item_buckets'
-        else:
-            bucket_key = 'base'
-        self.train_interactions.set_buckets(bucket_key)
-        # TODO: it would be awesome to disentangle valing + training groups
+
+        # TODO: this method needs to get added to the interactions objects
+        # the k9academy branch linked in the handoff doc has one way of doing this,
+        # Nate's suggestion to do the bucketing on the fly is a better approach
+        self.train_interactions.set_buckets(stage)
         if self.val_loader is not None:
-            self.val_loader.set_buckets(bucket_key)
+            self.val_loader.set_buckets(stage)
 
     def set_stage(self, stage):
         if stage in self.hparams.stage_list:
             print(f'set to stage {stage}')
             self.stage = stage
-            if 'both' in stage:
-                bucket_key = 'both_buckets'
-            elif 'item' in stage:
-                bucket_key = 'item_buckets'
-            else:
-                bucket_key = 'base'
-            self.train_interactions.set_buckets(bucket_key)
-            # TODO: it would be awesome to disentangle valing + training groups
+            self.train_interactions.set_buckets(stage)
+            # TODO: it would be awesome to disentangle val + training groups
+            # since we're currently setting things for both training + eval
             if self.val_loader is not None:
-                self.val_loader.set_buckets(bucket_key)
+                self.val_loader.set_buckets(stage)
 
-            if stage == 'item_buckets_base':
+            if stage == 'item_buckets':
                 print('item embeddings initialized')
                 self._copy_weights(self.user_bucket_bias, self.user_bias, self.user_buckets)
                 self._copy_weights(self.user_bucket_embed, self.user_embed, self.user_buckets)
-            elif stage == 'base':
+            elif stage == 'no_buckets':
                 print('user embeddings initialized')
                 self._copy_weights(self.item_bucket_bias, self.item_bias, self.item_buckets)
                 self._copy_weights(self.item_bucket_embed, self.item_embed, self.item_buckets)
