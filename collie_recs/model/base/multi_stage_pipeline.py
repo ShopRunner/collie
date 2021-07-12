@@ -7,7 +7,7 @@ import torch
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
                                       Interactions,
                                       InteractionsDataLoader)
-from collie_recs.model import BasePipeline
+from collie_recs.model.base import BasePipeline
 
 
 INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoader,
@@ -23,7 +23,6 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
         self,
         train: INTERACTIONS_LIKE_INPUT = None,
         val: INTERACTIONS_LIKE_INPUT = None,
-        batch_size: int = 1024,
         optimizer_config_list: List = None,
         stage: str = None,
         lr_scheduler_func: Optional[Callable] = None,
@@ -51,12 +50,20 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
         parameter_filter should be a function that takes the name of a parameter and
         returns a boolean indicating whether or not it is a part of that stage
         """
+        stage_list = None
+
+        if optimizer_config_list is not None:
+            stage_list = list(
+                dict.fromkeys(
+                    [optimizer_config['stage'] for optimizer_config in optimizer_config_list]
+                )
+            )
+
         super().__init__(
             train=train,
             val=val,
-            batch_size=batch_size,
             optimizer_config_list=optimizer_config_list,
-            stage_list=list(dict.fromkeys([c['stage'] for c in optimizer_config_list])),
+            stage_list=stage_list,
             stage=stage,
             lr_scheduler_func=lr_scheduler_func,
             weight_decay=weight_decay,
@@ -86,7 +93,7 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
     def set_stage(self, stage):
         """Set the model to the desired stage."""
         if stage in self.hparams.stage_list:
-            self.param.stage = stage
+            self.hparams.stage = stage
             print(f'set to stage {stage}')
         else:
             raise ValueError(
@@ -162,7 +169,7 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
     def optimizer_step(self,
                        epoch: int = None,
                        batch_idx: int = None,
-                       optimizer: torch.optim.optimizer = None,
+                       optimizer: torch.optim.Optimizer = None,
                        optimizer_idx: int = None,
                        optimizer_closure: Optional[Callable] = None,
                        on_tpu: bool = None,

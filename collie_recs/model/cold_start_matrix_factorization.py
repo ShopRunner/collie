@@ -21,12 +21,13 @@ INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoade
 
 class ColdStartModel(MultiStagePipeline):
     """TODO - Add docstring."""
+    # TODO: set up advance stage to be correct
     def __init__(
         self,
         train: INTERACTIONS_LIKE_INPUT = None,
         val: INTERACTIONS_LIKE_INPUT = None,
         item_buckets: torch.tensor = None,
-        item_buckets_lr: float = 1e-3,
+        item_buckets_lr: float = 1e-3,  # TODO: standardize LR naming schemes
         no_buckets_lr: float = 1e-3,
         item_buckets_optimizer: Union[str, Callable] = 'adam',
         no_buckets_optimizer: Union[str, Callable] = 'adam',
@@ -91,9 +92,13 @@ class ColdStartModel(MultiStagePipeline):
 
         if stage in self.hparams.stage_list:
             if current_stage == 'item_buckets' and stage == 'no_buckets':
-                print('user embeddings initialized')
-                self._copy_weights(self.item_bucket_bias, self.item_bias, self.item_buckets)
-                self._copy_weights(self.item_bucket_embed, self.item_embed, self.item_buckets)
+                print('item embeddings initialized')
+                self._copy_weights(self.item_bucket_biases,
+                                   self.item_biases,
+                                   self.hparams.item_buckets)
+                self._copy_weights(self.item_bucket_embeddings,
+                                   self.item_embeddings,
+                                   self.hparams.item_buckets)
         else:
             raise ValueError(
                 f'{stage} is not a valid stage, please choose one of {self.hparams.stage_list}'
@@ -110,34 +115,34 @@ class ColdStartModel(MultiStagePipeline):
 
         """
         # define initial embedding groups
-        self.item_bucket_bias = ZeroEmbedding(
+        self.item_bucket_biases = ZeroEmbedding(
             num_embeddings=self.hparams.num_item_buckets,
             embedding_dim=1,
             sparse=self.hparams.sparse,
         )
-        self.item_bucket_embed = ScaledEmbedding(
+        self.item_bucket_embeddings = ScaledEmbedding(
             num_embeddings=self.hparams.num_item_buckets,
             embedding_dim=self.hparams.embedding_dim,
             sparse=self.hparams.sparse,
         )
 
         # define fine-tuned embedding groups
-        self.user_bias = ZeroEmbedding(
+        self.user_biases = ZeroEmbedding(
             num_embeddings=self.hparams.num_users,
             embedding_dim=1,
             sparse=self.hparams.sparse
         )
-        self.item_bias = ZeroEmbedding(
+        self.item_biases = ZeroEmbedding(
             num_embeddings=self.hparams.num_items,
             embedding_dim=1,
             sparse=self.hparams.sparse,
         )
-        self.user_embed = ScaledEmbedding(
+        self.user_embeddings = ScaledEmbedding(
             num_embeddings=self.hparams.num_users,
             embedding_dim=self.hparams.embedding_dim,
             sparse=self.hparams.sparse
         )
-        self.item_embed = ScaledEmbedding(
+        self.item_embeddings = ScaledEmbedding(
             num_embeddings=self.hparams.num_items,
             embedding_dim=self.hparams.embedding_dim,
             sparse=self.hparams.sparse,
@@ -163,17 +168,17 @@ class ColdStartModel(MultiStagePipeline):
 
         """
         user_embeddings = self.user_embeddings(users)
-        user_biases = self.user_bias(users)
+        user_biases = self.user_biases(users)
 
         if self.hparams.stage == 'item_buckets':
             # transform item IDs to item bucket IDs
             items = self.hparams.item_buckets[items]
 
-            item_embeddings = self.item_bucket_embed(items)
-            item_biases = self.item_bucket_bias(items)
+            item_embeddings = self.item_bucket_embeddings(items)
+            item_biases = self.item_bucket_biases(items)
         elif self.hparams.stage == 'no_buckets':
-            item_embeddings = self.item_embed(items)
-            item_biases = self.item_bias(items)
+            item_embeddings = self.item_embeddings(items)
+            item_biases = self.item_biases(items)
 
         pred_scores = (
             torch.mul(self.dropout(user_embeddings), self.dropout(item_embeddings)).sum(axis=1)
@@ -186,6 +191,6 @@ class ColdStartModel(MultiStagePipeline):
     def _get_item_embeddings(self) -> np.array:
         """Get item embeddings."""
         # TODO: update this to get the embeddings post-MLP
-        return self.item_embed(
+        return self.item_embeddings(
             torch.arange(self.hparams.num_items, device=self.device)
         ).detach().cpu()

@@ -16,7 +16,7 @@ from collie_recs.config import DATA_PATH
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
                                       Interactions,
                                       InteractionsDataLoader)
-from collie_recs.model import MultiStagePipeline, ScaledEmbedding, ZeroEmbedding
+from collie_recs.model.base import MultiStagePipeline, ScaledEmbedding, ZeroEmbedding
 from collie_recs.utils import get_init_arguments, merge_docstrings
 
 
@@ -32,11 +32,10 @@ class HybridModel(MultiStagePipeline):
         train: INTERACTIONS_LIKE_INPUT = None,
         val: INTERACTIONS_LIKE_INPUT = None,
         embedding_dim: int = 30,
-        sparse: bool = False,
+        sparse: bool = False,  # TODO: remove?
         item_metadata: Union[torch.tensor, pd.DataFrame, np.array] = None,
         metadata_layers_dims: Optional[List[int]] = None,
         combined_layers_dims: List[int] = [128, 64, 32],
-        batch_size: int = 1024,
         dropout_p: float = 0.0,
         embeddings_lr: float = 1e-3,
         bias_lr: float = 1e-2,
@@ -61,6 +60,8 @@ class HybridModel(MultiStagePipeline):
         map_location: Optional[str] = None,
     ):
         item_metadata_num_cols = None
+        optimizer_config_list = None
+
         if load_model_path is None:
             if item_metadata is None:
                 raise ValueError('Must provide item metadata for ``HybridPretrainedModel``.')
@@ -69,11 +70,12 @@ class HybridModel(MultiStagePipeline):
             elif isinstance(item_metadata, np.ndarray):
                 item_metadata = torch.from_numpy(item_metadata)
 
-            item_metadata = item_metadata.float()
+            item_metadata = item_metadata.to(self.device).float()
 
             item_metadata_num_cols = item_metadata.shape[1]
 
             optimizer_config_list = [
+                # TODO: allow those to be a single optimizer for both embeddings and bias terms
                 {
                     'lr': embeddings_lr,
                     'optimizer': embeddings_optimizer,
@@ -109,14 +111,15 @@ class HybridModel(MultiStagePipeline):
                          stage='matrix_factorization',
                          item_metadata_num_cols=item_metadata_num_cols)
 
-        self.item_metadata = item_metadata.to(self.device)
-
     __doc__ = merge_docstrings(MultiStagePipeline, __doc__, __init__)
 
-    def _load_model_init_helper(self, load_model_path: str, map_location: str) -> None:
-        self.item_metadata = joblib.load(os.path.join(load_model_path, 'metadata.pkl'))
+    def _load_model_init_helper(self, load_model_path: str, map_location: str, **kwargs) -> None:
+        self.item_metadata = (
+            joblib.load(os.path.join(load_model_path, 'metadata.pkl')).to(self.device)
+        )
         super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
-                                        map_location=map_location)
+                                        map_location=map_location,
+                                        **kwargs)
         self.hparams.stage = 'all'
         # TODO: print out current stage
 
