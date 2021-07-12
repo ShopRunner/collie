@@ -1,5 +1,4 @@
 from functools import partial
-import multiprocessing
 import os
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
@@ -26,39 +25,126 @@ INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoade
 
 
 class HybridModel(MultiStagePipeline):
-    """TODO - Add docstring."""
-    def __init__(
-        self,
-        train: INTERACTIONS_LIKE_INPUT = None,
-        val: INTERACTIONS_LIKE_INPUT = None,
-        embedding_dim: int = 30,
-        sparse: bool = False,  # TODO: remove?
-        item_metadata: Union[torch.tensor, pd.DataFrame, np.array] = None,
-        metadata_layers_dims: Optional[List[int]] = None,
-        combined_layers_dims: List[int] = [128, 64, 32],
-        dropout_p: float = 0.0,
-        embeddings_lr: float = 1e-3,
-        bias_lr: float = 1e-2,
-        metadata_only_stage_lr: float = 1e-3,
-        all_stage_lr: float = 1e-4,
-        embeddings_optimizer: Union[str, Callable] = 'adam',
-        bias_optimizer: Union[str, Callable] = 'sgd',
-        metadata_only_stage_optimizer: Union[str, Callable] = 'adam',
-        all_stage_optimizer: Union[str, Callable] = 'adam',
-        lr_scheduler_func: Optional[Callable] = partial(
-            ReduceLROnPlateau,
-            patience=1,
-            verbose=True,
-        ),
-        weight_decay: float = 0.0,
-        loss: Union[str, Callable] = 'hinge',
-        metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
-        metadata_for_loss_weights: Optional[Dict[str, float]] = None,
-        approximate_negative_sampling: bool = False,
-        num_workers: int = multiprocessing.cpu_count(),
-        load_model_path: Optional[str] = None,  # TODO: check model loading interaction w/ stages
-        map_location: Optional[str] = None,
-    ):
+    # NOTE: the full docstring is merged in with ``MultiStagePipeline``'s using
+    # ``merge_docstrings``. Only the description of new or changed parameters are included in this
+    # docstring
+    """
+    Training pipeline for a multi-stage hybrid recommendation model.
+
+    ``HybridModel`` models contain dense layers that process item metadata, concatenate this
+    embedding with user and item embeddings, sending this concatenated embedding through more dense
+    layers to output a single float ranking / rating. This is the same architecture as the
+    ``HybridPretrainedModel``, but we are training the embeddings ourselves rather than relying on
+    pulling this from a pre-trained model.
+
+    All ``HybridModel`` instances are subclasses of the ``LightningModule`` class provided by
+    PyTorch Lightning. This means to train a model, you will need a
+    ``collie_recs.model.CollieTrainer`` object, but the model can be saved and loaded without this
+    ``Trainer`` instance. Example usage may look like:
+
+    .. code-block:: python
+
+        from collie_recs.model import CollieTrainer, HybridModel
+
+
+        # instantiate and fit a ``HybridModel`` as expected
+        model = HybridModel(train=train, item_metadata=item_metadata)
+        trainer = CollieTrainer(model)
+        trainer.fit(model)
+
+        # train for X more epochs on the next stage, ``metadata_only``
+        trainer.max_epochs += X
+        model.advance_stage()
+        trainer.fit(model)
+
+        # train for Y more epochs on the next stage, ``all``
+        trainer.max_epochs += Y
+        model.advance_stage()
+        trainer.fit(model)
+
+        model.eval()
+
+        # do evaluation as normal with ``model``
+
+        model.save_model(path='model')
+        new_model = HybridModel(load_model_path='model')
+
+        # do evaluation as normal with ``new_model``
+
+    Parameters
+    ----------
+    item_metadata: torch.tensor, pd.DataFrame, or np.array, 2-dimensional
+        The shape of the item metadata should be (num_items x metadata_features), and each item's
+        metadata should be available when indexing a row by an item ID
+    embedding_dim: int
+        Number of latent factors to use for user and item embeddings
+    metadata_layers_dims: list
+        List of linear layer dimensions to apply to the metadata only, starting with the dimension
+        directly following ``metadata_features`` and ending with the dimension to concatenate with
+        the item embeddings
+    combined_layers_dims: list
+        List of linear layer dimensions to apply to the concatenated item embeddings and item
+        metadata, starting with the dimension directly following the shape of
+        ``item_embeddings + metadata_features`` and ending with the dimension before the final
+        linear layer to dimension 1
+    dropout_p: float
+        Probability of dropout
+    metadata_only_stage_lr: float
+        Learning rate for metadata and combined layers optimized during the ``metadata_only`` stage
+    all_stage_lr: float
+        Learning rate for all model parameters optimized during the ``all`` stage
+    optimizer: torch.optim or str
+        Optimizer used for embeddings and bias terms (if ``bias_optimizer`` is ``None``) during the
+        ``matrix_factorization`` stage. If a string, one of the following supported optimizers:
+
+        * ``'sgd'`` (for ``torch.optim.SGD``)
+
+        * ``'adam'`` (for ``torch.optim.Adam``)
+
+    metadata_only_stage_optimizer: torch.optim or str
+        Optimizer used for metadata and combined layers during the ``metadata_only`` stage. If a
+        string, one of the following supported optimizers:
+
+        * ``'sgd'`` (for ``torch.optim.SGD``)
+
+        * ``'adam'`` (for ``torch.optim.Adam``)
+
+    all_stage_optimizer: torch.optim or str
+        Optimizer used for all model parameters during the ``all`` stage. If a string, one of the
+        following supported optimizers:
+
+        * ``'sgd'`` (for ``torch.optim.SGD``)
+
+        * ``'adam'`` (for ``torch.optim.Adam``)
+
+    """
+    def __init__(self,
+                 train: INTERACTIONS_LIKE_INPUT = None,
+                 val: INTERACTIONS_LIKE_INPUT = None,
+                 item_metadata: Union[torch.tensor, pd.DataFrame, np.array] = None,
+                 embedding_dim: int = 30,
+                 metadata_layers_dims: Optional[List[int]] = None,
+                 combined_layers_dims: List[int] = [128, 64, 32],
+                 dropout_p: float = 0.0,
+                 lr: float = 1e-3,
+                 bias_lr: Optional[Union[float, str]] = 1e-2,
+                 metadata_only_stage_lr: float = 1e-3,
+                 all_stage_lr: float = 1e-4,
+                 lr_scheduler_func: Optional[Callable] = partial(
+                     ReduceLROnPlateau,
+                     patience=1,
+                     verbose=False,
+                 ),
+                 weight_decay: float = 0.0,
+                 optimizer: Union[str, Callable] = 'adam',
+                 bias_optimizer: Optional[Union[str, Callable]] = 'sgd',
+                 metadata_only_stage_optimizer: Union[str, Callable] = 'adam',
+                 all_stage_optimizer: Union[str, Callable] = 'adam',
+                 loss: Union[str, Callable] = 'hinge',
+                 metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
+                 metadata_for_loss_weights: Optional[Dict[str, float]] = None,
+                 load_model_path: Optional[str] = None,
+                 map_location: Optional[str] = None):
         item_metadata_num_cols = None
         optimizer_config_list = None
 
@@ -74,41 +160,57 @@ class HybridModel(MultiStagePipeline):
 
             item_metadata_num_cols = item_metadata.shape[1]
 
-            optimizer_config_list = [
-                # TODO: allow those to be a single optimizer for both embeddings and bias terms
-                {
-                    'lr': embeddings_lr,
-                    'optimizer': embeddings_optimizer,
-                    # optimize embeddings...
-                    'param_prefix_list': ['user_embed', 'item_embed'],
-                    'stage': 'matrix_factorization',
-                },
-                {
-                    'lr': bias_lr,
-                    'optimizer': bias_optimizer,
-                    # ... and optimize bias terms too
-                    'param_prefix_list': ['user_bias', 'item_bias'],
-                    'stage': 'matrix_factorization',
-                },
+            if self.bias_optimizer is not None:
+                initial_optimizer_block = [
+                    {
+                        'lr': lr,
+                        'optimizer': optimizer,
+                        # optimize embeddings...
+                        'parameter_prefix_list': ['user_embedding', 'item_embedding'],
+                        'stage': 'matrix_factorization',
+                    },
+                    {
+                        'lr': lr if bias_lr == 'infer' else bias_lr,
+                        'optimizer': optimizer if bias_optimizer == 'infer' else bias_optimizer,
+                        # ... and optimize bias terms too
+                        'parameter_prefix_list': ['user_bias', 'item_bias'],
+                        'stage': 'matrix_factorization',
+                    },
+                ]
+            else:
+                initial_optimizer_block = [
+                    {
+                        'lr': lr,
+                        'optimizer': optimizer,
+                        # optimize embeddings and bias terms all together
+                        'parameter_prefix_list': [
+                            'user_embedding',
+                            'item_embedding',
+                            'user_bias',
+                            'item_bias'],
+                        'stage': 'matrix_factorization',
+                    },
+                ]
+
+            optimizer_config_list = initial_optimizer_block + [
                 {
                     'lr': metadata_only_stage_lr,
                     'optimizer': metadata_only_stage_optimizer,
                     # optimize metadata layers only
-                    'param_prefix_list': ['metadata', 'combined'],
+                    'parameter_prefix_list': ['metadata', 'combined'],
                     'stage': 'metadata_only',
                 },
                 {
                     'lr': all_stage_lr,
                     'optimizer': all_stage_optimizer,
                     # optimize everything
-                    'param_prefix_list': ['user', 'item', 'metadata', 'combined'],
+                    'parameter_prefix_list': ['user', 'item', 'metadata', 'combined'],
                     'stage': 'all',
                 },
             ]
 
         super().__init__(**get_init_arguments(),
                          optimizer_config_list=optimizer_config_list,
-                         stage='matrix_factorization',
                          item_metadata_num_cols=item_metadata_num_cols)
 
     __doc__ = merge_docstrings(MultiStagePipeline, __doc__, __init__)

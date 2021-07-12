@@ -25,12 +25,14 @@ class HybridPretrainedModel(BasePipeline):
     # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``.
     # Only the description of new or changed parameters are included in this docstring
     """
-    Training pipeline for a hybrid recommendation model.
+    Training pipeline for a hybrid recommendation model using a pre-trained matrix factorization
+    model as its base.
 
     ``HybridPretrainedModel`` models contain dense layers that process item metadata, concatenate
     this embedding with the user and item embeddings copied from a trained
     ``MatrixFactorizationModel``, and send this concatenated embedding through more dense layers to
-    output a single float ranking / rating.
+    output a single float ranking / rating. This is the same architecture as the ``HybridModel``,
+    but we are using the embeddings from a pre-trained model rather than training them up ourselves.
 
     All ``HybridPretrainedModel`` instances are subclasses of the ``LightningModule`` class
     provided by PyTorch Lightning. This means to train a model, you will need a
@@ -122,7 +124,7 @@ class HybridPretrainedModel(BasePipeline):
             elif isinstance(item_metadata, np.ndarray):
                 item_metadata = torch.from_numpy(item_metadata)
 
-            item_metadata = item_metadata.float()
+            item_metadata = item_metadata.to(self.device).float()
 
             item_metadata_num_cols = item_metadata.shape[1]
 
@@ -134,7 +136,9 @@ class HybridPretrainedModel(BasePipeline):
     __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
 
     def _load_model_init_helper(self, load_model_path: str, map_location: str, **kwargs) -> None:
-        self.item_metadata = joblib.load(os.path.join(load_model_path, 'metadata.pkl'))
+        self.item_metadata = (
+            joblib.load(os.path.join(load_model_path, 'metadata.pkl')).to(self.device)
+        )
         super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
                                         map_location=map_location)
 

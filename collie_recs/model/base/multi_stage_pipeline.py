@@ -1,5 +1,5 @@
+from abc import ABCMeta
 from functools import reduce
-import multiprocessing
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
@@ -8,6 +8,7 @@ from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDat
                                       Interactions,
                                       InteractionsDataLoader)
 from collie_recs.model.base import BasePipeline
+from collie_recs.utils import get_init_arguments, merge_docstrings
 
 
 INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoader,
@@ -17,38 +18,90 @@ INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoade
 
 # TODO: make sure this works for minimal trainer as well
 
-class MultiStagePipeline(BasePipeline):  # TODO: check all types
+class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
     """Pipeline which allows for multiple stages in the training process"""
-    def __init__(
-        self,
-        train: INTERACTIONS_LIKE_INPUT = None,
-        val: INTERACTIONS_LIKE_INPUT = None,
-        optimizer_config_list: List = None,
-        stage: str = None,
-        lr_scheduler_func: Optional[Callable] = None,
-        weight_decay: float = 0.0,
-        loss: Union[str, Callable] = 'hinge',
-        metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
-        metadata_for_loss_weights: Optional[Dict[str, float]] = None,
-        approximate_negative_sampling: bool = False,
-        num_workers: int = multiprocessing.cpu_count(),
-        load_model_path: Optional[str] = None,
-        map_location: Optional[str] = None,
-        **kwargs,
-    ):
+    def __init__(self,
+                 train: INTERACTIONS_LIKE_INPUT = None,
+                 val: INTERACTIONS_LIKE_INPUT = None,
+                 lr_scheduler_func: Optional[Callable] = None,
+                 weight_decay: float = 0.0,
+                 optimizer_config_list: List[Dict[str, Union[float, List[str], str]]] = None,
+                 loss: Union[str, Callable] = 'hinge',
+                 metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
+                 metadata_for_loss_weights: Optional[Dict[str, float]] = None,
+                 load_model_path: Optional[str] = None,
+                 map_location: Optional[str] = None,
+                 **kwargs):
         """
-        # TODO: format docstring using the merge helpers
+        Multi-stage pipeline model architectures to inherit from.
 
-        Currently supports a single optimizer per stage.
-        Each stage has it's own instance of the lr scheduler, but they are all the same type.
-        You can then define different architectures for different stages in `forward`.
+        This model template is intended for models that train in distinct stages, with a different
+        optimizer optimizing each step. This allows model components to be optimized with a set
+        order in mind, rather than all at once, such as with the ``BasePipeline``.
 
+        Generally, multi-stage models will have a training protocol like:
+
+        .. code-block:: python
+
+            from collie_recs.model import CollieTrainer, SomeMultiStageModel
+
+
+            model = SomeMultiStageModel(train=train)
+            trainer = CollieTrainer(model)
+
+            # fit stage 1
+            trainer.fit(model)
+
+            # fit stage 2
+            trainer.max_epochs += 10
+            model.advance_stage()
+            trainer.fit(model)
+
+            # fit stage 3
+            trainer.max_epochs += 10
+            model.advance_stage()
+            trainer.fit(model)
+
+            # ... and so on, until...
+
+            model.eval()
+
+        Just like with ``BasePipeline``, all subclasses MUST at least override the following
+        methods:
+
+        * ``_setup_model`` - Set up the model architecture
+
+        * ``forward`` - Forward pass through a model
+
+        For ``item_item_similarity`` to work properly, all subclasses are should also implement:
+
+        * ``_get_item_embeddings`` - Returns item embeddings from the model
+
+        Notes
+        -----
+        With each call of ``trainer.fit``, the optimizer and learning rate scheduler state will
+        reset.
 
         Parameters
         ----------
-        with keys 'lr, 'parameter_filter',
-        parameter_filter should be a function that takes the name of a parameter and
-        returns a boolean indicating whether or not it is a part of that stage
+        optimizer_config_list: list of dict
+            List of dictionaries containing the optimizer configurations for each stage's
+            optimizer(s). Each dictionary must contain the following keys:
+
+            * ``lr``: str
+                Learning rate for the optimizer
+
+            * ``optimizer``: ``torch.optim`` or ``str``
+
+            * ``parameter_prefix_list``: List[str]
+                List of string prefixes corressponding to the model components that should be
+                optimized with this optimizer
+
+            * ``stage``: str
+                Name of stage
+
+            This must be ordered with the intended progression of stages.
+
         """
         stage_list = None
 
@@ -59,28 +112,16 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
                 )
             )
 
-        super().__init__(
-            train=train,
-            val=val,
-            optimizer_config_list=optimizer_config_list,
-            stage_list=stage_list,
-            stage=stage,
-            lr_scheduler_func=lr_scheduler_func,
-            weight_decay=weight_decay,
-            loss=loss,
-            metadata_for_loss=metadata_for_loss,
-            metadata_for_loss_weights=metadata_for_loss_weights,
-            approximate_negative_sampling=approximate_negative_sampling,
-            num_workers=num_workers,
-            load_model_path=load_model_path,
-            map_location=map_location,
-            **kwargs,
-        )
-        self.hparams.optimizer_config_list = optimizer_config_list
+        super().__init__(**get_init_arguments,
+                         stage_list=stage_list)
+
+        stage = self.hparams.stage_list[0]
         self.set_stage(stage)
 
-    def advance_stage(self):
-        """TODO."""
+    __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
+
+    def advance_stage(self) -> None:
+        """Advance the stage to the next one in ``self.hparams.stage_list``."""
         stage = self.hparams.stage
 
         if stage in self.hparams.stage_list:
@@ -90,11 +131,11 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
 
             self.set_stage(stage=self.hparams.stage_list[stage_idx + 1])
 
-    def set_stage(self, stage):
+    def set_stage(self, stage: str) -> None:
         """Set the model to the desired stage."""
         if stage in self.hparams.stage_list:
             self.hparams.stage = stage
-            print(f'set to stage {stage}')
+            print(f'Set ``self.hparams.stage`` to {stage}')
         else:
             raise ValueError(
                 f'{stage} is not a valid stage, please choose one of {self.hparams.stage_list}'
@@ -102,10 +143,10 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
 
     def _get_optimizer_parameters(
             self,
-            opt_config,
+            optimizer_config: List[Dict[str, Union[float, List[str], str]]],
             include_weight_decay: bool = True,
             **kwargs
-    ) -> Dict[str, Union[torch.tensor, float]]:
+    ) -> List[Dict[str, Union[torch.tensor, float]]]:
         optimizer_parameters = [
             {
                 'params': (
@@ -114,17 +155,19 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
                         lambda x, y: x or y,
                         [
                             name.startswith(prefix) for prefix in
-                            opt_config['param_prefix_list']
+                            optimizer_config['parameter_prefix_list']
                         ],
                         False,
                     )
                 ),
-                'lr': opt_config['lr'],
+                'lr': optimizer_config['lr'],
             }
         ]
+
         if include_weight_decay:
             weight_decay_dict = {'weight_decay': self.hparams.weight_decay}
             [d.update(weight_decay_dict) for d in optimizer_parameters]
+
         return optimizer_parameters
 
     def configure_optimizers(self) -> (
@@ -135,16 +178,13 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
 
         This method will be called after `setup`.
 
-        If `self.bias_optimizer` is None, only a single optimizer will be returned. If there is a
-        non-None class attribute for `bias_optimizer`, two optimizers will be created: one for all
-        layers with the name 'bias' in it, and another for all other model parameters. The bias
-        optimizer will be set with the same parameters as `optimizer` with the exception of the
-        learning rate, which will be set to `self.hparams.bias_lr`.
+        Creates an optimizer and learning rate scheduler for each configuration dictionary in
+        ``self.hparams.optimizer_config_list``.
 
         """
         optimizer_config_list = [
-            self._get_optimizer(self.optimizer, opt_config=opt_config)
-            for opt_config in self.hparams.optimizer_config_list
+            self._get_optimizer(self.optimizer, optimizer_config=optimizer_config)
+            for optimizer_config in self.hparams.optimizer_config_list
         ]
 
         if self.lr_scheduler_func is not None:
@@ -155,10 +195,10 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
             # add in optimizer to scheduler function
             scheduler_list = [
                 {
-                    'scheduler': self.lr_scheduler_func(opt_i),
+                    'scheduler': self.lr_scheduler_func(optimizer_config),
                     'monitor': monitor,
                 }
-                for opt_i in optimizer_config_list
+                for optimizer_config in optimizer_config_list
             ]
 
             return optimizer_config_list, scheduler_list
@@ -172,24 +212,26 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
                        optimizer: torch.optim.Optimizer = None,
                        optimizer_idx: int = None,
                        optimizer_closure: Optional[Callable] = None,
-                       on_tpu: bool = None,
-                       using_native_amp: bool = None,
-                       using_lbfgs: bool = None) -> None:
+                       **kwargs) -> None:
         """
-        Overriding step function to only step the optimizer associated with the relevant stage.
+        Overriding Lightning's optimizer step function to only step the optimizer associated with
+        the relevant stage.
 
-        More details:
+        See here for more details:
         https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html#optimizer-step
 
-        Args:
-            epoch: Current epoch
-            batch_idx: Index of current batch
-            optimizer: A PyTorch optimizer
-            optimizer_idx: If you used multiple optimizers, this indexes into that list.
-            optimizer_closure: Closure for all optimizers
-            on_tpu: ``True`` if TPU backward is required
-            using_native_amp: ``True`` if using native amp
-            using_lbfgs: True if the matching optimizer is :class:`torch.optim.LBFGS`
+        Parameters
+        ----------
+        epoch: int
+            Current epoch
+        batch_idx: int
+            Index of current batch
+        optimizer: torch.optim.Optimizer
+            A PyTorch optimizer
+        optimizer_idx: int
+            If you used multiple optimizers, this indexes into that list
+        optimizer_closure: Callable
+            Closure for all optimizers
 
         """
         if self.hparams.optimizer_config_list[optimizer_idx]['stage'] == self.hparams.stage:
