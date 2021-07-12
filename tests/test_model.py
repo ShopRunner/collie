@@ -743,8 +743,8 @@ class TestBadInitializationColdStartModel:
         model_1 = ColdStartModel(train=train, val=val, item_buckets=item_buckets_list)
         model_2 = ColdStartModel(train=train, val=val, item_buckets=item_buckets_numpy)
 
-        assert isinstance(model_1.hparams.item_buckets, torch.tensor)
-        assert isinstance(model_2.hparams.item_buckets, torch.tensor)
+        assert isinstance(model_1.hparams.item_buckets, torch.Tensor)
+        assert isinstance(model_2.hparams.item_buckets, torch.Tensor)
 
 
 def test_cold_start_stages_progression(train_val_implicit_data):
