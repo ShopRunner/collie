@@ -37,7 +37,9 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
         map_location: Optional[str] = None,
         **kwargs,
     ):
-        """  # TODO: format docstring using the merge helpers
+        """
+        # TODO: format docstring using the merge helpers
+
         Currently supports a single optimizer per stage.
         Each stage has it's own instance of the lr scheduler, but they are all the same type.
         You can then define different architectures for different stages in `forward`.
@@ -70,10 +72,22 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
         self.hparams.optimizer_config_list = optimizer_config_list
         self.set_stage(stage)
 
-    def set_stage(self, stage):
-        """Set the model to the desired stage"""
+    def advance_stage(self):
+        """TODO."""
+        stage = self.hparams.stage
+
         if stage in self.hparams.stage_list:
-            self.stage = stage
+            stage_idx = self.hparams.stage_list.index(stage)
+            if stage_idx > len(self.hparams.stage_list):
+                raise ValueError(f'Cannot advance stage past {stage} - it is the final stage!')
+
+            self.set_stage(stage=self.hparams.stage_list[stage_idx + 1])
+
+    def set_stage(self, stage):
+        """Set the model to the desired stage."""
+        if stage in self.hparams.stage_list:
+            self.param.stage = stage
+            print(f'set to stage {stage}')
         else:
             raise ValueError(
                 f'{stage} is not a valid stage, please choose one of {self.hparams.stage_list}'
@@ -145,16 +159,31 @@ class MultiStagePipeline(BasePipeline):  # TODO: check all types
         else:
             return optimizer_config_list
 
-    def optimizer_step(
-        self, current_epoch, batch_idx, optimizer, optimizer_idx, optimizer_closure,
-        on_tpu=False, using_native_amp=False, using_lbfgs=False
-    ):
+    def optimizer_step(self,
+                       epoch: int = None,
+                       batch_idx: int = None,
+                       optimizer: torch.optim.optimizer = None,
+                       optimizer_idx: int = None,
+                       optimizer_closure: Optional[Callable] = None,
+                       on_tpu: bool = None,
+                       using_native_amp: bool = None,
+                       using_lbfgs: bool = None) -> None:
         """
         Overriding step function to only step the optimizer associated with the relevant stage.
 
         More details:
         https://pytorch-lightning.readthedocs.io/en/stable/common/lightning_module.html#optimizer-step
+
+        Args:
+            epoch: Current epoch
+            batch_idx: Index of current batch
+            optimizer: A PyTorch optimizer
+            optimizer_idx: If you used multiple optimizers, this indexes into that list.
+            optimizer_closure: Closure for all optimizers
+            on_tpu: ``True`` if TPU backward is required
+            using_native_amp: ``True`` if using native amp
+            using_lbfgs: True if the matching optimizer is :class:`torch.optim.LBFGS`
+
         """
-        if self.hparams.optimizer_config_list[optimizer_idx]['stage'] == self.stage:
+        if self.hparams.optimizer_config_list[optimizer_idx]['stage'] == self.hparams.stage:
             optimizer.step(closure=optimizer_closure)
-            optimizer.zero_grad()

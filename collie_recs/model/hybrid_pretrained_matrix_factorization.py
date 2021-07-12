@@ -129,6 +129,8 @@ class HybridPretrainedModel(BasePipeline):
         super().__init__(**get_init_arguments(),
                          item_metadata_num_cols=item_metadata_num_cols)
 
+        self.item_metadata = item_metadata.to(self.device)
+
     __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
 
     def _load_model_init_helper(self, load_model_path: str, map_location: str, **kwargs) -> None:

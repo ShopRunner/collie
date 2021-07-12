@@ -312,7 +312,7 @@ class CollieMinimalTrainer():
             self.optimizer = MultiOptimizer(configure_optimizers_return_value)
         elif isinstance(configure_optimizers_return_value, torch.optim.Optimizer):
             # we have a single optimizer
-            self.optimizer = configure_optimizers_return_value
+            self.optimizer = MultiOptimizer([configure_optimizers_return_value])
         else:
             # we have something we've never seen before
             raise ValueError('Unexpected output from ``model.configure_optimizers()``!')
@@ -348,7 +348,13 @@ class CollieMinimalTrainer():
             loss = model._calculate_loss(batch)
             loss.backward()
 
-            self.optimizer.step()
+            for optimizer_idx, optimizer in enumerate(self.optimizer.optimizers):
+                model.optimizer_step(epoch=epoch,
+                                     batch_idx=batch_idx,
+                                     optimizer=optimizer,
+                                     optimizer_idx=optimizer_idx,
+                                     optimizer_closure=None)
+
             self.train_steps += 1
 
             if self.terminate_on_nan and not torch.isfinite(loss).all():
