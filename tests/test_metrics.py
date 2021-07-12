@@ -1,3 +1,4 @@
+import copy
 from functools import partial
 from unittest import mock
 
@@ -5,12 +6,15 @@ import numpy as np
 import pytest
 from sklearn.metrics import roc_auc_score
 import torch
+import torchmetrics
 
 from collie_recs.metrics import (
+    _get_evaluate_in_batches_device,
     _get_labels,
     _get_user_item_pairs,
     auc,
     evaluate_in_batches,
+    explicit_evaluate_in_batches,
     get_preds,
     mapk,
     mrr,
@@ -18,7 +22,7 @@ from collie_recs.metrics import (
 
 
 def get_model_scores(user, item, scores):
-    return scores[user, item]
+    return scores[user.long(), item.long()]
 
 
 @pytest.mark.parametrize('n_items_type', ['int', 'np.int64'])
@@ -151,6 +155,70 @@ def test_auc(targets, test_implicit_predicted_scores):
     np.testing.assert_almost_equal(actual_score, expected_score)
 
 
+def test_bad_evaluate_in_batches_with_explicit_data(test_explicit_interactions):
+    with pytest.raises(ValueError):
+        evaluate_in_batches(
+            metric_list=[mapk],
+            test_interactions=test_explicit_interactions,
+            model='test_model',
+        )
+
+
+def test_bad_explicit_evaluate_in_batches_with_implicit_data(test_implicit_interactions):
+    with pytest.raises(ValueError):
+        explicit_evaluate_in_batches(
+            metric_list=[torchmetrics.MeanSquaredError()],
+            test_interactions=test_implicit_interactions,
+            model='test_model',
+        )
+
+
+class TestEvaluateInBatchesDevice:
+    @mock.patch('torch.cuda.is_available')
+    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    def test_cuda_available_model_cpu(self, model, is_available_mock):
+        is_available_mock.return_value = True
+        model.device = 'cpu'
+
+        with pytest.warns(UserWarning):
+            device = _get_evaluate_in_batches_device(model=model)
+
+        assert device == 'cpu'
+
+    @mock.patch('torch.cuda.is_available')
+    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    def test_cuda_not_available_model_cuda(self, model, is_available_mock):
+        is_available_mock.return_value = False
+        model.device = 'cuda:0'
+
+        with pytest.warns(None):  # assert no warning is raised here
+            device = _get_evaluate_in_batches_device(model=model)
+
+        assert device == 'cuda:0'
+
+    @mock.patch('torch.cuda.is_available')
+    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    def test_cuda_available_model_no_device(self, model, is_available_mock):
+        is_available_mock.return_value = True
+        model.device = None
+
+        with pytest.warns(None):  # assert no warning is raised here
+            device = _get_evaluate_in_batches_device(model=model)
+
+        assert device == 'cuda:0'
+
+    @mock.patch('torch.cuda.is_available')
+    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    def test_cuda_not_available_model_no_device(self, model, is_available_mock):
+        is_available_mock.return_value = False
+        model.device = None
+
+        with pytest.warns(None):  # assert no warning is raised here
+            device = _get_evaluate_in_batches_device(model=model)
+
+        assert device == 'cpu'
+
+
 @pytest.mark.parametrize('batch_size', [20, 2, 1])  # default, uneven, single
 @mock.patch('collie_recs.model.MatrixFactorizationModel')
 def test_evaluate_in_batches(
@@ -161,6 +229,9 @@ def test_evaluate_in_batches(
     batch_size,
 ):
     model.side_effect = partial(get_model_scores, scores=test_implicit_predicted_scores)
+
+    # need to do this for the Mock in order for the metrics to be on the right device
+    model.device = 'cpu'
 
     mapk_score, mrr_score, auc_score = evaluate_in_batches(
         metric_list=[mapk, mrr, auc],
@@ -191,11 +262,12 @@ def test_evaluate_in_batches_logger(
             self.step = step
 
     logger = LightningLoggerFixture()
+    model = copy.deepcopy(implicit_model)
 
     mapk_score, mrr_score, auc_score = evaluate_in_batches(
         metric_list=[mapk, mrr, auc],
         test_interactions=test_implicit_interactions,
-        model=implicit_model,
+        model=model,
         k=4,
         logger=logger,
     )
@@ -204,4 +276,58 @@ def test_evaluate_in_batches_logger(
     assert mrr_score == logger.metrics['mrr']
     assert auc_score == logger.metrics['auc']
 
-    assert logger.step == implicit_model.hparams.num_epochs_completed
+    assert logger.step == model.hparams.num_epochs_completed
+
+
+@mock.patch('collie_recs.model.MatrixFactorizationModel')
+def test_explicit_evaluate_in_batches(
+    model,
+    test_explicit_interactions,
+    test_explicit_predicted_scores,
+    metrics,
+):
+    model.side_effect = partial(get_model_scores, scores=test_explicit_predicted_scores)
+
+    # need to do this for the Mock in order for the metrics to be on the right device
+    model.device = 'cpu'
+
+    mse_score, mae_score = explicit_evaluate_in_batches(
+        metric_list=[torchmetrics.MeanSquaredError(), torchmetrics.MeanAbsoluteError()],
+        test_interactions=test_explicit_interactions,
+        model=model,
+        num_workers=0,
+    )
+
+    np.testing.assert_almost_equal(mse_score, metrics['mse'])
+    np.testing.assert_almost_equal(mae_score, metrics['mae'])
+
+
+def test_explicit_evaluate_in_batches_logger(
+    explicit_model,
+    test_explicit_interactions,
+    test_explicit_predicted_scores,
+):
+    class LightningLoggerFixture():
+        """A simple logger base class with a method ``log_metrics``."""
+        def __init__(self):
+            pass
+
+        def log_metrics(self, metrics, step):
+            """Save ``metrics`` and ``step`` as class-level attributes for testing."""
+            self.metrics = metrics
+            self.step = step
+
+    logger = LightningLoggerFixture()
+
+    mse_score, mae_score = explicit_evaluate_in_batches(
+        metric_list=[torchmetrics.MeanSquaredError(), torchmetrics.MeanAbsoluteError()],
+        test_interactions=test_explicit_interactions,
+        model=explicit_model,
+        logger=logger,
+        num_workers=0,
+    )
+
+    assert mse_score == logger.metrics['MeanSquaredError']
+    assert mae_score == logger.metrics['MeanAbsoluteError']
+
+    assert logger.step == explicit_model.hparams.num_epochs_completed

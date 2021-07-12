@@ -156,13 +156,96 @@ The table below shows the time differences to train a ``MatrixFactorizationModel
 | ``HDF5InteractionsDataLoader``                        | 1min 10s                       |
 +-------------------------------------------------------+--------------------------------+
 
+**What if my data has explicit ratings in it?**
+
+Thus far, we've only discussed the scenario in which you have data *without* an explicit indicator showing to what degree a user loved an item. When you *do* have that data (i.e. star ratings for product reviews, number of times a user has interacted with an item, etc.), you have **explicit data**. Luckily, as of version ``0.6.0`` of Collie, this is now fully supported within the library, with the only differences between an explicit and implicit pipeline being 1) the dataset definition (detailed below) and 2) evaluation (detailed in :ref:`Evaluation Metrics`).
+
+Note the similarities in the explicit example below with the examples shown thus far:
+
+.. code-block:: python
+
+    import pandas as pd
+
+    from collie_recs.interactions import ExplicitInteractions
+
+
+    explicit_df = pd.DataFrame(data={'user_id': [0, 0, 0, 1, 1, 2],
+                                     'item_id': [0, 1, 2, 3, 4, 5],
+                                     'ratings': [1, 2, 3, 4, 5, 3.5]})
+    explicit_interactions = ExplicitInteractions(users=explicit_df['user_id'],
+                                                 items=explicit_df['item_id'],
+                                                 ratings=explicit_df['ratings'])
+
+    for _ in range(3):
+        print(explicit_interactions[0])
+
+    print('\n-----\n')
+
+    for idx in range(len(explicit_interactions)):
+        print(explicit_interactions[idx])
+
+.. code-block:: bash
+
+   # output structure: (user IDs, positive item IDs, ratings)
+   # notice that unlike implicit interactions, there is no negative sampling going
+   # on under the hood, meaning this printout will always be deterministic
+   (0, 0, 1.0)
+   (0, 0, 1.0)
+   (0, 0, 1.0)
+
+   -----
+
+   (0, 0, 1.0)
+   (0, 1, 2.0)
+   (0, 2, 3.0)
+   (1, 3, 4.0)
+   (1, 4, 5.0)
+   (2, 5, 3.5)
+
+Once the ``ExplicitInteractions`` dataset is defined, you can use the built-in ``InteractionsDataLoader`` to batch and iterate through the data!
+
+.. code-block:: python
+
+   import pandas as pd
+
+   from collie_recs.interactions import ExplicitInteractions, InteractionsDataLoader
+
+
+   # the same setup code from the code snippet above
+   explicit_df = pd.DataFrame(data={'user_id': [0, 0, 0, 1, 1, 2],
+                                    'item_id': [0, 1, 2, 3, 4, 5],
+                                    'ratings': [1, 2, 3, 4, 5, 3.5]})
+   explicit_interactions = ExplicitInteractions(users=explicit_df['user_id'],
+                                                items=explicit_df['item_id'],
+                                                ratings=explicit_df['ratings'])
+
+   explicit_interactions_loader = InteractionsDataLoader(interactions=explicit_interactions)
+
+   for batch in explicit_interactions_loader:
+       print(batch)
+
+.. code-block:: bash
+
+   # output structure: [user IDs, positive item IDs, ratings]
+   [tensor([0, 0, 0, 1, 1, 2], dtype=torch.int32),
+    tensor([0, 1, 2, 3, 4, 5], dtype=torch.int32),
+    tensor([1.0000, 2.0000, 3.0000, 4.0000, 5.0000, 3.5000], dtype=torch.float64)]
+
+All Collie models support both implicit and explicit data, and can be instantiating by either passing in the ``Interactions``/``ExplicitInteractions`` data or the dataset wrapped in a DataLoader. See :ref:`Models` for more details on this.
 
 Datasets
 --------
 
-Interactions Dataset
-^^^^^^^^^^^^^^^^^^^^
+Implicit Interactions Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: collie_recs.interactions.Interactions
+    :members:
+    :inherited-members:
+    :show-inheritance:
+
+Explicit Interactions Dataset
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: collie_recs.interactions.ExplicitInteractions
     :members:
     :inherited-members:
     :show-inheritance:

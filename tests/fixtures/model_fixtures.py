@@ -58,6 +58,48 @@ def implicit_model_no_lightning(train_val_implicit_data, gpu_count):
 
 
 @pytest.fixture(scope='session')
+def explicit_model(train_val_explicit_data, gpu_count):
+    train, val = train_val_explicit_data
+    model = MatrixFactorizationModel(train=train,
+                                     val=val,
+                                     embedding_dim=10,
+                                     lr=1e-2,
+                                     loss='mse',
+                                     y_range=[1, 5])
+    model_trainer = CollieTrainer(model=model,
+                                  gpus=gpu_count,
+                                  max_epochs=10,
+                                  deterministic=True,
+                                  logger=False,
+                                  checkpoint_callback=False)
+    model_trainer.fit(model)
+    model.freeze()
+
+    return model
+
+
+@pytest.fixture(scope='session')
+def explicit_model_no_lightning(train_val_explicit_data, gpu_count):
+    train, val = train_val_explicit_data
+    model = MatrixFactorizationModel(train=train,
+                                     val=val,
+                                     embedding_dim=10,
+                                     lr=1e-2,
+                                     loss='mse',
+                                     y_range=[1, 5])
+    model_trainer = CollieMinimalTrainer(model=model,
+                                         gpus=gpu_count,
+                                         max_epochs=10,
+                                         deterministic=True,
+                                         logger=False,
+                                         early_stopping_patience=False)
+    model_trainer.fit(model)
+    model.freeze()
+
+    return model
+
+
+@pytest.fixture(scope='session')
 def untrained_implicit_model(train_val_implicit_data):
     train, val = train_val_implicit_data
     model = MatrixFactorizationModel(train=train, val=val)
@@ -253,25 +295,29 @@ def models_trained_for_one_step(request,
                                              embedding_dim=10,
                                              num_layers=1,
                                              dropout_p=0.1,
-                                             lr=1e-3,
+                                             lr=1e-4,
                                              weight_decay=0.,
                                              optimizer='adam',
                                              loss='adaptive')
     elif request.param == 'neucf_sigmoid':
         model = NeuralCollaborativeFiltering(train=train,
                                              val=val,
+                                             lr=1e-4,
                                              final_layer='sigmoid')
     elif request.param == 'neucf_relu':
         model = NeuralCollaborativeFiltering(train=train,
                                              val=val,
+                                             lr=1e-4,
                                              final_layer='relu')
     elif request.param == 'neucf_leaky_rulu':
         model = NeuralCollaborativeFiltering(train=train,
                                              val=val,
+                                             lr=1e-4,
                                              final_layer='leaky_relu')
     elif request.param == 'neucf_custom':
         model = NeuralCollaborativeFiltering(train=train,
                                              val=val,
+                                             lr=1e-4,
                                              final_layer=torch.tanh)
     elif request.param == 'deep_fm':
         model = DeepFM(train=train,
@@ -381,5 +427,134 @@ def models_trained_for_one_step(request,
         model_trainer.fit(model)
 
     model.eval()
+
+    return model
+
+
+@pytest.fixture(params=['mf',
+                        'sparse_mf',
+                        'nonlinear_mf',
+                        'neucf',
+                        'hybrid_pretrained'])
+def explicit_models_trained_for_one_step(request,
+                                         train_val_explicit_sample_data,
+                                         movielens_metadata_df,
+                                         gpu_count):
+    train, val = train_val_explicit_sample_data
+
+    if request.param == 'mf':
+        model = MatrixFactorizationModel(train=train, val=val, loss='mse')
+    if request.param == 'sparse_mf':
+        model = MatrixFactorizationModel(train=train,
+                                         val=val,
+                                         embedding_dim=15,
+                                         dropout_p=0.1,
+                                         lr=1e-1,
+                                         bias_lr=1e-2,
+                                         optimizer='sparse_adam',
+                                         bias_optimizer='sgd',
+                                         weight_decay=0,
+                                         loss='mse',
+                                         sparse=True)
+    elif request.param == 'nonlinear_mf':
+        model = NonlinearMatrixFactorizationModel(train=train,
+                                                  val=val,
+                                                  user_embedding_dim=15,
+                                                  item_embedding_dim=15,
+                                                  user_dense_layers_dims=[15, 10],
+                                                  item_dense_layers_dims=[15, 10],
+                                                  embedding_dropout_p=0.05,
+                                                  dense_dropout_p=0.1,
+                                                  lr=1e-1,
+                                                  bias_lr=1e-2,
+                                                  optimizer='adam',
+                                                  bias_optimizer='sgd',
+                                                  weight_decay=1e-7,
+                                                  loss='mse')
+    elif request.param == 'neucf':
+        model = NeuralCollaborativeFiltering(train=train,
+                                             val=val,
+                                             embedding_dim=10,
+                                             num_layers=1,
+                                             dropout_p=0.1,
+                                             lr=1e-4,
+                                             weight_decay=0.,
+                                             optimizer='adam',
+                                             loss='mae')
+    elif request.param == 'hybrid_pretrained':
+        implicit_model = MatrixFactorizationModel(train=train,
+                                                  val=val,
+                                                  embedding_dim=10,
+                                                  lr=1e-1,
+                                                  optimizer='adam',
+                                                  loss='mse')
+        implicit_model_trainer = CollieTrainer(model=implicit_model,
+                                               gpus=gpu_count,
+                                               max_steps=1,
+                                               deterministic=True,
+                                               logger=False,
+                                               checkpoint_callback=False)
+        implicit_model_trainer.fit(implicit_model)
+        implicit_model.freeze()
+
+        genres = (
+            torch.tensor(movielens_metadata_df[
+                [c for c in movielens_metadata_df.columns if 'genre' in c]
+            ].values)
+            .topk(1)
+            .indices
+            .view(-1)
+        )
+
+        model_frozen = HybridPretrainedModel(train=train,
+                                             val=val,
+                                             item_metadata=movielens_metadata_df,
+                                             trained_model=implicit_model,
+                                             metadata_layers_dims=None,
+                                             freeze_embeddings=True,
+                                             dropout_p=0.15,
+                                             loss='mae',
+                                             lr=.01,
+                                             optimizer=torch.optim.Adam,
+                                             metadata_for_loss={'genre': genres},
+                                             metadata_for_loss_weights={'genre': .4},
+                                             weight_decay=0.0)
+        model_frozen_trainer = CollieTrainer(model=model_frozen,
+                                             gpus=gpu_count,
+                                             max_steps=1,
+                                             deterministic=True,
+                                             logger=False,
+                                             checkpoint_callback=False)
+        model_frozen_trainer.fit(model_frozen)
+
+        model = HybridPretrainedModel(train=train,
+                                      val=val,
+                                      item_metadata=movielens_metadata_df,
+                                      trained_model=implicit_model,
+                                      metadata_layers_dims=None,
+                                      freeze_embeddings=False,
+                                      dropout_p=0.15,
+                                      loss='mse',
+                                      lr=1e-4,
+                                      optimizer=torch.optim.Adam,
+                                      metadata_for_loss={'genre': genres},
+                                      metadata_for_loss_weights={'genre': .4},
+                                      weight_decay=0.0)
+        model.load_from_hybrid_model(model_frozen)
+
+    model_trainer = CollieTrainer(model=model,
+                                  gpus=gpu_count,
+                                  max_steps=1,
+                                  deterministic=True,
+                                  logger=False,
+                                  checkpoint_callback=False)
+
+    if request.param == 'mf_no_val':
+        with pytest.warns(UserWarning):
+            model_trainer.fit(model)
+    else:
+        model_trainer.fit(model)
+
+    model.freeze()
 
     return model

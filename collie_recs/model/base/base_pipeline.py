@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from collections.abc import Iterable
 from pathlib import Path
 import textwrap
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -10,6 +11,7 @@ from pytorch_lightning.core.lightning import LightningModule
 import torch
 
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
+                                      ExplicitInteractions,
                                       Interactions,
                                       InteractionsDataLoader)
 from collie_recs.loss import (adaptive_bpr_loss,
@@ -21,8 +23,11 @@ from collie_recs.utils import get_init_arguments
 
 
 INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoader,
+                                ExplicitInteractions,
                                 Interactions,
                                 InteractionsDataLoader]
+EXPECTED_BATCH_TYPE = Union[Tuple[Tuple[torch.tensor, torch.tensor], torch.tensor],
+                            Tuple[torch.tensor, torch.tensor, torch.tensor]]
 
 
 class BasePipeline(LightningModule, metaclass=ABCMeta):
@@ -65,13 +70,26 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
     loss: function or str
         If a string, one of the following implemented losses:
 
-        * ``'bpr'`` / ``'adaptive_bpr'``
+        * ``'bpr'`` / ``'adaptive_bpr'`` (implicit data)
 
-        * ``'hinge'`` / ``'adaptive_hinge'``
+        * ``'hinge'`` / ``'adaptive_hinge'`` (implicit data)
 
-        * ``'warp'``
+        * ``'warp'`` (implicit data)
 
-        If ``train.num_negative_samples > 1``, the adaptive loss version will automatically be used
+        * ``'mse'`` (explicit data)
+
+        * ``'mae'`` (explicit data)
+
+        For implicit data, if ``train.num_negative_samples > 1``, the adaptive loss version will
+        automatically be used of the losses above (except for WARP loss, which is only adaptive by
+        nature).
+
+        If a callable is passed, that function will be used for calculating the loss. For implicit
+        models, the first two arguments passed will be the positive and negative predictions,
+        respectively. Additional keyword arguments passed in order are ``num_items``,
+        ``positive_items``, ``negative_items``, ``metadata``, and ``metadata_weights``.
+        For explicit models, the only two arguments passed in will be the prediction and actual
+        rating values, in order.
     metadata_for_loss: dict
         Keys should be strings identifying each metadata type that match keys in
         ``metadata_weights``. Values should be a ``torch.tensor`` of shape (num_items x 1). Each
@@ -116,9 +134,9 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                  load_model_path: Optional[str] = None,
                  map_location: Optional[str] = None,
                  **kwargs):
-        if isinstance(train, Interactions):
+        if isinstance(train, Interactions) or isinstance(train, ExplicitInteractions):
             train = InteractionsDataLoader(interactions=train, shuffle=True)
-        if isinstance(val, Interactions):
+        if isinstance(val, Interactions) or isinstance(val, ExplicitInteractions):
             val = InteractionsDataLoader(interactions=val, shuffle=False)
 
         super().__init__()
@@ -154,20 +172,24 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                     f'{self.train_loader.num_items} != {self.val_loader.num_items}.'
                 )
 
-                num_negative_samples_error = (
-                    'Training and val ``num_negative_samples`` property must both equal ``1``'
-                    f' or both be greater than ``1``, not: {self.train_loader.num_items} and'
-                    f' {self.val_loader.num_items}, respectively.'
-                )
-                if self.train_loader.num_negative_samples == 1:
-                    assert self.val_loader.num_negative_samples == 1, num_negative_samples_error
-                elif self.train_loader.num_negative_samples > 1:
-                    assert self.val_loader.num_negative_samples > 1, num_negative_samples_error
-                else:
-                    raise ValueError(
-                        '``self.train_loader.num_negative_samples`` must be greater than ``0``, not'
-                        f' {self.train_loader.num_negative_samples}.'
+                if (
+                    hasattr(self.train_loader, 'num_negative_samples')
+                    or hasattr(self.val_loader, 'num_negative_samples')
+                ):
+                    num_negative_samples_error = (
+                        'Training and val ``num_negative_samples`` property must both equal ``1``'
+                        f' or both be greater than ``1``, not: {self.train_loader.num_items} and'
+                        f' {self.val_loader.num_items}, respectively.'
                     )
+                    if self.train_loader.num_negative_samples == 1:
+                        assert self.val_loader.num_negative_samples == 1, num_negative_samples_error
+                    elif self.train_loader.num_negative_samples > 1:
+                        assert self.val_loader.num_negative_samples > 1, num_negative_samples_error
+                    else:
+                        raise ValueError(
+                            '``self.train_loader.num_negative_samples`` must be greater than ``0``,'
+                            f' not {self.train_loader.num_negative_samples}.'
+                        )
 
             # saves all passed-in parameters
             init_args = get_init_arguments(
@@ -229,21 +251,62 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         if callable(self.loss):
             self.loss_function = self.loss
+            return
+
+        # explicit losses first
+        self.hparams._is_implicit = False
+        if self.loss == 'mse':
+            self.loss_function = torch.nn.MSELoss(reduction='mean')
+            return
+        elif self.loss == 'mae':
+            self.loss_function = torch.nn.L1Loss(reduction='mean')
+            return
+
+        # followed by implicit losses
+        self.hparams._is_implicit = True
+        if not hasattr(self.train_loader, 'num_negative_samples'):
+            raise ValueError(
+                '``num_negative_samples`` attribute not found in ``train_loader`` - are you using '
+                'explicit data with an implicit loss function?'
+            )
         elif self.loss == 'warp':
             if self.train_loader.num_negative_samples > 1:
                 self.loss_function = warp_loss
+                return
             else:
                 raise ValueError('Cannot use WARP loss with a single negative sample!')
         elif 'bpr' in self.loss:
             if self.train_loader.num_negative_samples > 1:
                 self.loss_function = adaptive_bpr_loss
             else:
+                if 'adaptive' in self.loss:
+                    warnings.warn(
+                        textwrap.dedent(
+                            '''
+                            Adaptive BPR loss specified, but ``num_negative_samples`` == 1. Using
+                            standard BPR loss instead.
+                            '''
+                        ).replace('\n', ' ').strip()
+                    )
+
                 self.loss_function = bpr_loss
-        elif 'hinge' in self.loss or 'adaptive' in self.loss:
+            return
+        elif 'hinge' in self.loss or self.loss == 'adaptive':
             if self.train_loader.num_negative_samples > 1:
                 self.loss_function = adaptive_hinge_loss
             else:
+                if 'adaptive' in self.loss:
+                    warnings.warn(
+                        textwrap.dedent(
+                            '''
+                            Adaptive hinge loss specified, but ``num_negative_samples`` == 1. Using
+                            standard hinge loss instead.
+                            '''
+                        ).replace('\n', ' ').strip()
+                    )
+
                 self.loss_function = hinge_loss
+            return
         else:
             raise ValueError('{} is not a valid loss function.'.format(self.loss))
 
@@ -398,7 +461,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         This method will be called after ``train_dataloader``.
 
         """
-        loss = self._calculate_loss(batch)
+        loss = self.calculate_loss(batch)
 
         # add logging
         self.log(name='train_loss_step', value=loss)
@@ -447,7 +510,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         This method will be called after ``val_dataloader``.
 
         """
-        loss = self._calculate_loss(batch)
+        loss = self.calculate_loss(batch)
 
         # add logging
         self.log(name='val_loss_step', value=loss)
@@ -468,37 +531,77 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         self.log(name='val_loss_epoch', value=avg_loss)
 
-    def _calculate_loss(
-        self,
-        batch: Tuple[Tuple[torch.tensor, torch.tensor], torch.tensor]
-    ) -> torch.tensor:
-        ((users, pos_items), neg_items) = batch
+    def calculate_loss(self, batch: EXPECTED_BATCH_TYPE) -> torch.tensor:
+        """
+        Given a batch of data, calculate the loss value.
 
-        users = users.long()
-        pos_items = pos_items.long()
-        # TODO: see if there is a way to not have to transpose each time - probably a bit costly
-        neg_items = torch.transpose(neg_items, 0, 1).long()
+        Note that the data type (implicit or explicit) will be determined by the structure of the
+        batch sent to this method. See the table below for expected data types:
 
-        # get positive item predictions from model
-        pos_preds = self(users, pos_items)
+        .. list-table::
+            :header-rows: 1
 
-        # get negative item predictions from model
-        users_repeated = users.repeat(neg_items.shape[0])
-        neg_items_flattened = neg_items.flatten()
-        neg_preds = self(users_repeated, neg_items_flattened).view(
-            neg_items.shape[0], len(users)
-        )
+            * - ``__getitem__`` Format
+              - Expected Meaning
+              - Model Type
+            * - ``((X, Y), Z)``
+              - ``((user IDs, item IDs), negative item IDs)``
+              - **Implicit**
+            * - ``(X, Y, Z)``
+              - ``(user IDs, item IDs, ratings)``
+              - **Explicit**
 
-        # implicit loss function
-        loss = self.loss_function(
-            pos_preds,
-            neg_preds,
-            num_items=self.hparams.num_items,
-            positive_items=pos_items,
-            negative_items=neg_items,
-            metadata=self.hparams.metadata_for_loss,
-            metadata_weights=self.hparams.metadata_for_loss_weights,
-        )
+        """
+        if len(batch) == 2 and isinstance(batch[0], Iterable) and len(batch[0]) == 2:
+            if self.hparams.get('_is_implicit') is False:
+                raise ValueError('Explicit loss with implicit data is invalid!')
+
+            # implicit data
+            ((users, pos_items), neg_items) = batch
+
+            users = users.long()
+            pos_items = pos_items.long()
+            # TODO: see if there is a way to not have to transpose each time - probably a bit costly
+            neg_items = torch.transpose(neg_items, 0, 1).long()
+
+            # get positive item predictions from model
+            pos_preds = self(users, pos_items)
+
+            # get negative item predictions from model
+            users_repeated = users.repeat(neg_items.shape[0])
+            neg_items_flattened = neg_items.flatten()
+            neg_preds = self(users_repeated, neg_items_flattened).view(
+                neg_items.shape[0], len(users)
+            )
+
+            # implicit loss function
+            loss = self.loss_function(
+                pos_preds,
+                neg_preds,
+                num_items=self.hparams.num_items,
+                positive_items=pos_items,
+                negative_items=neg_items,
+                metadata=self.hparams.metadata_for_loss,
+                metadata_weights=self.hparams.metadata_for_loss_weights,
+            )
+        elif len(batch) == 3:
+            if self.hparams.get('_is_implicit') is True:
+                raise ValueError('Implicit loss with explicit data is invalid!')
+
+            # explicit data
+            (users, items, ratings) = batch
+
+            users = users.long()
+            items = items.long()
+            ratings = ratings.float()
+
+            # get predictions from model
+            preds = self(users, items)
+
+            # explicit loss function
+            loss = self.loss_function(preds, ratings)
+        else:
+            raise ValueError(f'Unexpected format for batch: {batch}. See docs for expected format.')
 
         return loss
 

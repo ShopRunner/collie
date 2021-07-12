@@ -25,9 +25,12 @@ pip install collie_recs
 
 ## Quick Start
 
+### Implicit Data
+
+Creating and evaluating a matrix factorization model with _implicit_ MovieLens 100K data is simple with Collie:
+
 [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ShopRunner/collie_recs/blob/main/tutorials/quickstart.ipynb)
 
-Creating and evaluating an implicit matrix factorization model with MovieLens 100K data is simple with Collie:
 ```python
 from collie_recs.cross_validation import stratified_split
 from collie_recs.interactions import Interactions
@@ -37,7 +40,7 @@ from collie_recs.movielens import read_movielens_df
 from collie_recs.utils import convert_to_implicit
 
 
-# read in MovieLens 100K data
+# read in explicit MovieLens 100K data
 df = read_movielens_df()
 
 # convert the data to implicit
@@ -63,14 +66,64 @@ trainer.fit(model)
 model.eval()
 
 # evaluate the model
-auc_score, mrr_score, mapk_score = evaluate_in_batches([auc, mrr, mapk], val, model)
+auc_score, mrr_score, mapk_score = evaluate_in_batches(metric_list=[auc, mrr, mapk],
+                                                       test_interactions=val,
+                                                       model=model)
 
 print(f'AUC:          {auc_score}')
 print(f'MRR:          {mrr_score}')
 print(f'MAP@10:       {mapk_score}')
 ```
 
-More complicated examples of pipelines can be viewed [for MovieLens 100K data here](https://github.com/ShopRunner/collie_recs/blob/main/collie_recs/movielens/run.py), [in notebooks here](https://github.com/ShopRunner/collie_recs/tree/main/tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
+More complicated examples of implicit pipelines can be viewed [for MovieLens 100K data here](https://github.com/ShopRunner/collie_recs/blob/main/collie_recs/movielens/run.py), [in notebooks here](https://github.com/ShopRunner/collie_recs/tree/main/tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
+
+### Explicit Data
+
+Collie also handles the situation when you instead have _explicit_ data, such as star ratings. Note how similar the pipeline and APIs are compared to the implicit example above:
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ShopRunner/collie_recs/blob/main/tutorials/quickstart-explicit.ipynb)
+
+```python
+from collie_recs.cross_validation import stratified_split
+from collie_recs.interactions import ExplicitInteractions
+from collie_recs.metrics import explicit_evaluate_in_batches
+from collie_recs.model import MatrixFactorizationModel, CollieTrainer
+from collie_recs.movielens import read_movielens_df
+
+from torchmetrics import MeanAbsoluteError, MeanSquaredError
+
+
+# read in explicit MovieLens 100K data
+df = read_movielens_df()
+
+# store data as ``Interactions``
+interactions = ExplicitInteractions(users=df['user_id'],
+                                    items=df['item_id'],
+                                    ratings=df['rating'])
+
+# perform a data split
+train, val = stratified_split(interactions)
+
+# train an implicit ``MatrixFactorization`` model
+model = MatrixFactorizationModel(train=train,
+                                 val=val,
+                                 embedding_dim=10,
+                                 lr=1e-2,
+                                 loss='mse',
+                                 optimizer='adam')
+trainer = CollieTrainer(model, max_epochs=10)
+trainer.fit(model)
+model.eval()
+
+# evaluate the model
+mae_score, mse_score = explicit_evaluate_in_batches(metric_list=[MeanAbsoluteError(),
+                                                                 MeanSquaredError()],
+                                                    test_interactions=val,
+                                                    model=model)
+
+print(f'MAE: {mae_score}')
+print(f'MSE: {mse_score}')
+```
 
 ## Comparison With Other Open-Source Recommendation Libraries
 
@@ -79,7 +132,7 @@ More complicated examples of pipelines can be viewed [for MovieLens 100K data he
 | Aspect Included in Library | <a href="http://surpriselib.com" target="_blank">Surprise</a> | <a href="https://making.lyst.com/lightfm/docs/home.html" target="_blank">LightFM</a> | <a href="https://docs.fast.ai" target="_blank">FastAI</a> | <a href="https://maciejkula.github.io/spotlight/" target="_blank">Spotlight</a> | <a href="https://recbole.io" target="_blank">RecBole</a> | <a href="https://www.tensorflow.org/recommenders" target="_blank">TensorFlow Recommenders</a> | Collie |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | **Implicit data support** for when we only know when a user interacts with an item or not, not the explicit rating the user gave the item |  | ✓ |  | ✓ | ✓ | ✓ | ✓ |
-| **Explicit data support** for when we know the explicit rating the user gave the item | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | * |
+| **Explicit data support** for when we know the explicit rating the user gave the item | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Support for **side-data** incorporated directly into the models |  |  |  |  | ✓ | ✓ | ✓ |
 | Support a **flexible framework for new model architectures** and experimentation |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |
 | **Deep learning** libraries utilizing speed-ups with a GPU and able to implement new, cutting-edge deep learning algorithms  |  |  | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -91,8 +144,6 @@ More complicated examples of pipelines can be viewed [for MovieLens 100K data he
 | Includes **implicit loss functions** for training and **metric functions** for model evaluation  |  | ✓ |  | ✓ | ✓ |  | ✓ |
 | Includes **adaptive loss functions** for multiple negative examples  |  | ✓ |  | ✓ |  |  | ✓ |
 | Includes **loss functions that account for side-data**  |  |  |  |  |  |  | ✓ |
-
-<sup>* Coming soon!</sup>
 
 The following table notes shows the results of an experiment training and evaluating recommendation models in some popular implicit recommendation model frameworks on a common [MovieLens 10M](https://grouplens.org/datasets/movielens/10m/) dataset. The data was split via a 90/5/5 stratified data split. Each model was trained for a maximum of 40 epochs using an embedding dimension of 32. For each model, we used default hyperparameters (unless otherwise noted below).
 

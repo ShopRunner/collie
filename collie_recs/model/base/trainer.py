@@ -4,6 +4,7 @@ from typing import Optional, Tuple, Union
 from pytorch_lightning import Trainer
 from pytorch_lightning.core.memory import ModelSummary
 from pytorch_lightning.loggers.base import LightningLoggerBase
+from pytorch_lightning.utilities.apply_func import move_data_to_device
 import torch
 from tqdm.auto import tqdm
 
@@ -243,7 +244,7 @@ class CollieMinimalTrainer():
             train_loss = self._train_loop_single_epoch(model, epoch)
             model.eval()
 
-            epoch_summary = f'Epoch {epoch: >5}: train loss: {train_loss :<1.5f}, '
+            epoch_summary = f'Epoch {epoch: >5}: train loss: {train_loss :<1.5f}'
             early_stop_loss = train_loss
 
             # save epoch loss metrics to the logger
@@ -253,7 +254,7 @@ class CollieMinimalTrainer():
             # run the validation loop logic, if we have the ``val_dataloader`` to do so
             if self.val_dataloader is not None:
                 val_loss = self._val_loop_single_epoch(model)
-                epoch_summary += f'val loss: {val_loss :<1.5f}'
+                epoch_summary += f', val loss: {val_loss :<1.5f}'
                 early_stop_loss = val_loss
 
                 if self.logger is not None:
@@ -345,7 +346,7 @@ class CollieMinimalTrainer():
             self.optimizer.zero_grad()
 
             batch = self._move_batch_to_device(batch)
-            loss = model._calculate_loss(batch)
+            loss = model.calculate_loss(batch)
             loss.backward()
 
             for optimizer_idx, optimizer in enumerate(self.optimizer.optimizers):
@@ -379,7 +380,7 @@ class CollieMinimalTrainer():
 
         for batch_idx, batch in enumerate(self.val_dataloader):
             batch = self._move_batch_to_device(batch)
-            loss = model._calculate_loss(batch)
+            loss = model.calculate_loss(batch)
 
             self.val_steps += 1
 
@@ -396,13 +397,29 @@ class CollieMinimalTrainer():
         self, batch: Tuple[Tuple[torch.tensor, torch.tensor], torch.tensor],
     ) -> Tuple[Tuple[torch.tensor, torch.tensor], torch.tensor]:
         """Move a batch of data to the proper device."""
-        ((users, pos_items), neg_items) = batch
+        # TODO: does this actually speed anything up?
+        try:
+            # assume we have implicit data
+            ((users, pos_items), neg_items) = batch
 
-        users = users.to(self.device)
-        pos_items = pos_items.to(self.device)
-        neg_items = neg_items.to(self.device)
+            users = users.to(self.device)
+            pos_items = pos_items.to(self.device)
+            neg_items = neg_items.to(self.device)
 
-        return ((users, pos_items), neg_items)
+            return ((users, pos_items), neg_items)
+        except (AttributeError, ValueError):
+            try:
+                # now assume we have explicit data
+                users, pos_items, ratings = batch
+
+                users = users.to(self.device)
+                pos_items = pos_items.to(self.device)
+                ratings = ratings.to(self.device)
+
+                return users, pos_items, ratings
+            except (AttributeError, ValueError):
+                # we have an unexpected data format, fallback to PyTorch Lightning
+                return move_data_to_device(batch, self.device)
 
     def _log_step(self, name: str, steps: int, total_loss: torch.tensor, batch_idx: int) -> None:
         """Check if we should and, if so, log step-loss metrics to our logger."""

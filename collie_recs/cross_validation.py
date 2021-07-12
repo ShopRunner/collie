@@ -1,18 +1,22 @@
 from collections import defaultdict
 import functools
 import operator
-from typing import Any, Iterable, Optional, Tuple
+from typing import Any, Iterable, Optional, Tuple, Union
 
 from joblib import delayed, Parallel
 import numpy as np
 from scipy.sparse import coo_matrix
 from sklearn.model_selection import train_test_split
 
-from collie_recs.interactions import Interactions
+from collie_recs.interactions import (BaseInteractions,
+                                      ExplicitInteractions,
+                                      HDF5Interactions,
+                                      Interactions)
 from collie_recs.utils import get_random_seed
 
 
-def _subset_interactions(interactions: Interactions, idxs: Iterable[int]) -> Interactions:
+def _subset_interactions(interactions: BaseInteractions,
+                         idxs: Iterable[int]) -> Union[ExplicitInteractions, Interactions]:
     idxs = np.array(idxs)
 
     coo_mat = coo_matrix(
@@ -22,24 +26,33 @@ def _subset_interactions(interactions: Interactions, idxs: Iterable[int]) -> Int
 
     # disable all ``Interactions`` checks for the data splits, since we assume the initial
     # ``Interactions`` object would have these checks already applied prior to the data split
-    return Interactions(
-        mat=coo_mat,
-        num_negative_samples=interactions.num_negative_samples,
-        allow_missing_ids=True,
-        remove_duplicate_user_item_pairs=False,
-        num_users=interactions.num_users,
-        num_items=interactions.num_items,
-        check_num_negative_samples_is_valid=False,
-        max_number_of_samples_to_consider=interactions.max_number_of_samples_to_consider,
-        seed=interactions.seed,
-    )
+    if isinstance(interactions, Interactions):
+        return Interactions(
+            mat=coo_mat,
+            num_negative_samples=interactions.num_negative_samples,
+            allow_missing_ids=True,
+            remove_duplicate_user_item_pairs=False,
+            num_users=interactions.num_users,
+            num_items=interactions.num_items,
+            check_num_negative_samples_is_valid=False,
+            max_number_of_samples_to_consider=interactions.max_number_of_samples_to_consider,
+            seed=interactions.seed,
+        )
+    else:
+        return ExplicitInteractions(
+            mat=coo_mat,
+            allow_missing_ids=True,
+            remove_duplicate_user_item_pairs=False,
+            num_users=interactions.num_users,
+            num_items=interactions.num_items,
+        )
 
 
-def random_split(interactions: Interactions,
+def random_split(interactions: BaseInteractions,
                  val_p: float = 0.0,
                  test_p: float = 0.2,
                  processes: Optional[Any] = None,
-                 seed: Optional[int] = None) -> Tuple[Interactions, ...]:
+                 seed: Optional[int] = None) -> Tuple[BaseInteractions, ...]:
     """
     Randomly split interactions into training, validation, and testing sets.
 
@@ -53,7 +66,7 @@ def random_split(interactions: Interactions,
 
     Parameters
     ----------
-    interactions: collie_recs.interactions.Interactions
+    interactions: collie_recs.interactions.BaseInteractions
     val_p: float
         Proportion of data used for validation
     test_p: float
@@ -65,11 +78,11 @@ def random_split(interactions: Interactions,
 
     Returns
     -------
-    train_interactions: collie_recs.interactions.Interactions
+    train_interactions: collie_recs.interactions.BaseInteractions
         Training data of size proportional to ``1 - val_p - test_p``
-    validate_interactions: collie_recs.interactions.Interactions
+    validate_interactions: collie_recs.interactions.BaseInteractions
         Validation data of size proportional to ``val_p``, returned only if ``val_p > 0``
-    test_interactions: collie_recs.interactions.Interactions
+    test_interactions: collie_recs.interactions.BaseInteractions
         Testing data of size proportional to ``test_p``
 
     Examples
@@ -84,6 +97,10 @@ def random_split(interactions: Interactions,
         (80000, 20000)
 
     """
+    assert not isinstance(interactions, HDF5Interactions), (
+        '``HDF5Interactions`` data type not supported in cross validation splits!'
+    )
+
     _validate_val_p_and_test_p(val_p=val_p, test_p=test_p)
 
     if seed is None:
@@ -119,11 +136,11 @@ def random_split(interactions: Interactions,
         return train_interactions, test_interactions
 
 
-def stratified_split(interactions: Interactions,
+def stratified_split(interactions: BaseInteractions,
                      val_p: float = 0.0,
                      test_p: float = 0.2,
                      processes: int = -1,
-                     seed: Optional[int] = None) -> Tuple[Interactions, ...]:
+                     seed: Optional[int] = None) -> Tuple[BaseInteractions, ...]:
     """
     Split an ``Interactions`` instance into train, validate, and test datasets in a stratified
     manner such that each user appears at least once in each of the datasets.
@@ -146,7 +163,7 @@ def stratified_split(interactions: Interactions,
 
     Parameters
     ----------
-    interactions: collie_recs.interactions.Interactions
+    interactions: collie_recs.interactions.BaseInteractions
         ``Interactions`` instance containing the data to split
     val_p: float
         Proportion of data used for validation
@@ -162,11 +179,11 @@ def stratified_split(interactions: Interactions,
 
     Returns
     -------
-    train_interactions: collie_recs.interactions.Interactions
+    train_interactions: collie_recs.interactions.BaseInteractions
         Training data of size proportional to ``1 - val_p - test_p``
-    validate_interactions: collie_recs.interactions.Interactions
+    validate_interactions: collie_recs.interactions.BaseInteractions
         Validation data of size proportional to ``val_p``, returned only if ``val_p > 0``
-    test_interactions: collie_recs.interactions.Interactions
+    test_interactions: collie_recs.interactions.BaseInteractions
         Testing data of size proportional to ``test_p``
 
     Examples
@@ -181,6 +198,10 @@ def stratified_split(interactions: Interactions,
         (80000, 20000)
 
     """
+    assert not isinstance(interactions, HDF5Interactions), (
+        '``HDF5Interactions`` data types not supported in cross validation splits!'
+    )
+
     _validate_val_p_and_test_p(val_p=val_p, test_p=test_p)
 
     if seed is None:
@@ -202,7 +223,7 @@ def stratified_split(interactions: Interactions,
         return train, test
 
 
-def _stratified_split(interactions: Interactions,
+def _stratified_split(interactions: BaseInteractions,
                       test_p: float,
                       processes: int,
                       seed: int) -> Tuple[Interactions, Interactions]:
