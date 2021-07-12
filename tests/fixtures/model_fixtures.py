@@ -7,10 +7,12 @@ import torch
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
                                       HDF5InteractionsDataLoader,
                                       InteractionsDataLoader)
-from collie_recs.model import (CollaborativeMetricLearningModel,
+from collie_recs.model import (ColdStartModel,
+                               CollaborativeMetricLearningModel,
                                CollieMinimalTrainer,
                                CollieTrainer,
                                DeepFM,
+                               HybridModel,
                                HybridPretrainedModel,
                                MatrixFactorizationModel,
                                MLPMatrixFactorizationModel,
@@ -138,7 +140,15 @@ def untrained_implicit_model_no_val_data(train_val_implicit_data):
                         'deep_fm_leaky_rulu',
                         'deep_fm_custom',
                         'hybrid_pretrained',
-                        'hybrid_pretrained_metadata_layers'])
+                        'hybrid_pretrained_metadata_layers',
+                        'hybrid_mf',
+                        'hybrid_mf_metadata_layers',
+                        'hybrid_mf_metadata_layers_metadata_for_loss',
+                        'hybrid_mf_metadata_layers_no_bias_optimizer',
+                        'cold_start',
+                        'cold_start_metadata_for_loss',
+                        'cold_start_no_val',
+                        'cold_start_no_lr_scheduler'])
 def models_trained_for_one_step(request,
                                 train_val_implicit_sample_data,
                                 movielens_metadata_df,
@@ -146,6 +156,17 @@ def models_trained_for_one_step(request,
                                 train_val_implicit_pandas_data,
                                 gpu_count):
     train, val = train_val_implicit_sample_data
+
+    genres = (
+        torch.tensor(movielens_metadata_df[
+            [c for c in movielens_metadata_df.columns if 'genre' in c]
+        ].values)
+        .topk(1)
+        .indices
+        .view(-1)
+    )
+
+    number_of_stages = None
 
     if request.param == 'mf_hdf5':
         # create, fit, and return the model all at once so we can close the HDF5 file
@@ -363,19 +384,9 @@ def models_trained_for_one_step(request,
         implicit_model_trainer.fit(implicit_model)
         implicit_model.eval()
 
-        genres = (
-            torch.tensor(movielens_metadata_df[
-                [c for c in movielens_metadata_df.columns if 'genre' in c]
-            ].values)
-            .topk(1)
-            .indices
-            .view(-1)
-        )
-
+        metadata_layers_dims = None
         if request.param == 'hybrid_pretrained_metadata_layers':
             metadata_layers_dims = [16, 12]
-        else:
-            metadata_layers_dims = None
 
         model_frozen = HybridPretrainedModel(train=train,
                                              val=val,
@@ -387,8 +398,6 @@ def models_trained_for_one_step(request,
                                              loss='warp',
                                              lr=.01,
                                              optimizer=torch.optim.Adam,
-                                             metadata_for_loss={'genre': genres},
-                                             metadata_for_loss_weights={'genre': .4},
                                              weight_decay=0.0)
         model_frozen_trainer = CollieTrainer(model=model_frozen,
                                              gpus=gpu_count,
@@ -412,6 +421,64 @@ def models_trained_for_one_step(request,
                                       metadata_for_loss_weights={'genre': .4},
                                       weight_decay=0.0)
         model.load_from_hybrid_model(model_frozen)
+    elif (
+        request.param == 'hybrid_mf'
+        or request.param == 'hybrid_mf_metadata_layers'
+        or request.param == 'hybrid_mf_metadata_layers_metadata_for_loss'
+        or request.param == 'hybrid_mf_metadata_layers_no_bias_optimizer'
+    ):
+        number_of_stages = 3
+
+        metadata_layers_dims = None
+        if request.param == 'hybrid_mf_metadata_layers':
+            metadata_layers_dims = [16, 12]
+
+        additional_kwargs = {}
+        if request.param == 'hybrid_mf_metadata_layers_metadata_for_loss':
+            additional_kwargs = {
+                'metadata_for_loss': {'genre': genres},
+                'metadata_for_loss_weights': {'genre': .4},
+            }
+        elif request.param == 'hybrid_mf_metadata_layers_no_bias_optimizer':
+            additional_kwargs = {
+                'bias_optimizer': None
+            }
+
+        model = HybridModel(train=train,
+                            val=val,
+                            item_metadata=movielens_metadata_df,
+                            embedding_dim=10,
+                            metadata_layers_dims=metadata_layers_dims,
+                            lr=1e-1,
+                            optimizer='adam',
+                            **additional_kwargs)
+    elif (
+        request.param == 'cold_start'
+        or request.param == 'cold_start_metadata_for_loss'
+        or request.param == 'cold_start_no_val'
+        or request.param == 'cold_start_no_lr_scheduler'
+    ):
+        number_of_stages = 2
+
+        additional_kwargs = {}
+        if request.param == 'cold_start_metadata_for_loss':
+            additional_kwargs = {
+                'metadata_for_loss': {'genre': genres},
+                'metadata_for_loss_weights': {'genre': .4},
+            }
+        elif request.param == 'cold_start_no_lr_scheduler':
+            additional_kwargs = {
+                'lr_scheduler_func': None
+            }
+
+        model = ColdStartModel(train=train,
+                               val=val if request.param != 'cold_start_no_val' else None,
+                               item_buckets=genres[:train.num_items],
+                               embedding_dim=10,
+                               item_buckets_stage_lr=1e-2,
+                               no_buckets_stage_lr=1e-2,
+                               item_buckets_stage_optimizer='sgd',
+                               **additional_kwargs)
 
     model_trainer = CollieTrainer(model=model,
                                   gpus=gpu_count,
@@ -424,7 +491,15 @@ def models_trained_for_one_step(request,
         with pytest.warns(UserWarning):
             model_trainer.fit(model)
     else:
-        model_trainer.fit(model)
+        if number_of_stages is None:
+            model_trainer.fit(model)
+        else:
+            for idx in range(number_of_stages):
+                model_trainer.fit(model)
+
+                if idx < (number_of_stages - 1):
+                    model_trainer.max_steps += 1
+                    model.advance_stage()
 
     model.eval()
 

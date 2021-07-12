@@ -124,20 +124,18 @@ class HybridPretrainedModel(BasePipeline):
             elif isinstance(item_metadata, np.ndarray):
                 item_metadata = torch.from_numpy(item_metadata)
 
-            item_metadata = item_metadata.to(self.device).float()
+            item_metadata = item_metadata.float()
 
             item_metadata_num_cols = item_metadata.shape[1]
 
         super().__init__(**get_init_arguments(),
                          item_metadata_num_cols=item_metadata_num_cols)
 
-        self.item_metadata = item_metadata.to(self.device)
-
     __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
 
     def _load_model_init_helper(self, load_model_path: str, map_location: str, **kwargs) -> None:
         self.item_metadata = (
-            joblib.load(os.path.join(load_model_path, 'metadata.pkl')).to(self.device)
+            joblib.load(os.path.join(load_model_path, 'metadata.pkl'))
         )
         super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
                                         map_location=map_location)
@@ -231,8 +229,10 @@ class HybridPretrainedModel(BasePipeline):
             Predicted ratings or rankings
 
         """
-        # TODO: remove self.device and let lightning do it
-        metadata_output = self.item_metadata[items, :].to(self.device)
+        if self.device != self.item_metadata.device:
+            self.item_metadata.to(self.device)
+
+        metadata_output = self.item_metadata[items, :]
         if self.metadata_layers is not None:
             for metadata_nn_layer in self.metadata_layers:
                 metadata_output = self.dropout(

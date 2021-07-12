@@ -37,11 +37,6 @@ class MultiOptimizer(object):
         for optimizer in self.optimizers:
             optimizer.zero_grad()
 
-    def step(self) -> None:
-        """Apply ``step`` to all optimizers."""
-        for optimizer in self.optimizers:
-            optimizer.step()
-
 
 class MultiLRScheduler(object):
     """

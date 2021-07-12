@@ -162,8 +162,6 @@ class ColdStartModel(MultiStagePipeline):
                 },
             ]
 
-            self.stage = 'item_buckets'
-
         item_buckets = torch.tensor(item_buckets)
 
         # data quality checks for ``item_buckets``
@@ -177,16 +175,12 @@ class ColdStartModel(MultiStagePipeline):
             )
         if min(item_buckets) != 0:
             raise ValueError(f'``item_buckets`` IDs must start at 0, not {min(item_buckets)}!')
-        if set(item_buckets) != set(range(train.num_users)):
-            raise ValueError(
-                f'``item_buckets`` must contain every integer between 0 and {train.num_users - 1}.'
-            )
 
         num_item_buckets = item_buckets.max().item() + 1
 
-        super().__init__(**get_init_arguments(),
-                         optimizer_config_list=optimizer_config_list,
-                         num_item_buckets=num_item_buckets)
+        super().__init__(optimizer_config_list=optimizer_config_list,
+                         num_item_buckets=num_item_buckets,
+                         **get_init_arguments())
 
     __doc__ = merge_docstrings(MultiStagePipeline, __doc__, __init__)
 

@@ -156,11 +156,11 @@ class HybridModel(MultiStagePipeline):
             elif isinstance(item_metadata, np.ndarray):
                 item_metadata = torch.from_numpy(item_metadata)
 
-            item_metadata = item_metadata.to(self.device).float()
+            item_metadata = item_metadata.float()
 
             item_metadata_num_cols = item_metadata.shape[1]
 
-            if self.bias_optimizer is not None:
+            if bias_optimizer is not None:
                 initial_optimizer_block = [
                     {
                         'lr': lr,
@@ -209,15 +209,15 @@ class HybridModel(MultiStagePipeline):
                 },
             ]
 
-        super().__init__(**get_init_arguments(),
-                         optimizer_config_list=optimizer_config_list,
-                         item_metadata_num_cols=item_metadata_num_cols)
+        super().__init__(optimizer_config_list=optimizer_config_list,
+                         item_metadata_num_cols=item_metadata_num_cols,
+                         **get_init_arguments())
 
     __doc__ = merge_docstrings(MultiStagePipeline, __doc__, __init__)
 
     def _load_model_init_helper(self, load_model_path: str, map_location: str, **kwargs) -> None:
         self.item_metadata = (
-            joblib.load(os.path.join(load_model_path, 'metadata.pkl')).to(self.device)
+            joblib.load(os.path.join(load_model_path, 'metadata.pkl'))
         )
         super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
                                         map_location=map_location,
@@ -237,17 +237,13 @@ class HybridModel(MultiStagePipeline):
                 self.item_metadata = kwargs.pop('item_metadata')
 
         self.user_biases = ZeroEmbedding(num_embeddings=self.hparams.num_users,
-                                         embedding_dim=1,
-                                         sparse=self.hparams.sparse)
+                                         embedding_dim=1)
         self.item_biases = ZeroEmbedding(num_embeddings=self.hparams.num_items,
-                                         embedding_dim=1,
-                                         sparse=self.hparams.sparse)
+                                         embedding_dim=1)
         self.user_embeddings = ScaledEmbedding(num_embeddings=self.hparams.num_users,
-                                               embedding_dim=self.hparams.embedding_dim,
-                                               sparse=self.hparams.sparse)
+                                               embedding_dim=self.hparams.embedding_dim)
         self.item_embeddings = ScaledEmbedding(num_embeddings=self.hparams.num_items,
-                                               embedding_dim=self.hparams.embedding_dim,
-                                               sparse=self.hparams.sparse)
+                                               embedding_dim=self.hparams.embedding_dim)
         self.dropout = nn.Dropout(p=self.hparams.dropout_p)
 
         # set up metadata-only layers
@@ -299,6 +295,9 @@ class HybridModel(MultiStagePipeline):
             Predicted ratings or rankings
 
         """
+        if self.device != self.item_metadata.device:
+            self.item_metadata.to(self.device)
+
         if self.hparams.stage == 'matrix_factorization':
             pred_scores = (
                 torch.mul(

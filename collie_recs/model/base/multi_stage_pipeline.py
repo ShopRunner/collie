@@ -1,4 +1,5 @@
 from abc import ABCMeta
+from collections import OrderedDict
 from functools import reduce
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
@@ -107,16 +108,16 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
 
         if optimizer_config_list is not None:
             stage_list = list(
-                dict.fromkeys(
+                OrderedDict.fromkeys(
                     [optimizer_config['stage'] for optimizer_config in optimizer_config_list]
                 )
             )
 
-        super().__init__(**get_init_arguments,
-                         stage_list=stage_list)
+        super().__init__(stage_list=stage_list,
+                         **get_init_arguments())
 
-        stage = self.hparams.stage_list[0]
-        self.set_stage(stage)
+        self.hparams.stage = self.hparams.stage_list[0]
+        self.set_stage(self.hparams.stage)
 
     __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
 
@@ -126,7 +127,7 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
 
         if stage in self.hparams.stage_list:
             stage_idx = self.hparams.stage_list.index(stage)
-            if stage_idx > len(self.hparams.stage_list):
+            if (stage_idx + 1) >= len(self.hparams.stage_list):
                 raise ValueError(f'Cannot advance stage past {stage} - it is the final stage!')
 
             self.set_stage(stage=self.hparams.stage_list[stage_idx + 1])
