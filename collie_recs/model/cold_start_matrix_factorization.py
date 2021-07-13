@@ -1,7 +1,7 @@
 from functools import partial
 from typing import Callable, Dict, Iterable, Optional, Union
 
-import numpy as np
+import pandas as pd
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -112,7 +112,6 @@ class ColdStartModel(MultiStagePipeline):
         * ``'adam'`` (for ``torch.optim.Adam``)
 
     """
-    # TODO: make a predict function
     def __init__(self,
                  train: INTERACTIONS_LIKE_INPUT = None,
                  val: INTERACTIONS_LIKE_INPUT = None,
@@ -162,7 +161,8 @@ class ColdStartModel(MultiStagePipeline):
                 },
             ]
 
-        item_buckets = torch.tensor(item_buckets)
+        if not isinstance(item_buckets, torch.Tensor):
+            item_buckets = torch.tensor(item_buckets)
 
         # data quality checks for ``item_buckets``
         assert item_buckets.dim() == 1, (
@@ -193,7 +193,7 @@ class ColdStartModel(MultiStagePipeline):
 
         if stage in self.hparams.stage_list:
             if current_stage == 'item_buckets' and stage == 'no_buckets':
-                print('item embeddings initialized')
+                print('Copying over item embeddings...')
                 self._copy_weights(self.item_bucket_biases,
                                    self.item_biases,
                                    self.hparams.item_buckets)
@@ -202,11 +202,11 @@ class ColdStartModel(MultiStagePipeline):
                                    self.hparams.item_buckets)
         else:
             raise ValueError(
-                f'{stage} is not a valid stage, please choose one of {self.hparams.stage_list}'
+                f'"{stage}" is not a valid stage, please choose one of {self.hparams.stage_list}'
             )
 
         self.hparams.stage = stage
-        print(f'set to stage {stage}')
+        print(f'Set ``self.hparams.stage`` to "{stage}"')
 
     def _setup_model(self, **kwargs) -> None:
         """
@@ -289,8 +289,45 @@ class ColdStartModel(MultiStagePipeline):
 
         return pred_scores.squeeze()
 
-    def _get_item_embeddings(self) -> np.array:
+    def item_bucket_item_similarity(self, item_bucket_id: int) -> pd.Series:
+        """
+        Get most similar item indices to a item bucket by cosine similarity.
+
+        Cosine similarity is computed with item and item bucket embeddings from a trained model.
+
+        Parameters
+        ----------
+        item_id: int
+
+        Returns
+        -------
+        sim_score_idxs: pd.Series
+            Sorted values as cosine similarity for each item in the dataset with the index being
+            the item ID
+
+        """
+        item_bucket_embeddings = self.item_bucket_embeddings.weight.data
+        item_bucket_embeddings = (
+            item_bucket_embeddings / item_bucket_embeddings.norm(dim=1)[:, None]
+        )
+
+        item_embeddings = self._get_item_embeddings()
+        item_embeddings = item_embeddings / item_embeddings.norm(dim=1)[:, None]
+
+        sim_score_idxs = (
+            torch.matmul(item_bucket_embeddings[[item_bucket_id], :],
+                         item_embeddings.transpose(1, 0))
+            .detach()
+            .cpu()
+            .numpy()
+            .squeeze()
+        )
+
+        sim_score_idxs_series = pd.Series(sim_score_idxs)
+        sim_score_idxs_series = sim_score_idxs_series.sort_values(ascending=False)
+
+        return sim_score_idxs_series
+
+    def _get_item_embeddings(self) -> torch.tensor:
         """Get item embeddings."""
-        return self.item_embeddings(
-            torch.arange(self.hparams.num_items, device=self.device)
-        ).detach().cpu()
+        return self.item_embeddings.weight.data

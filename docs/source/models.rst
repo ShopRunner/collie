@@ -163,6 +163,21 @@ Hybrid Pretrained Matrix Factorization Model
     :members:
     :show-inheritance:
 
+Multi-Stage Models
+------------------
+
+Cold Start Matrix Factorization Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: collie_recs.model.ColdStartModel
+    :members:
+    :show-inheritance:
+
+Hybrid Matrix Factorization Model
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: collie_recs.model.HybridModel
+    :members:
+    :show-inheritance:
+
 Trainers
 --------
 
@@ -184,6 +199,12 @@ Model Templates
 Base Collie Pipeline Template
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autoclass:: collie_recs.model.BasePipeline
+    :members:
+    :show-inheritance:
+
+Base Collie Multi-Stage Pipeline Template
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autoclass:: collie_recs.model.MultiStagePipeline
     :members:
     :show-inheritance:
 

@@ -1020,6 +1020,13 @@ def test_models_trained_for_one_step(models_trained_for_one_step, train_val_impl
     if not isinstance(models_trained_for_one_step, ColdStartModel):
         # cold start models aren't trained enough for this check to be true
         assert item_similarities.index[0] == 42
+    else:
+        # ensure ``item_bucket_item_similarity`` works for cold start models
+        item_bucket_similarities = (
+            models_trained_for_one_step.item_bucket_item_similarity(item_bucket_id=0)
+        )
+
+        assert len(item_similarities) == len(item_bucket_similarities)
 
 
 def test_explicit_models_trained_for_one_step(explicit_models_trained_for_one_step,

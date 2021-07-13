@@ -683,14 +683,16 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         always be the item itself.
 
         """
-        item_embs = self._get_item_embeddings()
+        item_embeddings = self._get_item_embeddings()
+        item_embeddings = item_embeddings / item_embeddings.norm(dim=1)[:, None]
 
-        results = [
-            np.inner(item_embs[item_id], item_embs[idx]) / (np.linalg.norm(item_embs[idx]) + 1e-11)
-            for idx in range(self.hparams.num_items)
-        ]
-
-        sim_score_idxs = np.array(results) / (np.linalg.norm(item_embs[item_id]) + 1e-11)
+        sim_score_idxs = (
+            torch.matmul(item_embeddings[[item_id], :], item_embeddings.transpose(1, 0))
+            .detach()
+            .cpu()
+            .numpy()
+            .squeeze()
+        )
 
         sim_score_idxs_series = pd.Series(sim_score_idxs)
         sim_score_idxs_series = sim_score_idxs_series.sort_values(ascending=False)

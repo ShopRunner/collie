@@ -16,7 +16,8 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from collie_recs.config import DATA_PATH
 from collie_recs.model.base import (BasePipeline,
                                     INTERACTIONS_LIKE_INPUT,
-                                    ScaledEmbedding)
+                                    ScaledEmbedding,
+                                    ZeroEmbedding)
 from collie_recs.model.matrix_factorization import MatrixFactorizationModel
 from collie_recs.utils import get_init_arguments, merge_docstrings
 
@@ -31,8 +32,9 @@ class HybridPretrainedModel(BasePipeline):
     ``HybridPretrainedModel`` models contain dense layers that process item metadata, concatenate
     this embedding with the user and item embeddings copied from a trained
     ``MatrixFactorizationModel``, and send this concatenated embedding through more dense layers to
-    output a single float ranking / rating. This is the same architecture as the ``HybridModel``,
-    but we are using the embeddings from a pre-trained model rather than training them up ourselves.
+    output a single float ranking / rating. We add both user and item biases to this score before
+    returning. This is the same architecture as the ``HybridModel``, but we are using the embeddings
+    from a pre-trained model rather than training them up ourselves.
 
     All ``HybridPretrainedModel`` instances are subclasses of the ``LightningModule`` class
     provided by PyTorch Lightning. This means to train a model, you will need a
@@ -155,10 +157,13 @@ class HybridPretrainedModel(BasePipeline):
 
             # we are not loading in a model, so we will create a new model from scratch
             # we don't want to modify the ``trained_model``'s weights, so we deep copy
-            # TODO: add biases here
             self.embeddings = nn.Sequential(
                 copy.deepcopy(self._trained_model.user_embeddings),
                 copy.deepcopy(self._trained_model.item_embeddings)
+            )
+            self.biases = nn.Sequential(
+                copy.deepcopy(self._trained_model.user_biases),
+                copy.deepcopy(self._trained_model.item_biases)
             )
 
             if self.hparams.freeze_embeddings:
@@ -177,6 +182,10 @@ class HybridPretrainedModel(BasePipeline):
             self.embeddings = nn.Sequential(
                 ScaledEmbedding(self.hparams.user_num_embeddings, self.hparams.user_embeddings_dim),
                 ScaledEmbedding(self.hparams.item_num_embeddings, self.hparams.item_embeddings_dim)
+            )
+            self.biases = nn.Sequential(
+                ZeroEmbedding(self.hparams.user_num_embeddings, 1),
+                ZeroEmbedding(self.hparams.item_num_embeddings, 1)
             )
 
         self.dropout = nn.Dropout(p=self.hparams.dropout_p)
@@ -252,16 +261,18 @@ class HybridPretrainedModel(BasePipeline):
                 )
             )
 
-        pred_scores = self.combined_layers[-1](combined_output)
+        pred_scores = (
+            self.combined_layers[-1](combined_output)
+            + self.biases[0](users)
+            + self.biases[1](items)
+        )
 
         return pred_scores.squeeze()
 
-    def _get_item_embeddings(self) -> np.array:
+    def _get_item_embeddings(self) -> torch.tensor:
         """Get item embeddings."""
         # TODO: update this to get the embeddings post-MLP
-        return self.embeddings[1](
-            torch.arange(self.hparams.num_items, device=self.device)
-        ).detach().cpu()
+        return self.embeddings[1].weight.data
 
     def freeze_embeddings(self) -> None:
         """Remove gradient requirement from the embeddings."""

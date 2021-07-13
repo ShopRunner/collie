@@ -222,8 +222,6 @@ class HybridModel(MultiStagePipeline):
         super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
                                         map_location=map_location,
                                         **kwargs)
-        self.hparams.stage = 'all'
-        # TODO: print out current stage
 
     def _setup_model(self, **kwargs) -> None:
         """
@@ -337,12 +335,10 @@ class HybridModel(MultiStagePipeline):
 
         return pred_scores.squeeze()
 
-    def _get_item_embeddings(self) -> np.array:
+    def _get_item_embeddings(self) -> torch.tensor:
         """Get item embeddings."""
         # TODO: update this to get the embeddings post-MLP
-        return self.item_embeddings(
-            torch.arange(self.hparams.num_items, device=self.device)
-        ).detach().cpu()
+        return self.item_embeddings.weight.data
 
     def save_model(self,
                    path: Union[str, Path] = os.path.join(DATA_PATH / 'model'),

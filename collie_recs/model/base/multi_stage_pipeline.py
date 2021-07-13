@@ -17,7 +17,6 @@ INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoade
                                 InteractionsDataLoader]
 
 
-# TODO: load the correct stage in
 class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
     """Pipeline which allows for multiple stages in the training process"""
     def __init__(self,
@@ -120,6 +119,13 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
 
     __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
 
+    def _load_model_init_helper(self, *args, **kwargs) -> None:
+        super()._load_model_init_helper(*args, **kwargs)
+
+        # set the stage to the last stage
+        self.hparams.stage = self.hparams.stage_list[-1]
+        print(f'Set ``self.hparams.stage`` to "{self.hparams.stage}"')
+
     def advance_stage(self) -> None:
         """Advance the stage to the next one in ``self.hparams.stage_list``."""
         stage = self.hparams.stage
@@ -135,7 +141,7 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
         """Set the model to the desired stage."""
         if stage in self.hparams.stage_list:
             self.hparams.stage = stage
-            print(f'Set ``self.hparams.stage`` to {stage}')
+            print(f'Set ``self.hparams.stage`` to "{self.hparams.stage}"')
         else:
             raise ValueError(
                 f'{stage} is not a valid stage, please choose one of {self.hparams.stage_list}'

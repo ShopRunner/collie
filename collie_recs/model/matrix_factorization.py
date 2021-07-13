@@ -1,7 +1,6 @@
 from functools import partial
 from typing import Callable, Dict, Optional, Tuple, Union
 
-import numpy as np
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import ReduceLROnPlateau
@@ -160,8 +159,6 @@ class MatrixFactorizationModel(BasePipeline):
 
         return preds
 
-    def _get_item_embeddings(self) -> np.array:
+    def _get_item_embeddings(self) -> torch.tensor:
         """Get item embeddings."""
-        return self.item_embeddings(
-            torch.arange(self.hparams.num_items, device=self.device)
-        ).detach().cpu()
+        return self.item_embeddings.weight.data
