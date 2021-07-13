@@ -114,8 +114,10 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
         super().__init__(stage_list=stage_list,
                          **get_init_arguments())
 
-        self.hparams.stage = self.hparams.stage_list[0]
-        self.set_stage(self.hparams.stage)
+        if load_model_path is None:
+            # set stage if we have not already loaded it in and set it there
+            self.hparams.stage = self.hparams.stage_list[0]
+            self.set_stage(self.hparams.stage)
 
     __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
 

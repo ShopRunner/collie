@@ -960,6 +960,33 @@ def test_bad_saving_hybrid_pretrained_model(implicit_model,
     model.save_model(save_model_path, overwrite=True)
 
 
+def test_loading_and_saving_cold_start_model(train_val_implicit_data, tmpdir):
+    train, val = train_val_implicit_data
+    item_buckets = torch.randint(low=0, high=3, size=(train.num_items,))
+
+    model = ColdStartModel(train=train, val=val, item_buckets=item_buckets)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer.fit(model)
+
+    # we have to advance to the final stage so our item embeddings are copied over before saving
+    model.advance_stage()
+
+    expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name, 'test_cold_start_model_save.pkl')
+    model.save_model(save_model_path)
+    loaded_model = ColdStartModel(load_model_path=save_model_path)
+
+    actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+
+    assert expected.equals(actual)
+
+    assert loaded_model.hparams.stage == 'no_buckets'
+
+
 def test_loading_and_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data, tmpdir):
     train, val = train_val_implicit_data
 
@@ -979,11 +1006,15 @@ def test_loading_and_saving_hybrid_model(movielens_metadata_df, train_val_implic
     model.save_model(save_model_path)
     loaded_model = HybridModel(load_model_path=save_model_path)
 
+    assert loaded_model.hparams.stage == 'all'
+
+    # set the stage of the loaded in model to be the same as the saved model so
+    # ``get_item_predictions`` is the same
+    loaded_model.set_stage('matrix_factorization')
+
     actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
 
     assert expected.equals(actual)
-
-    assert loaded_model.hparams.stage == 'all'
 
 
 def test_bad_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data, tmpdir):

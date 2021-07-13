@@ -23,6 +23,10 @@ class ColdStartModel(MultiStagePipeline):
     # ``merge_docstrings``. Only the description of new or changed parameters are included in this
     # docstring
     """
+    TODO: documentation on what each stage does
+    TODO: note that forward is different with each stage
+    TODO: note about loading in models
+
     Training pipeline for a matrix factorization model optimized for the cold-start problem.
 
     Many recommendation models suffer from the cold start problem, when a model is unable to provide
@@ -134,6 +138,9 @@ class ColdStartModel(MultiStagePipeline):
                  metadata_for_loss_weights: Optional[Dict[str, float]] = None,
                  load_model_path: Optional[str] = None,
                  map_location: Optional[str] = None):
+        optimizer_config_list = None
+        num_item_buckets = None
+
         if load_model_path is None:
             # TODO: separate out optimizer and bias optimizer somehow
             optimizer_config_list = [
@@ -161,22 +168,22 @@ class ColdStartModel(MultiStagePipeline):
                 },
             ]
 
-        if not isinstance(item_buckets, torch.Tensor):
-            item_buckets = torch.tensor(item_buckets)
+            if not isinstance(item_buckets, torch.Tensor):
+                item_buckets = torch.tensor(item_buckets)
 
-        # data quality checks for ``item_buckets``
-        assert item_buckets.dim() == 1, (
-            f'``item_buckets`` must be 1-dimensional, not {item_buckets.dim()}-dimensional!'
-        )
-        if len(item_buckets) != train.num_items:
-            raise ValueError(
-                'Length of ``item_buckets`` must be equal to the number of items in the dataset: '
-                f'{len(item_buckets)} != {train.num_items}.'
+            # data quality checks for ``item_buckets``
+            assert item_buckets.dim() == 1, (
+                f'``item_buckets`` must be 1-dimensional, not {item_buckets.dim()}-dimensional!'
             )
-        if min(item_buckets) != 0:
-            raise ValueError(f'``item_buckets`` IDs must start at 0, not {min(item_buckets)}!')
+            if len(item_buckets) != train.num_items:
+                raise ValueError(
+                    'Length of ``item_buckets`` must be equal to the number of items in the '
+                    f'dataset: {len(item_buckets)} != {train.num_items}.'
+                )
+            if min(item_buckets) != 0:
+                raise ValueError(f'``item_buckets`` IDs must start at 0, not {min(item_buckets)}!')
 
-        num_item_buckets = item_buckets.max().item() + 1
+            num_item_buckets = item_buckets.max().item() + 1
 
         super().__init__(optimizer_config_list=optimizer_config_list,
                          num_item_buckets=num_item_buckets,
