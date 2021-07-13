@@ -2,7 +2,7 @@ from typing import Dict, Optional, Union
 
 import torch
 
-from collie_recs.loss.metadata_utils import ideal_difference_from_metadata
+from collie.loss.metadata_utils import ideal_difference_from_metadata
 
 
 def warp_loss(

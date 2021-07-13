@@ -1,13 +1,13 @@
 import fire
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
-from collie_recs.config import DATA_PATH
-from collie_recs.cross_validation import stratified_split
-from collie_recs.interactions import Interactions, InteractionsDataLoader
-from collie_recs.metrics import auc, evaluate_in_batches, mapk, mrr
-from collie_recs.model import CollieTrainer, MatrixFactorizationModel
-from collie_recs.movielens import read_movielens_df
-from collie_recs.utils import convert_to_implicit, Timer
+from collie.config import DATA_PATH
+from collie.cross_validation import stratified_split
+from collie.interactions import Interactions, InteractionsDataLoader
+from collie.metrics import auc, evaluate_in_batches, mapk, mrr
+from collie.model import CollieTrainer, MatrixFactorizationModel
+from collie.movielens import read_movielens_df
+from collie.utils import convert_to_implicit, Timer
 
 
 def run_movielens_example(epochs: int = 20, gpus: int = 0) -> None:
@@ -18,7 +18,7 @@ def run_movielens_example(epochs: int = 20, gpus: int = 0) -> None:
 
     .. code-block:: bash
 
-        python collie_recs/movielens/run.py  --epochs 20
+        python collie/movielens/run.py  --epochs 20
 
     Parameters
     ----------

@@ -11,7 +11,7 @@ An ``Interactions`` object is, in its simplest form, a ``torch.data.Dataset`` wr
 
    import pandas as pd
 
-   from collie_recs.interactions import Interactions
+   from collie.interactions import Interactions
 
 
    df = pd.DataFrame(data={'user_id': [0, 0, 0, 1, 1, 2],
@@ -35,7 +35,7 @@ We can see this same idea holds when we instead create an ``InteractionsDataLoad
 
    import pandas as pd
 
-   from collie_recs.interactions import InteractionsDataLoader
+   from collie.interactions import InteractionsDataLoader
 
 
    df = pd.DataFrame(data={'user_id': [0, 0, 0, 1, 1, 2],
@@ -72,7 +72,7 @@ While an ``Interactions`` object works out-of-the-box with a ``torch.data.DataLo
 
    import pandas as pd
 
-   from collie_recs.interactions import ApproximateNegativeSamplingInteractionsDataLoader
+   from collie.interactions import ApproximateNegativeSamplingInteractionsDataLoader
 
 
    df = pd.DataFrame(data={'user_id': [0, 0, 0, 1, 1, 2],
@@ -110,8 +110,8 @@ For datasets that are too large to fit in memory, Collie includes the ``HDF5Inte
 
    import pandas as pd
 
-   from collie_recs.interactions import HDF5InteractionsDataLoader
-   from collie_recs.utils import pandas_df_to_hdf5
+   from collie.interactions import HDF5InteractionsDataLoader
+   from collie.utils import pandas_df_to_hdf5
 
 
    # we'll write out a sample DataFrame to HDF5 format for this example
@@ -166,7 +166,7 @@ Note the similarities in the explicit example below with the examples shown thus
 
     import pandas as pd
 
-    from collie_recs.interactions import ExplicitInteractions
+    from collie.interactions import ExplicitInteractions
 
 
     explicit_df = pd.DataFrame(data={'user_id': [0, 0, 0, 1, 1, 2],
@@ -208,7 +208,7 @@ Once the ``ExplicitInteractions`` dataset is defined, you can use the built-in `
 
    import pandas as pd
 
-   from collie_recs.interactions import ExplicitInteractions, InteractionsDataLoader
+   from collie.interactions import ExplicitInteractions, InteractionsDataLoader
 
 
    # the same setup code from the code snippet above
@@ -238,21 +238,21 @@ Datasets
 
 Implicit Interactions Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.interactions.Interactions
+.. autoclass:: collie.interactions.Interactions
     :members:
     :inherited-members:
     :show-inheritance:
 
 Explicit Interactions Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.interactions.ExplicitInteractions
+.. autoclass:: collie.interactions.ExplicitInteractions
     :members:
     :inherited-members:
     :show-inheritance:
 
 HDF5 Interactions Dataset
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.interactions.HDF5Interactions
+.. autoclass:: collie.interactions.HDF5Interactions
     :members:
     :inherited-members:
     :show-inheritance:
@@ -262,21 +262,21 @@ DataLoaders
 
 Interactions DataLoader
 ^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.interactions.InteractionsDataLoader
+.. autoclass:: collie.interactions.InteractionsDataLoader
     :members:
     :inherited-members:
     :show-inheritance:
 
 Approximate Negative Sampling Interactions DataLoader
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.interactions.ApproximateNegativeSamplingInteractionsDataLoader
+.. autoclass:: collie.interactions.ApproximateNegativeSamplingInteractionsDataLoader
     :members:
     :inherited-members:
     :show-inheritance:
 
 HDF5 Approximate Negative Sampling Interactions DataLoader
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.interactions.HDF5InteractionsDataLoader
+.. autoclass:: collie.interactions.HDF5InteractionsDataLoader
     :members:
     :inherited-members:
     :show-inheritance:

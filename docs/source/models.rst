@@ -17,7 +17,7 @@ While each model's API differs slightly, generally, the training procedure for e
 
 .. code-block:: python
 
-   from collie_recs.model import CollieTrainer, MatrixFactorizationModel
+   from collie.model import CollieTrainer, MatrixFactorizationModel
 
 
    # assume you have ``interactions`` already defined and ready-to-go
@@ -51,8 +51,8 @@ If we wanted to create a custom model that performed a barebones matrix factoriz
 
    import torch
 
-   from collie_recs.model import BasePipeline, CollieTrainer, ScaledEmbedding
-   from collie_recs.utils import get_init_arguments
+   from collie.model import BasePipeline, CollieTrainer, ScaledEmbedding
+   from collie.utils import get_init_arguments
 
 
    class SimpleModel(BasePipeline):
@@ -62,8 +62,8 @@ If we wanted to create a custom model that performed a barebones matrix factoriz
 
            Parameters
            ----------
-           train: ``collie_recs.interactions`` object
-           val: ``collie_recs.interactions`` object
+           train: ``collie.interactions`` object
+           val: ``collie.interactions`` object
            embedding_dim: int
                Number of latent factors to use for user and item embeddings
 
@@ -120,37 +120,37 @@ Standard Models
 
 Matrix Factorization Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.MatrixFactorizationModel
+.. autoclass:: collie.model.MatrixFactorizationModel
     :members:
     :show-inheritance:
 
 Multilayer Perceptron Matrix Factorization Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.MLPMatrixFactorizationModel
+.. autoclass:: collie.model.MLPMatrixFactorizationModel
     :members:
     :show-inheritance:
 
 Nonlinear Embeddings Matrix Factorization Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.NonlinearMatrixFactorizationModel
+.. autoclass:: collie.model.NonlinearMatrixFactorizationModel
     :members:
     :show-inheritance:
 
 Collaborative Metric Learning Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.CollaborativeMetricLearningModel
+.. autoclass:: collie.model.CollaborativeMetricLearningModel
     :members:
     :show-inheritance:
 
 Neural Collaborative Filtering (NeuCF)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.NeuralCollaborativeFiltering
+.. autoclass:: collie.model.NeuralCollaborativeFiltering
     :members:
     :show-inheritance:
 
 Deep Factorization Machine (DeepFM)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.DeepFM
+.. autoclass:: collie.model.DeepFM
     :members:
     :show-inheritance:
 
@@ -159,7 +159,7 @@ Hybrid Models
 
 Hybrid Pretrained Matrix Factorization Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.HybridPretrainedModel
+.. autoclass:: collie.model.HybridPretrainedModel
     :members:
     :show-inheritance:
 
@@ -183,14 +183,14 @@ Trainers
 
 PyTorch Lightning Trainer
 ^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.CollieTrainer
+.. autoclass:: collie.model.CollieTrainer
     :members:
     :inherited-members:
     :show-inheritance:
 
 Non- PyTorch Lightning Trainer
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.CollieMinimalTrainer
+.. autoclass:: collie.model.CollieMinimalTrainer
     :members:
 
 Model Templates
@@ -198,7 +198,7 @@ Model Templates
 
 Base Collie Pipeline Template
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.BasePipeline
+.. autoclass:: collie.model.BasePipeline
     :members:
     :show-inheritance:
 
@@ -213,12 +213,12 @@ Layers
 
 Scaled Embedding
 ^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.ScaledEmbedding
+.. autoclass:: collie.model.ScaledEmbedding
     :members:
     :show-inheritance:
 
 Zero Embedding
 ^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.ZeroEmbedding
+.. autoclass:: collie.model.ZeroEmbedding
     :members:
     :show-inheritance:

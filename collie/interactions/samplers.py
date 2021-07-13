@@ -5,7 +5,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 import torch
 
-from collie_recs.interactions.datasets import HDF5Interactions, Interactions
+from collie.interactions.datasets import HDF5Interactions, Interactions
 
 
 class ApproximateNegativeSampler(torch.utils.data.sampler.Sampler):

@@ -9,9 +9,9 @@ from torchmetrics import Metric
 from torchmetrics.functional import auroc
 from tqdm.auto import tqdm
 
-import collie_recs
-from collie_recs.interactions import ExplicitInteractions, Interactions, InteractionsDataLoader
-from collie_recs.model import BasePipeline
+import collie
+from collie.interactions import ExplicitInteractions, Interactions, InteractionsDataLoader
+from collie.model import BasePipeline
 
 
 def _get_user_item_pairs(user_ids: (np.array, torch.tensor),
@@ -81,7 +81,7 @@ def get_preds(model: BasePipeline,
 
     Parameters
     ----------
-    model: collie_recs.model.BasePipeline
+    model: collie.model.BasePipeline
         Model that can take a (user_id, item_id) pair as input and return a recommendation score
     user_ids: np.array or torch.tensor
         Iterable[int] of users to score
@@ -278,8 +278,8 @@ def auc(targets: csr_matrix,
 
 def evaluate_in_batches(
     metric_list: Iterable[Callable],
-    test_interactions: collie_recs.interactions.Interactions,
-    model: collie_recs.model.BasePipeline,
+    test_interactions: collie.interactions.Interactions,
+    model: collie.model.BasePipeline,
     k: int = 10,
     batch_size: int = 20,
     logger: pytorch_lightning.loggers.base.LightningLoggerBase = None,
@@ -305,9 +305,9 @@ def evaluate_in_batches(
 
         * ``k``
 
-    test_interactions: collie_recs.interactions.Interactions
+    test_interactions: collie.interactions.Interactions
         Interactions to use as labels
-    model: collie_recs.model.BasePipeline
+    model: collie.model.BasePipeline
         Model that can take a (user_id, item_id) pair as input and return a recommendation score
     k: int
         Number of recommendations to consider per user. This is ignored by some metrics
@@ -333,7 +333,7 @@ def evaluate_in_batches(
     --------
     .. code-block:: python
 
-        from collie_recs.metrics import auc, evaluate_in_batches, mapk, mrr
+        from collie.metrics import auc, evaluate_in_batches, mapk, mrr
 
 
         map_10_score, mrr_score, auc_score = evaluate_in_batches(
@@ -387,8 +387,8 @@ def evaluate_in_batches(
 
 def explicit_evaluate_in_batches(
     metric_list: Iterable[Metric],
-    test_interactions: collie_recs.interactions.ExplicitInteractions,
-    model: collie_recs.model.BasePipeline,
+    test_interactions: collie.interactions.ExplicitInteractions,
+    model: collie.model.BasePipeline,
     logger: pytorch_lightning.loggers.base.LightningLoggerBase = None,
     verbose: bool = True,
     **kwargs,
@@ -405,8 +405,8 @@ def explicit_evaluate_in_batches(
     metric_list: list of ``torchmetrics.Metric``
         List of evaluation functions to apply. Each function must accept arguments for predictions
         and targets, in order
-    test_interactions: collie_recs.interactions.ExplicitInteractions
-    model: collie_recs.model.BasePipeline
+    test_interactions: collie.interactions.ExplicitInteractions
+    model: collie.model.BasePipeline
         Model that can take a (user_id, item_id) pair as input and return a recommendation score
     batch_size: int
         Number of users to score in a single batch. For best efficiency, this number should be as
@@ -434,7 +434,7 @@ def explicit_evaluate_in_batches(
 
         import torchmetrics
 
-        from collie_recs.metrics import explicit_evaluate_in_batches
+        from collie.metrics import explicit_evaluate_in_batches
 
 
         mse_score, mae_score = evaluate_in_batches(

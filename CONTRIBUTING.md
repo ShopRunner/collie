@@ -49,7 +49,7 @@ PR Checklist
 
     ```bash
         source venv/bin/activate
-        flake8 collie_recs tests
+        flake8 collie tests
     ```
 
 - Make sure you have written unit-tests where appropriate.

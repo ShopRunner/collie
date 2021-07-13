@@ -13,13 +13,10 @@ from torch import nn
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from collie_recs.config import DATA_PATH
-from collie_recs.model.base import (BasePipeline,
-                                    INTERACTIONS_LIKE_INPUT,
-                                    ScaledEmbedding,
-                                    ZeroEmbedding)
-from collie_recs.model.matrix_factorization import MatrixFactorizationModel
-from collie_recs.utils import get_init_arguments, merge_docstrings
+from collie.config import DATA_PATH
+from collie.model.base import BasePipeline, INTERACTIONS_LIKE_INPUT, ScaledEmbedding
+from collie.model.matrix_factorization import MatrixFactorizationModel
+from collie.utils import get_init_arguments, merge_docstrings
 
 
 class HybridPretrainedModel(BasePipeline):
@@ -38,12 +35,12 @@ class HybridPretrainedModel(BasePipeline):
 
     All ``HybridPretrainedModel`` instances are subclasses of the ``LightningModule`` class
     provided by PyTorch Lightning. This means to train a model, you will need a
-    ``collie_recs.model.CollieTrainer`` object, but the model can be saved and loaded without this
+    ``collie.model.CollieTrainer`` object, but the model can be saved and loaded without this
     ``Trainer`` instance. Example usage may look like:
 
     .. code-block:: python
 
-        from collie_recs.model import CollieTrainer, HybridPretrainedModel, MatrixFactorizationModel
+        from collie.model import CollieTrainer, HybridPretrainedModel, MatrixFactorizationModel
 
 
         # instantiate and fit a ``MatrixFactorizationModel`` as expected
@@ -70,7 +67,7 @@ class HybridPretrainedModel(BasePipeline):
     item_metadata: torch.tensor, pd.DataFrame, or np.array, 2-dimensional
         The shape of the item metadata should be (num_items x metadata_features), and each item's
         metadata should be available when indexing a row by an item ID
-    trained_model: ``collie_recs.model.MatrixFactorizationModel``
+    trained_model: ``collie.model.MatrixFactorizationModel``
         Previously trained ``MatrixFactorizationModel`` model to extract embeddings from
     metadata_layers_dims: list
         List of linear layer dimensions to apply to the metadata only, starting with the dimension
@@ -340,7 +337,7 @@ class HybridPretrainedModel(BasePipeline):
 
         Parameters
         ----------
-        hybrid_model: ``collie_recs.model.HybridPretrainedModel``
+        hybrid_model: ``collie.model.HybridPretrainedModel``
             HybridPretrainedModel containing hyperparameters and state dictionary to copy over
 
         """

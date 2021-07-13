@@ -13,11 +13,11 @@ RUN apt-get update \
 RUN conda remove PyYAML
 
 USER root
-WORKDIR /collie_recs/
+WORKDIR /collie/
 
 # copy files to container
 COPY setup.py README.md LICENSE requirements-dev.txt ./
-COPY collie_recs/_version.py ./collie_recs/
+COPY collie/_version.py ./collie/
 
 # install libraries
 RUN \

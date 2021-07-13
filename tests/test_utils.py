@@ -5,13 +5,13 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from collie_recs.utils import (convert_to_implicit,
-                               create_ratings_matrix,
-                               df_to_html,
-                               df_to_interactions,
-                               get_init_arguments,
-                               remove_users_with_fewer_than_n_interactions,
-                               Timer)
+from collie.utils import (convert_to_implicit,
+                          create_ratings_matrix,
+                          df_to_html,
+                          df_to_interactions,
+                          get_init_arguments,
+                          remove_users_with_fewer_than_n_interactions,
+                          Timer)
 
 
 EXPECTED_RATINGS_MATRIX = np.array([[1, 2, 3, 0],

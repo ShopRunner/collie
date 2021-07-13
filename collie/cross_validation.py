@@ -8,11 +8,11 @@ import numpy as np
 from scipy.sparse import coo_matrix
 from sklearn.model_selection import train_test_split
 
-from collie_recs.interactions import (BaseInteractions,
-                                      ExplicitInteractions,
-                                      HDF5Interactions,
-                                      Interactions)
-from collie_recs.utils import get_random_seed
+from collie.interactions import (BaseInteractions,
+                                 ExplicitInteractions,
+                                 HDF5Interactions,
+                                 Interactions)
+from collie.utils import get_random_seed
 
 
 def _subset_interactions(interactions: BaseInteractions,
@@ -66,7 +66,7 @@ def random_split(interactions: BaseInteractions,
 
     Parameters
     ----------
-    interactions: collie_recs.interactions.BaseInteractions
+    interactions: collie.interactions.BaseInteractions
     val_p: float
         Proportion of data used for validation
     test_p: float
@@ -78,11 +78,11 @@ def random_split(interactions: BaseInteractions,
 
     Returns
     -------
-    train_interactions: collie_recs.interactions.BaseInteractions
+    train_interactions: collie.interactions.BaseInteractions
         Training data of size proportional to ``1 - val_p - test_p``
-    validate_interactions: collie_recs.interactions.BaseInteractions
+    validate_interactions: collie.interactions.BaseInteractions
         Validation data of size proportional to ``val_p``, returned only if ``val_p > 0``
-    test_interactions: collie_recs.interactions.BaseInteractions
+    test_interactions: collie.interactions.BaseInteractions
         Testing data of size proportional to ``test_p``
 
     Examples
@@ -150,7 +150,7 @@ def stratified_split(interactions: BaseInteractions,
     0``, they will appear in the training and testing datasets given they appear at least two times.
     If a user appears fewer than this number of times, a ``ValueError`` will
     be raised. To filter users with fewer than ``n`` points out, use
-    ``collie_recs.utils.remove_users_with_fewer_than_n_interactions``.
+    ``collie.utils.remove_users_with_fewer_than_n_interactions``.
 
     This is computationally more complex than ``random_split``, but produces a more representative
     data split. Note that when ``val_p > 0``, the algorithm will perform the data split twice,
@@ -163,7 +163,7 @@ def stratified_split(interactions: BaseInteractions,
 
     Parameters
     ----------
-    interactions: collie_recs.interactions.BaseInteractions
+    interactions: collie.interactions.BaseInteractions
         ``Interactions`` instance containing the data to split
     val_p: float
         Proportion of data used for validation
@@ -179,11 +179,11 @@ def stratified_split(interactions: BaseInteractions,
 
     Returns
     -------
-    train_interactions: collie_recs.interactions.BaseInteractions
+    train_interactions: collie.interactions.BaseInteractions
         Training data of size proportional to ``1 - val_p - test_p``
-    validate_interactions: collie_recs.interactions.BaseInteractions
+    validate_interactions: collie.interactions.BaseInteractions
         Validation data of size proportional to ``val_p``, returned only if ``val_p > 0``
-    test_interactions: collie_recs.interactions.BaseInteractions
+    test_interactions: collie.interactions.BaseInteractions
         Testing data of size proportional to ``test_p``
 
     Examples

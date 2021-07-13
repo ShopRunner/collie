@@ -1,4 +1,4 @@
-from collie_recs.utils import merge_docstrings
+from collie.utils import merge_docstrings
 
 
 # START: test class definitions

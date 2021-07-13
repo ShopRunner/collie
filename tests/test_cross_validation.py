@@ -3,8 +3,8 @@ import pandas as pd
 import pytest
 from scipy.sparse import coo_matrix
 
-from collie_recs.cross_validation import random_split, stratified_split
-from collie_recs.interactions import ExplicitInteractions, Interactions
+from collie.cross_validation import random_split, stratified_split
+from collie.interactions import ExplicitInteractions, Interactions
 
 
 def test_bad_random_split_HDF5Interactions(hdf5_interactions):

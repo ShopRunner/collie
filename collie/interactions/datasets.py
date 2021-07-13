@@ -11,7 +11,7 @@ from scipy.sparse import coo_matrix, dok_matrix
 import torch
 from tqdm.auto import tqdm
 
-import collie_recs
+import collie
 
 
 class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
@@ -95,8 +95,8 @@ class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
             if len(users) != len(items):
                 raise ValueError('Lengths of ``users`` and ``items`` must be equal.')
 
-            num_users = collie_recs.utils._infer_num_if_needed_for_1d_array(num_users, users)
-            num_items = collie_recs.utils._infer_num_if_needed_for_1d_array(num_items, items)
+            num_users = collie.utils._infer_num_if_needed_for_1d_array(num_users, users)
+            num_items = collie.utils._infer_num_if_needed_for_1d_array(num_items, items)
 
             if allow_missing_ids is False:
                 _check_array_contains_all_integers(array=users,
@@ -112,11 +112,11 @@ class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
                         'Length of ``ratings`` must be equal to lengths of ``users``, ``items``.'
                     )
 
-            mat = collie_recs.utils._create_sparse_ratings_matrix_helper(users=users,
-                                                                         items=items,
-                                                                         ratings=ratings,
-                                                                         num_users=num_users,
-                                                                         num_items=num_items)
+            mat = collie.utils._create_sparse_ratings_matrix_helper(users=users,
+                                                                    items=items,
+                                                                    ratings=ratings,
+                                                                    num_users=num_users,
+                                                                    num_items=num_items)
         else:
             mat = coo_matrix(mat)
 
@@ -311,7 +311,7 @@ class Interactions(BaseInteractions):
                          num_items=num_items)
 
         if seed is None:
-            seed = collie_recs.utils.get_random_seed()
+            seed = collie.utils.get_random_seed()
 
         self.num_negative_samples = num_negative_samples
         self.max_number_of_samples_to_consider = max_number_of_samples_to_consider
@@ -657,7 +657,7 @@ class HDF5Interactions(torch.utils.data.Dataset):
         assert self.num_items > 1
 
         if self.seed is None:
-            self.seed = collie_recs.utils.get_random_seed()
+            self.seed = collie.utils.get_random_seed()
 
         np.random.seed(seed=self.seed)
 

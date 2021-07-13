@@ -2,10 +2,10 @@ from typing import Any, Dict, Optional
 
 import torch
 
-from collie_recs.loss.metadata_utils import ideal_difference_from_metadata
+from collie.loss.metadata_utils import ideal_difference_from_metadata
 
 
-def bpr_loss(
+def hinge_loss(
     positive_scores: torch.tensor,
     negative_scores: torch.tensor,
     num_items: Optional[Any] = None,
@@ -15,22 +15,19 @@ def bpr_loss(
     metadata_weights: Optional[Dict[str, float]] = dict(),
 ) -> torch.tensor:
     """
-    Modified Bayesian Personalised Ranking [1]_.
+    Modified hinge pairwise loss function [2]_.
 
     See ``ideal_difference_from_metadata`` docstring for more info on how metadata is used.
 
-    Modified from ``torchmf`` and ``Spotlight``:
-
-    * https://github.com/EthanRosenthal/torchmf/blob/master/torchmf.py
-
-    * https://github.com/maciejkula/spotlight/blob/master/spotlight/losses.py
+    Modified from ``Spotlight``:
+    https://github.com/maciejkula/spotlight/blob/master/spotlight/losses.py
 
     Parameters
     ----------
     positive_scores: torch.tensor, 1-d
-        Tensor containing predictions for known positive items of shape ``1 x batch_size``
+        Tensor containing scores for known positive items
     negative_scores: torch.tensor, 1-d
-        Tensor containing scores for a single sampled negative item of shape ``1 x batch_size``
+        Tensor containing scores for a single sampled negative item
     num_items: Any
         Ignored, included only for compatability with WARP loss
     positive_items: torch.tensor, 1-d
@@ -67,12 +64,11 @@ def bpr_loss(
 
     References
     ----------
-    .. [1] Hildesheim et al. "BPR: Bayesian Personalized Ranking from Implicit Feedback." BPR |
-        Proceedings of the Twenty-Fifth Conference on Uncertainty in Artificial Intelligence, 1 June
-        2009, dl.acm.org/doi/10.5555/1795114.1795167.
+    .. [2] "Hinge Loss." Wikipedia, Wikimedia Foundation, 5 Mar. 2021, en.wikipedia.org/wiki/
+        Hinge_loss.
 
     """
-    preds = positive_scores - negative_scores
+    score_difference = (positive_scores - negative_scores)
 
     if metadata is not None and len(metadata) > 0:
         ideal_difference = ideal_difference_from_metadata(
@@ -84,12 +80,12 @@ def bpr_loss(
     else:
         ideal_difference = 1
 
-    loss = (ideal_difference - torch.sigmoid(preds))
+    loss = torch.clamp((ideal_difference - score_difference), min=0)
 
     return (loss.sum() + loss.pow(2).sum()) / len(positive_scores)
 
 
-def adaptive_bpr_loss(
+def adaptive_hinge_loss(
     positive_scores: torch.tensor,
     many_negative_scores: torch.tensor,
     num_items: Optional[Any] = None,
@@ -99,12 +95,15 @@ def adaptive_bpr_loss(
     metadata_weights: Optional[Dict[str, float]] = dict(),
 ) -> torch.tensor:
     """
-    Modified adaptive BPR loss function.
+    Modified adaptive hinge pairwise loss function [3]_.
 
     Approximates WARP loss by taking the maximum of negative predictions for each user and sending
-    this to BPR loss.
+    this to hinge loss.
 
     See ``ideal_difference_from_metadata`` docstring for more info on how metadata is used.
+
+    Modified from ``Spotlight``:
+    https://github.com/maciejkula/spotlight/blob/master/spotlight/losses.py
 
     Parameters
     ----------
@@ -149,6 +148,11 @@ def adaptive_bpr_loss(
     -------
     loss: torch.tensor
 
+    References
+    ----------
+    .. [3] Kula, Maciej. "Loss Functions." Loss Functions - Spotlight Documentation,
+        maciejkula.github.io/spotlight/losses.html.
+
     """
     highest_negative_scores, highest_negative_inds = torch.max(many_negative_scores, 0)
 
@@ -157,7 +161,7 @@ def adaptive_bpr_loss(
             negative_items[highest_negative_inds, torch.arange(len(positive_items))].squeeze()
         )
 
-    return bpr_loss(
+    return hinge_loss(
         positive_scores,
         highest_negative_scores.squeeze(),
         positive_items=positive_items,

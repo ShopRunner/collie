@@ -6,11 +6,11 @@ import numpy as np
 from scipy.sparse import coo_matrix
 import torch
 
-from collie_recs.interactions.datasets import (BaseInteractions,
-                                               ExplicitInteractions,
-                                               HDF5Interactions,
-                                               Interactions)
-from collie_recs.interactions.samplers import ApproximateNegativeSampler, HDF5Sampler
+from collie.interactions.datasets import (BaseInteractions,
+                                          ExplicitInteractions,
+                                          HDF5Interactions,
+                                          Interactions)
+from collie.interactions.samplers import ApproximateNegativeSampler, HDF5Sampler
 
 
 class BaseInteractionsDataLoader(torch.utils.data.DataLoader):

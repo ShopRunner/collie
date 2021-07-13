@@ -6,8 +6,8 @@ from torch import nn
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from collie_recs.model.base import BasePipeline, INTERACTIONS_LIKE_INPUT, ScaledEmbedding
-from collie_recs.utils import get_init_arguments, merge_docstrings, trunc_normal
+from collie.model.base import BasePipeline, INTERACTIONS_LIKE_INPUT, ScaledEmbedding
+from collie.utils import get_init_arguments, merge_docstrings, trunc_normal
 
 
 class NeuralCollaborativeFiltering(BasePipeline):
@@ -29,12 +29,12 @@ class NeuralCollaborativeFiltering(BasePipeline):
 
     All ``NeuralCollaborativeFiltering`` instances are subclasses of the ``LightningModule`` class
     provided by PyTorch Lightning. This means to train a model, you will need a
-    ``collie_recs.model.CollieTrainer`` object, but the model can be saved and loaded without this
+    ``collie.model.CollieTrainer`` object, but the model can be saved and loaded without this
     ``Trainer`` instance. Example usage may look like:
 
     .. code-block:: python
 
-        from collie_recs.model import CollieTrainer, NeuralCollaborativeFiltering
+        from collie.model import CollieTrainer, NeuralCollaborativeFiltering
 
 
         model = NeuralCollaborativeFiltering(train=train)

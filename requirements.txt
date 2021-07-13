@@ -21,10 +21,10 @@ chardet==4.0.0
 charset-normalizer==2.0.1
     # via requests
 docstring-parser==0.8.1
-    # via collie-recs (setup.py)
+    # via collie (setup.py)
 fire==0.4.0
-    # via collie-recs (setup.py)
-fsspec[http]==2021.7.0
+    # via collie (setup.py)
+fsspec[http]==2021.5.0
     # via pytorch-lightning
 future==0.18.2
     # via pytorch-lightning
@@ -40,9 +40,11 @@ idna==3.2
     # via
     #   requests
     #   yarl
+importlib-metadata==4.6.1
+    # via markdown
 joblib==1.0.1
     # via
-    #   collie-recs (setup.py)
+    #   collie (setup.py)
     #   scikit-learn
 markdown==3.3.4
     # via tensorboard
@@ -54,7 +56,7 @@ numexpr==2.7.3
     # via tables
 numpy==1.21.0
     # via
-    #   collie-recs (setup.py)
+    #   collie (setup.py)
     #   numexpr
     #   pandas
     #   pytorch-lightning
@@ -69,10 +71,8 @@ packaging==21.0
     # via
     #   pytorch-lightning
     #   torchmetrics
-pandas==1.3.0
-    # via collie-recs (setup.py)
-pillow==8.3.1
-    # via pytorch-lightning
+pandas==1.2.5
+    # via collie (setup.py)
 protobuf==3.17.3
     # via tensorboard
 pyasn1-modules==0.2.8
@@ -87,8 +87,8 @@ pyparsing==2.4.7
     # via packaging
 python-dateutil==2.8.1
     # via pandas
-pytorch-lightning==1.3.8
-    # via collie-recs (setup.py)
+pytorch-lightning==1.3.7
+    # via collie (setup.py)
 pytz==2021.1
     # via pandas
 pyyaml==5.4.1
@@ -103,7 +103,7 @@ requests==2.26.0
 rsa==4.7.2
     # via google-auth
 scikit-learn==0.24.2
-    # via collie-recs (setup.py)
+    # via collie (setup.py)
 scipy==1.7.0
     # via scikit-learn
 six==1.16.0
@@ -116,7 +116,7 @@ six==1.16.0
     #   python-dateutil
     #   tensorboard
 tables==3.6.1
-    # via collie-recs (setup.py)
+    # via collie (setup.py)
 tensorboard-plugin-wit==1.8.0
     # via tensorboard
 tensorboard==2.4.1
@@ -127,22 +127,24 @@ threadpoolctl==2.2.0
     # via scikit-learn
 torch==1.9.0
     # via
-    #   collie-recs (setup.py)
+    #   collie (setup.py)
     #   pytorch-lightning
     #   torchmetrics
 torchmetrics==0.4.1
     # via
-    #   collie-recs (setup.py)
+    #   collie (setup.py)
     #   pytorch-lightning
 tqdm==4.61.2
     # via
-    #   collie-recs (setup.py)
+    #   collie (setup.py)
     #   pytorch-lightning
 typing-extensions==3.10.0.0
     # via
     #   aiohttp
+    #   importlib-metadata
     #   torch
-urllib3==1.26.6
+    #   yarl
+urllib3==1.26.5
     # via requests
 werkzeug==2.0.1
     # via tensorboard
@@ -150,6 +152,8 @@ wheel==0.36.2
     # via tensorboard
 yarl==1.6.3
     # via aiohttp
+zipp==3.5.0
+    # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # setuptools

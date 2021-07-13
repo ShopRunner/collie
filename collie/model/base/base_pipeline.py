@@ -10,16 +10,16 @@ import pandas as pd
 from pytorch_lightning.core.lightning import LightningModule
 import torch
 
-from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
-                                      ExplicitInteractions,
-                                      Interactions,
-                                      InteractionsDataLoader)
-from collie_recs.loss import (adaptive_bpr_loss,
-                              adaptive_hinge_loss,
-                              bpr_loss,
-                              hinge_loss,
-                              warp_loss)
-from collie_recs.utils import get_init_arguments
+from collie.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
+                                 ExplicitInteractions,
+                                 Interactions,
+                                 InteractionsDataLoader)
+from collie.loss import (adaptive_bpr_loss,
+                         adaptive_hinge_loss,
+                         bpr_loss,
+                         hinge_loss,
+                         warp_loss)
+from collie.utils import get_init_arguments
 
 
 INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoader,
@@ -46,10 +46,10 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
     Parameters
     ----------
-    train: ``collie_recs.interactions`` object
+    train: ``collie.interactions`` object
         Data loader for training data. If an ``Interactions`` object is supplied, an
         ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=True``
-    val: ``collie_recs.interactions`` object
+    val: ``collie.interactions`` object
         Data loader for validation data. If an ``Interactions`` object is supplied, an
         ``InteractionsDataLoader`` will automatically be instantiated with ``shuffle=False``
     lr: float

@@ -8,8 +8,8 @@ from pytorch_lightning.utilities.apply_func import move_data_to_device
 import torch
 from tqdm.auto import tqdm
 
-from collie_recs.model.base.base_pipeline import BasePipeline
-from collie_recs.model.base.layers import MultiLRScheduler, MultiOptimizer
+from collie.model.base.base_pipeline import BasePipeline
+from collie.model.base.layers import MultiLRScheduler, MultiOptimizer
 
 
 class CollieTrainer(Trainer):
@@ -35,7 +35,7 @@ class CollieTrainer(Trainer):
 
     Parameters
     ----------
-    model: collie_recs.model.BasePipeline
+    model: collie.model.BasePipeline
         Initialized Collie model
     benchmark: bool
         If set to ``True``, enables ``cudnn.benchmark``
@@ -100,7 +100,7 @@ class CollieMinimalTrainer():
 
     .. code-block:: python
 
-        from collie_recs.model import CollieMinimalTrainer, MatrixFactorizationModel
+        from collie.model import CollieMinimalTrainer, MatrixFactorizationModel
 
 
         # notice how similar the usage is to the standard ``CollieTrainer``
@@ -117,7 +117,7 @@ class CollieMinimalTrainer():
 
     Parameters
     ----------
-    model: collie_recs.model.BasePipeline
+    model: collie.model.BasePipeline
         Initialized Collie model
     max_epochs: int
         Stop training once this number of epochs is reached
@@ -218,7 +218,7 @@ class CollieMinimalTrainer():
 
         Parameters
         ----------
-        model: collie_recs.model.BasePipeline
+        model: collie.model.BasePipeline
             Initialized Collie model
 
         """

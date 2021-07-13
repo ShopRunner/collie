@@ -16,6 +16,18 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 ### Removed
  - ``MultiOptimizer.step`` method
 
+# [1.0.1] - 2021-7-13
+### Fixed
+ - GitHub URL in ``read_movielens_posters_df`` to point to new repo name
+
+# [1.0.0] - 2021-7-13
+### Changed
+ - name of library to ``collie``!
+
+# [0.6.1] - 2021-7-13
+### Added
+ - name change warning from ``collie_recs -> collie``
+
 # [0.6.0] - 2021-7-6
 ### Added
  - support for explicit data with ``ExplicitInteractions`` and ``explicit_evaluate_in_batches``

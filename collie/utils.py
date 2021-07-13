@@ -12,7 +12,7 @@ import pytorch_lightning
 from scipy.sparse import coo_matrix
 import torch
 
-from collie_recs.interactions import Interactions
+from collie.interactions import Interactions
 
 
 # helpful constants just for clearer code
@@ -117,7 +117,7 @@ def df_to_interactions(df: pd.DataFrame,
 
     Returns
     -------
-    interactions: collie_recs.interactions.Interactions
+    interactions: collie.interactions.Interactions
 
     """
     ratings = df[ratings_col] if ratings_col is not None else None

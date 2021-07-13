@@ -5,15 +5,13 @@ from typing import Any, Iterable, Optional, Union
 
 import pandas as pd
 
-import collie_recs
-from collie_recs.movielens import (read_movielens_df,
-                                   read_movielens_df_item,
-                                   read_movielens_posters_df)
-from collie_recs.utils import df_to_html
+import collie
+from collie.movielens import read_movielens_df, read_movielens_df_item, read_movielens_posters_df
+from collie.utils import df_to_html
 
 
 def get_recommendation_visualizations(
-    model: collie_recs.model.BasePipeline,
+    model: collie.model.BasePipeline,
     user_id: int,
     df_user: Optional[pd.DataFrame] = None,
     df_item: Optional[pd.DataFrame] = None,
@@ -30,7 +28,7 @@ def get_recommendation_visualizations(
 
     Parameters
     ----------
-    model: collie_recs.model.BasePipeline
+    model: collie.model.BasePipeline
     user_id: int
         User ID to retrieve recommendations for
     df_user: DataFrame

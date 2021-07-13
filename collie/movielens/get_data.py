@@ -6,7 +6,7 @@ import zipfile
 import pandas as pd
 import requests
 
-from collie_recs.config import DATA_PATH
+from collie.config import DATA_PATH
 
 
 def read_movielens_df(decrement_ids: bool = True) -> pd.DataFrame:
@@ -171,7 +171,7 @@ def read_movielens_posters_df() -> pd.DataFrame:
 
     This function will attempt to read the file at ``data/movielens_posters.csv`` if it exists and,
     if not, will read the CSV from the origin GitHub repo at
-    https://raw.githubusercontent.com/ShopRunner/collie_recs/main/data/movielens_posters.csv.
+    https://raw.githubusercontent.com/ShopRunner/collie/main/data/movielens_posters.csv.
 
     Returns
     -------
@@ -189,7 +189,7 @@ def read_movielens_posters_df() -> pd.DataFrame:
 
     # be prepared to read the CSV from the origin GitHub repo as well
     movielens_posters_csv_url = (
-        'https://raw.githubusercontent.com/ShopRunner/collie_recs/main/data/movielens_posters.csv'
+        'https://raw.githubusercontent.com/ShopRunner/collie/main/data/movielens_posters.csv'
     )
 
     posters_df = pd.read_csv(
