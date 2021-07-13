@@ -605,9 +605,9 @@ def test_implicit_model(implicit_model,
                         train_val_implicit_data,
                         model_type):
     if model_type == 'with_lightning':
-        model = copy.deepcopy(implicit_model)
+        model = implicit_model
     elif model_type == 'no_lightning':
-        model = copy.deepcopy(implicit_model_no_lightning)
+        model = implicit_model_no_lightning
 
     train, val = train_val_implicit_data
 
@@ -636,9 +636,9 @@ def test_explicit_model(explicit_model,
                         train_val_explicit_data,
                         model_type):
     if model_type == 'with_lightning':
-        model = copy.deepcopy(explicit_model)
+        model = explicit_model
     elif model_type == 'no_lightning':
-        model = copy.deepcopy(explicit_model_no_lightning)
+        model = explicit_model_no_lightning
 
     train, val = train_val_explicit_data
 
