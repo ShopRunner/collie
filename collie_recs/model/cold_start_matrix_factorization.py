@@ -23,10 +23,6 @@ class ColdStartModel(MultiStagePipeline):
     # ``merge_docstrings``. Only the description of new or changed parameters are included in this
     # docstring
     """
-    TODO: documentation on what each stage does
-    TODO: note that forward is different with each stage
-    TODO: note about loading in models
-
     Training pipeline for a matrix factorization model optimized for the cold-start problem.
 
     Many recommendation models suffer from the cold start problem, when a model is unable to provide
@@ -36,9 +32,23 @@ class ColdStartModel(MultiStagePipeline):
 
     The ``ColdStartModel`` attempts to bypass this by limiting the item space down to "item
     buckets", training a model on this as the item space, then expanding out to all items. During
-    this expansion, the learned-embeddings of each bucket is copied over to each corressponding
+    this expansion, the learned-embeddings of each bucket is copied over to each corresponding
     item, providing a smarter initialization than a random one for both existing and new items.
-    Now, when we have a new item, we can use its bucket embedding as an initlaization into a model.
+    Now, when we have a new item, we can use its bucket embedding as an initialization into a model.
+
+    The stages in a ``ColdStartModel`` are, in order:
+
+    1. ``item_buckets``
+        Matrix factorization with item embeddings and bias terms bucketed by
+        ``item_buckets`` argument. Unlike in the next stage, many items may map on to a single
+        bucket, and this will share the same embedding and bias representation. The model should
+        learn user preference for buckets in this stage.
+    2. ``no_buckets``
+        Standard matrix factorization as we do in ``MatrixFactorizationModel``. However, upon
+        advancing to this stage, the item embeddings are initialized with their bucketed embedding
+        value (and same for biases). Not only does this provide better initialization than random,
+        but allows new items to be incorporated into the model without training by using their
+        item bucket embedding and bias terms at prediction time.
 
     Note that the cold start problem exists for new users as well, but this functionality will be
     added to this model in a future version.
@@ -67,10 +77,18 @@ class ColdStartModel(MultiStagePipeline):
 
         # do evaluation as normal with ``model``
 
+        # get item-item recommendations for a new item by using the bucket ID, Z
+        similar_items = model.item_bucket_item_similarity(item_bucket_id=Z)
+
         model.save_model(filename='model.pth')
         new_model = ColdStartModel(load_model_path='model.pth')
 
         # do evaluation as normal with ``new_model``
+
+    Note
+    ----
+    The ``forward`` calculation will be different depending on the stage that is set. Note this
+    when evaluating / saving and loading models in.
 
     Parameters
     ----------
@@ -270,7 +288,7 @@ class ColdStartModel(MultiStagePipeline):
             Array of item indices
 
         Returns
-        ----------
+        -------
         preds: tensor, 1-d
             Predicted ratings or rankings
 

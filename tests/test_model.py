@@ -973,7 +973,7 @@ def test_loading_and_saving_cold_start_model(train_val_implicit_data, tmpdir):
     # set up TemporaryDirectory for writing and reading the file in this test
     temp_dir_name = str(tmpdir)
 
-    save_model_path = os.path.join(temp_dir_name, 'test_cold_start_model_save.pkl')
+    save_model_path = os.path.join(temp_dir_name, 'test_cold_start_model_save.pth')
     model.save_model(save_model_path)
     loaded_model = ColdStartModel(load_model_path=save_model_path)
 

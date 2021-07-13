@@ -33,9 +33,20 @@ class HybridModel(MultiStagePipeline):
 
     ``HybridModel`` models contain dense layers that process item metadata, concatenate this
     embedding with user and item embeddings, sending this concatenated embedding through more dense
-    layers to output a single float ranking / rating. This is the same architecture as the
-    ``HybridPretrainedModel``, but we are training the embeddings ourselves rather than relying on
-    pulling this from a pre-trained model.
+    layers to output a single float ranking / rating. We add both user and item biases to this score
+    before returning. This is the same architecture as the ``HybridPretrainedModel``, but we are
+    training the embeddings ourselves rather than relying on pulling this from a pre-trained model.
+
+    The stages in a ``HybridModel`` are, in order:
+
+    1. ``matrix_factorization``
+        Matrix factorization exactly as we do in ``MatrixFactorizationModel``. In this stage,
+        metadata is NOT incorporated into the model.
+    2. ``metadata_only``
+        User and item embeddings terms are frozen, and the MLP layers for the metadata (if
+        specified) and combined embedding-metadata data are optimized.
+    3. ``all``
+        Embedding and MLP layers are all optimized together, including those for metadata.
 
     All ``HybridModel`` instances are subclasses of the ``LightningModule`` class provided by
     PyTorch Lightning. This means to train a model, you will need a
@@ -70,6 +81,11 @@ class HybridModel(MultiStagePipeline):
         new_model = HybridModel(load_model_path='model')
 
         # do evaluation as normal with ``new_model``
+
+    Note
+    ----
+    The ``forward`` calculation will be different depending on the stage that is set. Note this
+    when evaluating / saving and loading models in.
 
     Parameters
     ----------
@@ -287,8 +303,8 @@ class HybridModel(MultiStagePipeline):
         items: tensor, 1-d
             Array of item indices
 
-        Retuprns
-        ----------
+        Returns
+        -------
         preds: tensor, 1-d
             Predicted ratings or rankings
 
@@ -348,9 +364,12 @@ class HybridModel(MultiStagePipeline):
 
         While PyTorch Lightning offers a way to save and load models, there are two main reasons
         for overriding these:
-        1) To properly save and load a model requires the `Trainer` object, meaning that all
-           deployed models will require on Lightning to run the model, which is not needed.
-        2) In the v0.8.4 release, loading a model back in leads to a `RuntimeError` unable to load
+
+        1) To properly save and load a model requires the ``Trainer`` object, meaning that all
+           deployed models will require Lightning to run the model, which is not actually needed
+           for inference.
+
+        2) In the v0.8.4 release, loading a model back in leads to a ``RuntimeError`` unable to load
            in weights.
 
         Parameters

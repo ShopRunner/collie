@@ -18,7 +18,77 @@ INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoade
 
 
 class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
-    """Pipeline which allows for multiple stages in the training process"""
+    """
+    Multi-stage pipeline model architectures to inherit from.
+
+    This model template is intended for models that train in distinct stages, with a different
+    optimizer optimizing each step. This allows model components to be optimized with a set
+    order in mind, rather than all at once, such as with the ``BasePipeline``.
+
+    Generally, multi-stage models will have a training protocol like:
+
+    .. code-block:: python
+
+        from collie_recs.model import CollieTrainer, SomeMultiStageModel
+
+
+        model = SomeMultiStageModel(train=train)
+        trainer = CollieTrainer(model)
+
+        # fit stage 1
+        trainer.fit(model)
+
+        # fit stage 2
+        trainer.max_epochs += 10
+        model.advance_stage()
+        trainer.fit(model)
+
+        # fit stage 3
+        trainer.max_epochs += 10
+        model.advance_stage()
+        trainer.fit(model)
+
+        # ... and so on, until...
+
+        model.eval()
+
+    Just like with ``BasePipeline``, all subclasses MUST at least override the following methods:
+
+    * ``_setup_model`` - Set up the model architecture
+
+    * ``forward`` - Forward pass through a model
+
+    For ``item_item_similarity`` to work properly, all subclasses are should also implement:
+
+    * ``_get_item_embeddings`` - Returns item embeddings from the model
+
+    Notes
+    -----
+    * With each call of ``trainer.fit``, the optimizer and learning rate scheduler state will reset.
+    * When loading a multi-stage model in, the state will be set to the last possible state. This
+      state may have a different ``forward`` calculation than other states.
+
+    Parameters
+    ----------
+    optimizer_config_list: list of dict
+        List of dictionaries containing the optimizer configurations for each stage's
+        optimizer(s). Each dictionary must contain the following keys:
+
+        * ``lr``: str
+            Learning rate for the optimizer
+
+        * ``optimizer``: ``torch.optim`` or ``str``
+
+        * ``parameter_prefix_list``: List[str]
+            List of string prefixes corressponding to the model components that should be
+            optimized with this optimizer
+
+        * ``stage``: str
+            Name of stage
+
+        This must be ordered with the intended progression of stages.
+
+    """
     def __init__(self,
                  train: INTERACTIONS_LIKE_INPUT = None,
                  val: INTERACTIONS_LIKE_INPUT = None,
@@ -31,77 +101,6 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
                  load_model_path: Optional[str] = None,
                  map_location: Optional[str] = None,
                  **kwargs):
-        """
-        Multi-stage pipeline model architectures to inherit from.
-
-        This model template is intended for models that train in distinct stages, with a different
-        optimizer optimizing each step. This allows model components to be optimized with a set
-        order in mind, rather than all at once, such as with the ``BasePipeline``.
-
-        Generally, multi-stage models will have a training protocol like:
-
-        .. code-block:: python
-
-            from collie_recs.model import CollieTrainer, SomeMultiStageModel
-
-
-            model = SomeMultiStageModel(train=train)
-            trainer = CollieTrainer(model)
-
-            # fit stage 1
-            trainer.fit(model)
-
-            # fit stage 2
-            trainer.max_epochs += 10
-            model.advance_stage()
-            trainer.fit(model)
-
-            # fit stage 3
-            trainer.max_epochs += 10
-            model.advance_stage()
-            trainer.fit(model)
-
-            # ... and so on, until...
-
-            model.eval()
-
-        Just like with ``BasePipeline``, all subclasses MUST at least override the following
-        methods:
-
-        * ``_setup_model`` - Set up the model architecture
-
-        * ``forward`` - Forward pass through a model
-
-        For ``item_item_similarity`` to work properly, all subclasses are should also implement:
-
-        * ``_get_item_embeddings`` - Returns item embeddings from the model
-
-        Notes
-        -----
-        With each call of ``trainer.fit``, the optimizer and learning rate scheduler state will
-        reset.
-
-        Parameters
-        ----------
-        optimizer_config_list: list of dict
-            List of dictionaries containing the optimizer configurations for each stage's
-            optimizer(s). Each dictionary must contain the following keys:
-
-            * ``lr``: str
-                Learning rate for the optimizer
-
-            * ``optimizer``: ``torch.optim`` or ``str``
-
-            * ``parameter_prefix_list``: List[str]
-                List of string prefixes corressponding to the model components that should be
-                optimized with this optimizer
-
-            * ``stage``: str
-                Name of stage
-
-            This must be ordered with the intended progression of stages.
-
-        """
         stage_list = None
 
         if optimizer_config_list is not None:
