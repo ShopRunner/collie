@@ -607,9 +607,9 @@ def test_implicit_model(implicit_model,
                         train_val_implicit_data,
                         model_type):
     if model_type == 'with_lightning':
-        model = copy.deepcopy(implicit_model)
+        model = implicit_model
     elif model_type == 'no_lightning':
-        model = copy.deepcopy(implicit_model_no_lightning)
+        model = implicit_model_no_lightning
 
     train, val = train_val_implicit_data
 
@@ -638,9 +638,9 @@ def test_explicit_model(explicit_model,
                         train_val_explicit_data,
                         model_type):
     if model_type == 'with_lightning':
-        model = copy.deepcopy(explicit_model)
+        model = explicit_model
     elif model_type == 'no_lightning':
-        model = copy.deepcopy(explicit_model_no_lightning)
+        model = explicit_model_no_lightning
 
     train, val = train_val_explicit_data
 
@@ -792,7 +792,6 @@ def test_bad_initialization_of_hybrid_pretrained_model(implicit_model,
                                                        movielens_metadata_df,
                                                        train_val_implicit_data):
     train, val = train_val_implicit_data
-    pretrained_model = copy.deepcopy(implicit_model)
 
     with pytest.raises(ValueError):
         HybridPretrainedModel(train=train,
@@ -804,27 +803,26 @@ def test_bad_initialization_of_hybrid_pretrained_model(implicit_model,
         HybridPretrainedModel(train=train,
                               val=val,
                               item_metadata=None,
-                              trained_model=pretrained_model)
+                              trained_model=implicit_model)
 
 
 def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_model,
                                                                    movielens_metadata_df,
                                                                    train_val_implicit_data):
     train, val = train_val_implicit_data
-    pretrained_model = copy.deepcopy(implicit_model)
 
     # ensure that we end up with the same ``item_metadata`` regardless of the input type
     model_1 = HybridPretrainedModel(train=train,
                                     val=val,
                                     item_metadata=movielens_metadata_df,
-                                    trained_model=pretrained_model)
+                                    trained_model=implicit_model)
     trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_steps=1)
     trainer_1.fit(model_1)
 
     model_2 = HybridPretrainedModel(train=train,
                                     val=val,
                                     item_metadata=movielens_metadata_df.to_numpy(),
-                                    trained_model=pretrained_model)
+                                    trained_model=implicit_model)
     trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_steps=1)
     trainer_2.fit(model_2)
 
@@ -832,7 +830,7 @@ def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_mode
         train=train,
         val=val,
         item_metadata=torch.from_numpy(movielens_metadata_df.to_numpy()),
-        trained_model=pretrained_model,
+        trained_model=implicit_model,
     )
     trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_steps=1)
     trainer_3.fit(model_3)
@@ -936,12 +934,11 @@ def test_bad_saving_hybrid_pretrained_model(implicit_model,
                                             train_val_implicit_data,
                                             tmpdir):
     train, val = train_val_implicit_data
-    pretrained_model = copy.deepcopy(implicit_model)
 
     model = HybridPretrainedModel(train=train,
                                   val=val,
                                   item_metadata=movielens_metadata_df,
-                                  trained_model=pretrained_model,
+                                  trained_model=implicit_model,
                                   metadata_layers_dims=[16, 8],
                                   freeze_embeddings=True)
     trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
