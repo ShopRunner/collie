@@ -189,9 +189,7 @@ def read_movielens_posters_df() -> pd.DataFrame:
 
     # be prepared to read the CSV from the origin GitHub repo as well
     movielens_posters_csv_url = (
-        # 'https://raw.githubusercontent.com/ShopRunner/collie/main/data/movielens_posters.csv'
-        # TODO: remove this line once ``collie`` is merged in
-        'https://raw.githubusercontent.com/ShopRunner/collie_recs/main/data/movielens_posters.csv'
+        'https://raw.githubusercontent.com/ShopRunner/collie/main/data/movielens_posters.csv'
     )
 
     posters_df = pd.read_csv(
