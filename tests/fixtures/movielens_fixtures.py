@@ -1,13 +1,13 @@
 import pytest
 from sklearn.model_selection import train_test_split
 
-from collie_recs.cross_validation import random_split, stratified_split
-from collie_recs.interactions import ExplicitInteractions, Interactions
-from collie_recs.movielens import (get_movielens_metadata,
-                                   read_movielens_df,
-                                   read_movielens_df_item,
-                                   read_movielens_posters_df)
-from collie_recs.utils import convert_to_implicit
+from collie.cross_validation import random_split, stratified_split
+from collie.interactions import ExplicitInteractions, Interactions
+from collie.movielens import (get_movielens_metadata,
+                              read_movielens_df,
+                              read_movielens_df_item,
+                              read_movielens_posters_df)
+from collie.utils import convert_to_implicit
 
 
 @pytest.fixture(scope='session')

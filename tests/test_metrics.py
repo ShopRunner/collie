@@ -8,17 +8,15 @@ from sklearn.metrics import roc_auc_score
 import torch
 import torchmetrics
 
-from collie_recs.metrics import (
-    _get_evaluate_in_batches_device,
-    _get_labels,
-    _get_user_item_pairs,
-    auc,
-    evaluate_in_batches,
-    explicit_evaluate_in_batches,
-    get_preds,
-    mapk,
-    mrr,
-)
+from collie.metrics import (_get_evaluate_in_batches_device,
+                            _get_labels,
+                            _get_user_item_pairs,
+                            auc,
+                            evaluate_in_batches,
+                            explicit_evaluate_in_batches,
+                            get_preds,
+                            mapk,
+                            mrr)
 
 
 def get_model_scores(user, item, scores):
@@ -63,7 +61,7 @@ def test_get_user_item_pairs_unordered(device, n_items_type):
     assert torch.equal(actual_items, expected_items)
 
 
-@mock.patch('collie_recs.model.MatrixFactorizationModel')
+@mock.patch('collie.model.MatrixFactorizationModel')
 def test_get_preds_implicit(model, test_implicit_predicted_scores, device):
     n_users, n_items = test_implicit_predicted_scores.shape
     user_ids = np.arange(n_users)
@@ -175,7 +173,7 @@ def test_bad_explicit_evaluate_in_batches_with_implicit_data(test_implicit_inter
 
 class TestEvaluateInBatchesDevice:
     @mock.patch('torch.cuda.is_available')
-    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    @mock.patch('collie.model.MatrixFactorizationModel')
     def test_cuda_available_model_cpu(self, model, is_available_mock):
         is_available_mock.return_value = True
         model.device = 'cpu'
@@ -186,7 +184,7 @@ class TestEvaluateInBatchesDevice:
         assert device == 'cpu'
 
     @mock.patch('torch.cuda.is_available')
-    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    @mock.patch('collie.model.MatrixFactorizationModel')
     def test_cuda_not_available_model_cuda(self, model, is_available_mock):
         is_available_mock.return_value = False
         model.device = 'cuda:0'
@@ -197,7 +195,7 @@ class TestEvaluateInBatchesDevice:
         assert device == 'cuda:0'
 
     @mock.patch('torch.cuda.is_available')
-    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    @mock.patch('collie.model.MatrixFactorizationModel')
     def test_cuda_available_model_no_device(self, model, is_available_mock):
         is_available_mock.return_value = True
         model.device = None
@@ -208,7 +206,7 @@ class TestEvaluateInBatchesDevice:
         assert device == 'cuda:0'
 
     @mock.patch('torch.cuda.is_available')
-    @mock.patch('collie_recs.model.MatrixFactorizationModel')
+    @mock.patch('collie.model.MatrixFactorizationModel')
     def test_cuda_not_available_model_no_device(self, model, is_available_mock):
         is_available_mock.return_value = False
         model.device = None
@@ -220,7 +218,7 @@ class TestEvaluateInBatchesDevice:
 
 
 @pytest.mark.parametrize('batch_size', [20, 2, 1])  # default, uneven, single
-@mock.patch('collie_recs.model.MatrixFactorizationModel')
+@mock.patch('collie.model.MatrixFactorizationModel')
 def test_evaluate_in_batches(
     model,
     test_implicit_interactions,
@@ -279,7 +277,7 @@ def test_evaluate_in_batches_logger(
     assert logger.step == model.hparams.num_epochs_completed
 
 
-@mock.patch('collie_recs.model.MatrixFactorizationModel')
+@mock.patch('collie.model.MatrixFactorizationModel')
 def test_explicit_evaluate_in_batches(
     model,
     test_explicit_interactions,

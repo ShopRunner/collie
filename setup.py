@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-with open('collie_recs/_version.py') as version_file:
+with open('collie/_version.py') as version_file:
     exec(version_file.read())
 
 with open('README.md') as r:
@@ -10,14 +10,14 @@ with open('LICENSE') as l:
     license = l.read()
 
 setup(
-    name='collie_recs',
+    name='collie',
     version=__version__,
     description='A PyTorch library for preparing, training, and evaluating deep learning hybrid recommender systems.',
     long_description=readme+'\n\n\nLicense\n-------\n'+license,
     long_description_content_type='text/markdown',
     author='Nathan Jones',
-    url='https://github.com/ShopRunner/collie_recs',
-    download_url='https://github.com/ShopRunner/collie_recs',
+    url='https://github.com/ShopRunner/collie',
+    download_url='https://github.com/ShopRunner/collie',
     license='BSD-3-Clause',
     data_files=[('', ['LICENSE'])],
     packages=find_packages(exclude=('tests', 'docs')),
@@ -29,7 +29,7 @@ setup(
         'joblib',
         'numpy',
         'pandas',
-        'pytorch-lightning>=1.0.0',  # ``collie_recs`` library uses newer ``pytorch_lightning`` APIs
+        'pytorch-lightning>=1.0.0',  # ``collie`` library uses newer ``pytorch_lightning`` APIs
         'scikit-learn',
         'tables',
         'torch',
@@ -57,7 +57,7 @@ setup(
     },
     project_urls={
         'Documentation': 'https://collie.readthedocs.io/',
-        'Source Code': 'https://github.com/ShopRunner/collie_recs',
+        'Source Code': 'https://github.com/ShopRunner/collie',
     },
     classifiers=[
         'Environment :: Console',

@@ -4,19 +4,19 @@ import tempfile
 import pytest
 import torch
 
-from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
-                                      HDF5InteractionsDataLoader,
-                                      InteractionsDataLoader)
-from collie_recs.model import (CollaborativeMetricLearningModel,
-                               CollieMinimalTrainer,
-                               CollieTrainer,
-                               DeepFM,
-                               HybridPretrainedModel,
-                               MatrixFactorizationModel,
-                               MLPMatrixFactorizationModel,
-                               NeuralCollaborativeFiltering,
-                               NonlinearMatrixFactorizationModel)
-from collie_recs.utils import pandas_df_to_hdf5
+from collie.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
+                                 HDF5InteractionsDataLoader,
+                                 InteractionsDataLoader)
+from collie.model import (CollaborativeMetricLearningModel,
+                          CollieMinimalTrainer,
+                          CollieTrainer,
+                          DeepFM,
+                          HybridPretrainedModel,
+                          MatrixFactorizationModel,
+                          MLPMatrixFactorizationModel,
+                          NeuralCollaborativeFiltering,
+                          NonlinearMatrixFactorizationModel)
+from collie.utils import pandas_df_to_hdf5
 
 
 @pytest.fixture(scope='session')

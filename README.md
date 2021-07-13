@@ -1,11 +1,11 @@
-# collie_recs
+# collie
 
-[![PyPI version](https://badge.fury.io/py/collie-recs.svg)](https://badge.fury.io/py/collie-recs)
-[![versions](https://img.shields.io/pypi/pyversions/collie-recs.svg)](https://pypi.org/project/collie-recs/)
-[![Workflows Passing](https://github.com/ShopRunner/collie_recs/workflows/CI%2FCD/badge.svg)](https://github.com/ShopRunner/collie_recs/actions/workflows/ci.yaml)
+[![PyPI version](https://badge.fury.io/py/collie.svg)](https://badge.fury.io/py/collie)
+[![versions](https://img.shields.io/pypi/pyversions/collie.svg)](https://pypi.org/project/collie/)
+[![Workflows Passing](https://github.com/ShopRunner/collie/workflows/CI%2FCD/badge.svg)](https://github.com/ShopRunner/collie/actions/workflows/ci.yaml)
 [![Documentation Status](https://readthedocs.org/projects/collie/badge/?version=latest)](https://collie.readthedocs.io/en/latest/?badge=latest)
-[![codecov](https://codecov.io/gh/ShopRunner/collie_recs/branch/main/graph/badge.svg)](https://codecov.io/gh/ShopRunner/collie_recs)
-[![license](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](https://github.com/ShopRunner/collie_recs/blob/main/LICENSE)
+[![codecov](https://codecov.io/gh/ShopRunner/collie/branch/main/graph/badge.svg)](https://codecov.io/gh/ShopRunner/collie)
+[![license](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](https://github.com/ShopRunner/collie/blob/main/LICENSE)
 
 Collie is a library for preparing, training, and evaluating implicit deep learning hybrid recommender systems, named after the Border Collie dog breed.
 
@@ -20,8 +20,10 @@ See the [documentation](https://collie.readthedocs.io/en/latest/index.html) for 
 
 ## Installation
 ```bash
-pip install collie_recs
+pip install collie
 ```
+
+Through July 2021, this library used to be under the name ``collie_recs``. While this version is still available on PyPI, it is no longer supported or maintained. All users of the library should use ``collie`` for the latest and greatest version of the code!
 
 ## Quick Start
 
@@ -29,15 +31,15 @@ pip install collie_recs
 
 Creating and evaluating a matrix factorization model with _implicit_ MovieLens 100K data is simple with Collie:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ShopRunner/collie_recs/blob/main/tutorials/quickstart.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ShopRunner/collie/blob/main/tutorials/quickstart.ipynb)
 
 ```python
-from collie_recs.cross_validation import stratified_split
-from collie_recs.interactions import Interactions
-from collie_recs.metrics import auc, evaluate_in_batches, mapk, mrr
-from collie_recs.model import MatrixFactorizationModel, CollieTrainer
-from collie_recs.movielens import read_movielens_df
-from collie_recs.utils import convert_to_implicit
+from collie.cross_validation import stratified_split
+from collie.interactions import Interactions
+from collie.metrics import auc, evaluate_in_batches, mapk, mrr
+from collie.model import MatrixFactorizationModel, CollieTrainer
+from collie.movielens import read_movielens_df
+from collie.utils import convert_to_implicit
 
 
 # read in explicit MovieLens 100K data
@@ -75,20 +77,20 @@ print(f'MRR:          {mrr_score}')
 print(f'MAP@10:       {mapk_score}')
 ```
 
-More complicated examples of implicit pipelines can be viewed [for MovieLens 100K data here](https://github.com/ShopRunner/collie_recs/blob/main/collie_recs/movielens/run.py), [in notebooks here](https://github.com/ShopRunner/collie_recs/tree/main/tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
+More complicated examples of implicit pipelines can be viewed [for MovieLens 100K data here](https://github.com/ShopRunner/collie/blob/main/collie/movielens/run.py), [in notebooks here](https://github.com/ShopRunner/collie/tree/main/tutorials), and [documentation](https://collie.readthedocs.io/en/latest/index.html) here.
 
 ### Explicit Data
 
 Collie also handles the situation when you instead have _explicit_ data, such as star ratings. Note how similar the pipeline and APIs are compared to the implicit example above:
 
-[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ShopRunner/collie_recs/blob/main/tutorials/quickstart-explicit.ipynb)
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/ShopRunner/collie/blob/main/tutorials/quickstart-explicit.ipynb)
 
 ```python
-from collie_recs.cross_validation import stratified_split
-from collie_recs.interactions import ExplicitInteractions
-from collie_recs.metrics import explicit_evaluate_in_batches
-from collie_recs.model import MatrixFactorizationModel, CollieTrainer
-from collie_recs.movielens import read_movielens_df
+from collie.cross_validation import stratified_split
+from collie.interactions import ExplicitInteractions
+from collie.metrics import explicit_evaluate_in_batches
+from collie.model import MatrixFactorizationModel, CollieTrainer
+from collie.movielens import read_movielens_df
 
 from torchmetrics import MeanAbsoluteError, MeanSquaredError
 
@@ -166,36 +168,36 @@ To run locally, begin by creating a data path environment variable:
 ```bash
 # Define where on your local hard drive you want to store data. It is best if this
 # location is not inside the repo itself. An example is below
-export DATA_PATH=$HOME/data/collie_recs
+export DATA_PATH=$HOME/data/collie
 ```
 
 Run development from within the Docker container:
 ```bash
-docker build -t collie_recs .
+docker build -t collie .
 
 # run the container in interactive mode, leaving port ``8888`` open for Jupyter
 docker run \
     -it \
     --rm \
-    -v "${DATA_PATH}:/data" \
-    -v "${PWD}:/collie_recs" \
+    -v "${DATA_PATH}:/collie/data/" \
+    -v "${PWD}:/collie" \
     -p 8888:8888 \
-    collie_recs /bin/bash
+    collie /bin/bash
 ```
 
 ### Run on a GPU:
 ```bash
-docker build -t collie_recs .
+docker build -t collie .
 
 # run the container in interactive mode, leaving port ``8888`` open for Jupyter
 docker run \
     -it \
     --rm \
     --gpus all \
-    -v "${DATA_PATH}:/data" \
-    -v "${PWD}:/collie_recs" \
+    -v "${DATA_PATH}:/collie/data/" \
+    -v "${PWD}:/collie" \
     -p 8888:8888 \
-    collie_recs /bin/bash
+    collie /bin/bash
 ```
 
 ### Start JupyterLab
@@ -210,7 +212,7 @@ Library unit tests in this repo are to be run in the Docker container:
 
 ```bash
 # execute unit tests
-pytest --cov-report term --cov=collie_recs
+pytest --cov-report term --cov=collie
 ```
 
 Note that a handful of tests require the [MovieLens 100K dataset](https://files.grouplens.org/datasets/movielens/ml-100k.zip) to be downloaded (~5MB in size), meaning that either before or during test time, there will need to be an internet connection. This dataset only needs to be downloaded a single time for use in both unit tests and tutorials.

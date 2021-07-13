@@ -4,9 +4,9 @@ import urllib
 import pandas as pd
 import pytest
 
-from collie_recs.movielens import (get_recommendation_visualizations,
-                                   read_movielens_posters_df,
-                                   run_movielens_example)
+from collie.movielens import (get_recommendation_visualizations,
+                              read_movielens_posters_df,
+                              run_movielens_example)
 
 
 def test_read_movielens_df(movielens_explicit_df, movielens_explicit_df_not_decremented):
@@ -80,7 +80,7 @@ def test_get_movielens_metadata(movielens_metadata_df):
     assert movielens_metadata_df.columns.tolist() == expected_columns
 
 
-@mock.patch('collie_recs.model.MatrixFactorizationModel')
+@mock.patch('collie.model.MatrixFactorizationModel')
 def test_run_movielens_example(save_model_mock, gpu_count):
     save_model_mock.save_model.side_effect = print('Saved.')
 

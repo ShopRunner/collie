@@ -2,14 +2,12 @@ from numpy.testing import assert_almost_equal, assert_array_equal
 import pytest
 import torch
 
-from collie_recs.loss import (
-    adaptive_bpr_loss,
-    adaptive_hinge_loss,
-    bpr_loss,
-    hinge_loss,
-    ideal_difference_from_metadata,
-    warp_loss,
-)
+from collie.loss import (adaptive_bpr_loss,
+                         adaptive_hinge_loss,
+                         bpr_loss,
+                         hinge_loss,
+                         ideal_difference_from_metadata,
+                         warp_loss)
 
 
 def test_ideal_difference_from_metadata_error(
