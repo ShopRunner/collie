@@ -4,8 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from collie_recs.interactions import ExplicitInteractions, HDF5Interactions, Interactions
-from collie_recs.utils import create_ratings_matrix, pandas_df_to_hdf5
+from collie.interactions import ExplicitInteractions, HDF5Interactions, Interactions
+from collie.utils import create_ratings_matrix, pandas_df_to_hdf5
 
 
 @pytest.fixture()

@@ -12,23 +12,23 @@ Evaluate in Batches
 
 Implicit Evaluate in Batches
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autofunction:: collie_recs.metrics.evaluate_in_batches
+.. autofunction:: collie.metrics.evaluate_in_batches
 
 Explicit Evaluate in Batches
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autofunction:: collie_recs.metrics.explicit_evaluate_in_batches
+.. autofunction:: collie.metrics.explicit_evaluate_in_batches
 
 Implicit Metrics
 ----------------
 
 AUC
 ^^^
-.. autofunction:: collie_recs.metrics.auc
+.. autofunction:: collie.metrics.auc
 
 MAP@K
 ^^^^^
-.. autofunction:: collie_recs.metrics.mapk
+.. autofunction:: collie.metrics.mapk
 
 MRR
 ^^^
-.. autofunction:: collie_recs.metrics.mrr
+.. autofunction:: collie.metrics.mrr

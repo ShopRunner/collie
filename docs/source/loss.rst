@@ -11,7 +11,7 @@ In its simplest form, each loss function accepts as input a prediction score for
 
    import torch
 
-   from collie_recs.loss import bpr_loss, hinge_loss
+   from collie.loss import bpr_loss, hinge_loss
 
 
    # an ideal loss case
@@ -49,7 +49,7 @@ Some losses extend this idea by being "adaptive," or accepting multiple negative
 
    import torch
 
-   from collie_recs.loss import adaptive_bpr_loss, adaptive_hinge_loss, warp_loss
+   from collie.loss import adaptive_bpr_loss, adaptive_hinge_loss, warp_loss
 
 
    # an ideal loss case
@@ -117,7 +117,7 @@ For these scenarios, all loss functions in Collie support partial credit calcula
 
    # we'll just look at ``bpr_loss`` for this, but note that this works with
    # all loss functions in Collie
-   from collie_recs.loss import bpr_loss
+   from collie.loss import bpr_loss
 
 
    # positive item is Star Wars
@@ -178,26 +178,26 @@ Standard Losses
 
 BPR Loss
 ^^^^^^^^
-.. autofunction:: collie_recs.loss.bpr_loss
+.. autofunction:: collie.loss.bpr_loss
 
 Hinge Loss
 ^^^^^^^^^^
-.. autofunction:: collie_recs.loss.hinge_loss
+.. autofunction:: collie.loss.hinge_loss
 
 Adaptive Losses
 ---------------
 
 Adaptive BPR Loss
 ^^^^^^^^^^^^^^^^^
-.. autofunction:: collie_recs.loss.adaptive_bpr_loss
+.. autofunction:: collie.loss.adaptive_bpr_loss
 
 Adaptive Hinge Loss
 ^^^^^^^^^^^^^^^^^^^
-.. autofunction:: collie_recs.loss.adaptive_hinge_loss
+.. autofunction:: collie.loss.adaptive_hinge_loss
 
 WARP Loss
 ^^^^^^^^^
-.. autofunction:: collie_recs.loss.warp_loss
+.. autofunction:: collie.loss.warp_loss
 
 
 .. rubric:: Footnotes

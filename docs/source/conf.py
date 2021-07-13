@@ -18,7 +18,7 @@ from pathlib import Path
 import sys
 
 base_dir_loc = Path(__file__).parents[2]
-version_loc = base_dir_loc / 'collie_recs/_version.py'
+version_loc = base_dir_loc / 'collie/_version.py'
 with open(version_loc) as version_file:
     exec(version_file.read())
 

@@ -4,12 +4,12 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
-                                      ExplicitInteractions,
-                                      HDF5Interactions,
-                                      HDF5InteractionsDataLoader,
-                                      Interactions,
-                                      InteractionsDataLoader)
+from collie.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
+                                 ExplicitInteractions,
+                                 HDF5Interactions,
+                                 HDF5InteractionsDataLoader,
+                                 Interactions,
+                                 InteractionsDataLoader)
 
 
 NUM_NEGATIVE_SAMPLES = 3

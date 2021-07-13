@@ -13,20 +13,20 @@ import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
 import torchmetrics
 
-from collie_recs.interactions import HDF5InteractionsDataLoader, InteractionsDataLoader
-from collie_recs.loss import (adaptive_bpr_loss,
-                              adaptive_hinge_loss,
-                              bpr_loss,
-                              hinge_loss,
-                              warp_loss)
-from collie_recs.metrics import evaluate_in_batches, explicit_evaluate_in_batches, mapk
-from collie_recs.model import (BasePipeline,
-                               CollieMinimalTrainer,
-                               CollieTrainer,
-                               DeepFM,
-                               HybridPretrainedModel,
-                               MatrixFactorizationModel,
-                               NeuralCollaborativeFiltering)
+from collie.interactions import HDF5InteractionsDataLoader, InteractionsDataLoader
+from collie.loss import (adaptive_bpr_loss,
+                         adaptive_hinge_loss,
+                         bpr_loss,
+                         hinge_loss,
+                         warp_loss)
+from collie.metrics import evaluate_in_batches, explicit_evaluate_in_batches, mapk
+from collie.model import (BasePipeline,
+                          CollieMinimalTrainer,
+                          CollieTrainer,
+                          DeepFM,
+                          HybridPretrainedModel,
+                          MatrixFactorizationModel,
+                          NeuralCollaborativeFiltering)
 
 
 def test_CollieTrainer_no_val_data(untrained_implicit_model_no_val_data):

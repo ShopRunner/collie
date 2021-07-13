@@ -5,10 +5,10 @@ Once data is set up in an ``Interactions`` dataset, we can perform a data split 
 
 .. code-block:: python
 
-   from collie_recs.cross_validation import random_split, stratified_split
-   from collie_recs.interactions import Interactions
-   from collie_recs.movielens import read_movielens_df
-   from collie_recs.utils import convert_to_implicit, Timer
+   from collie.cross_validation import random_split, stratified_split
+   from collie.interactions import Interactions
+   from collie.movielens import read_movielens_df
+   from collie.utils import convert_to_implicit, Timer
 
 
    # EXPERIMENT SETUP
@@ -41,8 +41,8 @@ Once data is set up in an ``Interactions`` dataset, we can perform a data split 
 
 Random Split
 ------------
-.. autofunction:: collie_recs.cross_validation.random_split
+.. autofunction:: collie.cross_validation.random_split
 
 Stratified Split
 ----------------
-.. autofunction:: collie_recs.cross_validation.stratified_split
+.. autofunction:: collie.cross_validation.stratified_split

@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from collie_recs.interactions import ExplicitInteractions, Interactions
+from collie.interactions import ExplicitInteractions, Interactions
 
 
 @pytest.fixture()
