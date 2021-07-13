@@ -699,7 +699,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         return sim_score_idxs_series
 
-    def _get_item_embeddings(self) -> np.array:
+    def _get_item_embeddings(self) -> torch.tensor:
         """``_get_item_embeddings`` should be implemented in all subclasses."""
         raise NotImplementedError(
             '``BasePipeline`` is meant to be inherited from, not used. '
