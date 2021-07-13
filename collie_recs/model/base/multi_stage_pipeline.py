@@ -17,8 +17,7 @@ INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoade
                                 InteractionsDataLoader]
 
 
-# TODO: make sure this works for minimal trainer as well
-
+# TODO: load the correct stage in
 class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
     """Pipeline which allows for multiple stages in the training process"""
     def __init__(self,

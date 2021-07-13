@@ -197,7 +197,7 @@ class HybridModel(MultiStagePipeline):
                     'lr': metadata_only_stage_lr,
                     'optimizer': metadata_only_stage_optimizer,
                     # optimize metadata layers only
-                    'parameter_prefix_list': ['metadata', 'combined'],
+                    'parameter_prefix_list': ['metadata', 'combined', 'user_bias', 'item_bias'],
                     'stage': 'metadata_only',
                 },
                 {
@@ -329,7 +329,11 @@ class HybridModel(MultiStagePipeline):
                     )
                 )
 
-            pred_scores = self.combined_layers[-1](combined_output)
+            pred_scores = (
+                self.combined_layers[-1](combined_output)
+                + self.user_biases(users)
+                + self.item_biases(items)
+            )
 
         return pred_scores.squeeze()
 

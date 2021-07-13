@@ -155,6 +155,7 @@ class HybridPretrainedModel(BasePipeline):
 
             # we are not loading in a model, so we will create a new model from scratch
             # we don't want to modify the ``trained_model``'s weights, so we deep copy
+            # TODO: add biases here
             self.embeddings = nn.Sequential(
                 copy.deepcopy(self._trained_model.user_embeddings),
                 copy.deepcopy(self._trained_model.item_embeddings)
