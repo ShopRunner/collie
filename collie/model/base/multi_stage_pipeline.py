@@ -5,11 +5,11 @@ from typing import Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 
-from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
-                                      Interactions,
-                                      InteractionsDataLoader)
-from collie_recs.model.base import BasePipeline
-from collie_recs.utils import get_init_arguments, merge_docstrings
+from collie.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
+                                 Interactions,
+                                 InteractionsDataLoader)
+from collie.model.base import BasePipeline
+from collie.utils import get_init_arguments, merge_docstrings
 
 
 INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoader,
@@ -29,7 +29,7 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
 
     .. code-block:: python
 
-        from collie_recs.model import CollieTrainer, SomeMultiStageModel
+        from collie.model import CollieTrainer, SomeMultiStageModel
 
 
         model = SomeMultiStageModel(train=train)

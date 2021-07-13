@@ -11,12 +11,12 @@ from torch import nn
 import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-from collie_recs.config import DATA_PATH
-from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
-                                      Interactions,
-                                      InteractionsDataLoader)
-from collie_recs.model.base import MultiStagePipeline, ScaledEmbedding, ZeroEmbedding
-from collie_recs.utils import get_init_arguments, merge_docstrings
+from collie.config import DATA_PATH
+from collie.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
+                                 Interactions,
+                                 InteractionsDataLoader)
+from collie.model.base import MultiStagePipeline, ScaledEmbedding, ZeroEmbedding
+from collie.utils import get_init_arguments, merge_docstrings
 
 
 INTERACTIONS_LIKE_INPUT = Union[ApproximateNegativeSamplingInteractionsDataLoader,
@@ -50,12 +50,12 @@ class HybridModel(MultiStagePipeline):
 
     All ``HybridModel`` instances are subclasses of the ``LightningModule`` class provided by
     PyTorch Lightning. This means to train a model, you will need a
-    ``collie_recs.model.CollieTrainer`` object, but the model can be saved and loaded without this
+    ``collie.model.CollieTrainer`` object, but the model can be saved and loaded without this
     ``Trainer`` instance. Example usage may look like:
 
     .. code-block:: python
 
-        from collie_recs.model import CollieTrainer, HybridModel
+        from collie.model import CollieTrainer, HybridModel
 
 
         # instantiate and fit a ``HybridModel`` as expected

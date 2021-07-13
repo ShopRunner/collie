@@ -23,10 +23,10 @@ Tutorials
    * - `Tutorial 05 - Hybrid Pretrained Matrix Factorization Model <https://github.com/ShopRunner/collie/blob/main/tutorials/05_hybrid_model.ipynb>`_
      - |collie_tutorial_05|_
 
-   * - `Tutorial 06 - Multi-Stage Models <https://github.com/ShopRunner/collie_recs/blob/main/tutorials/06_multi_stage_models.ipynb>`_
+   * - `Tutorial 06 - Multi-Stage Models <https://github.com/ShopRunner/collie/blob/main/tutorials/06_multi_stage_models.ipynb>`_
      - |collie_tutorial_06|_
 
-   * - `Tutorial 07 - Explicit Data Support in Collie <https://github.com/ShopRunner/collie_recs/blob/main/tutorials/07_explicit_matrix_factorization.ipynb>`_
+   * - `Tutorial 07 - Explicit Data Support in Collie <https://github.com/ShopRunner/collie/blob/main/tutorials/07_explicit_matrix_factorization.ipynb>`_
      - |collie_tutorial_07|_
 
 .. |collie_tutorial_01| image:: https://colab.research.google.com/assets/colab-badge.svg
@@ -45,7 +45,7 @@ Tutorials
 .. _collie_tutorial_05: https://colab.research.google.com/github/ShopRunner/collie/blob/main/tutorials/05_hybrid_model.ipynb
 
 .. |collie_tutorial_06| image:: https://colab.research.google.com/assets/colab-badge.svg
-.. _collie_tutorial_06: https://colab.research.google.com/github/ShopRunner/collie_recs/blob/main/tutorials/06_multi_stage_models.ipynb
+.. _collie_tutorial_06: https://colab.research.google.com/github/ShopRunner/collie/blob/main/tutorials/06_multi_stage_models.ipynb
 
 .. |collie_tutorial_07| image:: https://colab.research.google.com/assets/colab-badge.svg
-.. _collie_tutorial_07: https://colab.research.google.com/github/ShopRunner/collie_recs/blob/main/tutorials/07_explicit_matrix_factorization.ipynb
+.. _collie_tutorial_07: https://colab.research.google.com/github/ShopRunner/collie/blob/main/tutorials/07_explicit_matrix_factorization.ipynb

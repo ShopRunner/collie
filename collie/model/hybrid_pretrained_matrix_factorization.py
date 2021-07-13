@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from collie.config import DATA_PATH
-from collie.model.base import BasePipeline, INTERACTIONS_LIKE_INPUT, ScaledEmbedding
+from collie.model.base import BasePipeline, INTERACTIONS_LIKE_INPUT, ScaledEmbedding, ZeroEmbedding
 from collie.model.matrix_factorization import MatrixFactorizationModel
 from collie.utils import get_init_arguments, merge_docstrings
 

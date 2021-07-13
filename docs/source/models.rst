@@ -168,13 +168,13 @@ Multi-Stage Models
 
 Cold Start Matrix Factorization Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.ColdStartModel
+.. autoclass:: collie.model.ColdStartModel
     :members:
     :show-inheritance:
 
 Hybrid Matrix Factorization Model
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.HybridModel
+.. autoclass:: collie.model.HybridModel
     :members:
     :show-inheritance:
 
@@ -204,7 +204,7 @@ Base Collie Pipeline Template
 
 Base Collie Multi-Stage Pipeline Template
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-.. autoclass:: collie_recs.model.MultiStagePipeline
+.. autoclass:: collie.model.MultiStagePipeline
     :members:
     :show-inheritance:
 
