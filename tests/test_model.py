@@ -565,6 +565,37 @@ class TestCollieMinimalTrainer():
                 assert str(actual_batch.device) == 'cpu'
 
 
+class TestMultiStageModelsCollieMinimalTrainer():
+    def test_hybrid_model_collie_minimal_trainer(self,
+                                                 movielens_metadata_df,
+                                                 train_val_implicit_data):
+        train, val = train_val_implicit_data
+
+        # ensure that we can train with a ``CollieMinimalTrainer``
+        model = HybridModel(train=train, val=val, item_metadata=movielens_metadata_df)
+        trainer = CollieMinimalTrainer(model=model, logger=False, max_epochs=1)
+        trainer.fit(model)
+
+        item_similarities = model.item_item_similarity(item_id=42)
+
+        assert item_similarities.index[0] == 42
+
+    def test_cold_start_model_collie_minimal_trainer(self, train_val_implicit_data):
+        train, val = train_val_implicit_data
+        item_buckets = torch.randint(low=0, high=5, size=(train.num_items,))
+
+        # ensure that we can train with a ``CollieMinimalTrainer``
+        model = ColdStartModel(train=train, val=val, item_buckets=item_buckets)
+        trainer = CollieMinimalTrainer(model=model, logger=False, max_epochs=1)
+        trainer.fit(model)
+
+        item_similarities = model.item_item_similarity(item_id=42)
+
+        # we can't check if the first value in the list matches, but it just shouldn't be the last
+        # one
+        assert item_similarities.index[-1] != 42
+
+
 def test_model_instantiation_no_train_data():
     with pytest.raises(TypeError):
         MatrixFactorizationModel()
@@ -786,37 +817,6 @@ def test_hybrid_model_stages_progression(train_val_implicit_data, movielens_meta
 
     with pytest.raises(ValueError):
         model.set_stage('invalid_stage_name')
-
-
-class TestMultiStageModelsCollieMinimalTrainer():
-    def test_hybrid_model_collie_minimal_trainer(self,
-                                                 movielens_metadata_df,
-                                                 train_val_implicit_data):
-        train, val = train_val_implicit_data
-
-        # ensure that we can train with a ``CollieMinimalTrainer``
-        model = HybridModel(train=train, val=val, item_metadata=movielens_metadata_df)
-        trainer = CollieMinimalTrainer(model=model, logger=False, max_epochs=1)
-        trainer.fit(model)
-
-        item_similarities = model.item_item_similarity(item_id=42)
-
-        assert item_similarities.index[0] == 42
-
-    def test_cold_start_model_collie_minimal_trainer(self, train_val_implicit_data):
-        train, val = train_val_implicit_data
-        item_buckets = torch.randint(low=0, high=5, size=(train.num_items,))
-
-        # ensure that we can train with a ``CollieMinimalTrainer``
-        model = ColdStartModel(train=train, val=val, item_buckets=item_buckets)
-        trainer = CollieMinimalTrainer(model=model, logger=False, max_epochs=1)
-        trainer.fit(model)
-
-        item_similarities = model.item_item_similarity(item_id=42)
-
-        # we can't check if the first value in the list matches, but it just shouldn't be the last
-        # one
-        assert item_similarities.index[-1] != 42
 
 
 def test_bad_initialization_of_hybrid_pretrained_model(implicit_model,
