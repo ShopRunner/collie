@@ -1,7 +1,7 @@
 import fire
 from pytorch_lightning.callbacks.early_stopping import EarlyStopping
 
-from collie_recs.config import DATA_PATH
+from collie_recs.config import DATA_PATH, warn_rename
 from collie_recs.cross_validation import stratified_split
 from collie_recs.interactions import Interactions, InteractionsDataLoader
 from collie_recs.metrics import auc, evaluate_in_batches, mapk, mrr
@@ -28,6 +28,8 @@ def run_movielens_example(epochs: int = 20, gpus: int = 0) -> None:
         Number of gpus to train on
 
     """
+    warn_rename()
+
     t = Timer()
 
     t.timecheck('  1.0 - retrieving MovieLens 100K dataset')

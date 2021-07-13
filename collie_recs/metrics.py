@@ -10,6 +10,7 @@ from torchmetrics.functional import auroc
 from tqdm.auto import tqdm
 
 import collie_recs
+from collie_recs.config import warn_rename
 from collie_recs.interactions import ExplicitInteractions, Interactions, InteractionsDataLoader
 from collie_recs.model import BasePipeline
 
@@ -345,6 +346,8 @@ def evaluate_in_batches(
         print(map_10_score, mrr_score, auc_score)
 
     """
+    warn_rename()
+
     if not isinstance(test_interactions, Interactions):
         raise ValueError(
             '``test_interactions`` must be of type ``Interactions``, not '
@@ -446,6 +449,8 @@ def explicit_evaluate_in_batches(
         print(mse_score, mae_score)
 
     """
+    warn_rename()
+
     if not isinstance(test_interactions, ExplicitInteractions):
         raise ValueError(
             '``test_interactions`` must be of type ``ExplicitInteractions``, not '

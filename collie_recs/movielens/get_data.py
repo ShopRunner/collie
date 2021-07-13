@@ -6,7 +6,7 @@ import zipfile
 import pandas as pd
 import requests
 
-from collie_recs.config import DATA_PATH
+from collie_recs.config import DATA_PATH, warn_rename
 
 
 def read_movielens_df(decrement_ids: bool = True) -> pd.DataFrame:
@@ -43,6 +43,8 @@ def read_movielens_df(decrement_ids: bool = True) -> pd.DataFrame:
     Creates directory at ``$DATA_PATH/ml-100k`` and downloads data files if data does not exist.
 
     """
+    warn_rename()
+
     _make_data_path_dirs_if_not_exist()
 
     df_path = os.path.join(DATA_PATH, 'ml-100k', 'u.data')
@@ -125,6 +127,8 @@ def read_movielens_df_item() -> pd.DataFrame:
     Creates directory at ``$DATA_PATH/ml-100k`` and downloads data files if data does not exist.
 
     """
+    warn_rename()
+
     _make_data_path_dirs_if_not_exist()
 
     df_item_path = os.path.join(DATA_PATH, 'ml-100k', 'u.item')
@@ -183,6 +187,8 @@ def read_movielens_posters_df() -> pd.DataFrame:
             * url
 
     """
+    warn_rename()
+
     # attempt to first load from a local file
     absolute_data_path = Path(__file__).parent.absolute().parent.parent / 'data'
     movielens_posters_csv_filepath = os.path.join(absolute_data_path, 'movielens_posters.csv')
@@ -232,6 +238,8 @@ def get_movielens_metadata(df_item: pd.DataFrame = None) -> pd.DataFrame:
     metadata_df: pd.DataFrame
 
     """
+    warn_rename()
+
     if df_item is None:
         df_item = read_movielens_df_item()
 

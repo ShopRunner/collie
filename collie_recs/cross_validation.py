@@ -8,6 +8,7 @@ import numpy as np
 from scipy.sparse import coo_matrix
 from sklearn.model_selection import train_test_split
 
+from collie_recs.config import warn_rename
 from collie_recs.interactions import (BaseInteractions,
                                       ExplicitInteractions,
                                       HDF5Interactions,
@@ -97,6 +98,8 @@ def random_split(interactions: BaseInteractions,
         (80000, 20000)
 
     """
+    warn_rename()
+
     assert not isinstance(interactions, HDF5Interactions), (
         '``HDF5Interactions`` data type not supported in cross validation splits!'
     )
@@ -198,6 +201,8 @@ def stratified_split(interactions: BaseInteractions,
         (80000, 20000)
 
     """
+    warn_rename()
+
     assert not isinstance(interactions, HDF5Interactions), (
         '``HDF5Interactions`` data types not supported in cross validation splits!'
     )

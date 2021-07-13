@@ -12,6 +12,7 @@ import torch
 from tqdm.auto import tqdm
 
 import collie_recs
+from collie_recs.config import warn_rename
 
 
 class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
@@ -87,6 +88,8 @@ class BaseInteractions(torch.utils.data.Dataset, metaclass=ABCMeta):
                  remove_duplicate_user_item_pairs: bool = True,
                  num_users: int = 'infer',
                  num_items: int = 'infer'):
+        warn_rename()
+
         if mat is None:
             assert users is not None and items is not None, (
                 'Either 1) ``mat`` or 2) both ``users`` or ``items`` must be non-null!'
@@ -606,6 +609,8 @@ class HDF5Interactions(torch.utils.data.Dataset):
                  num_items: int = 'infer',
                  seed: Optional[int] = None,
                  shuffle: bool = False):
+        warn_rename()
+
         self.hdf5_path = hdf5_path
         self.user_col = user_col
         self.item_col = item_col

@@ -10,6 +10,7 @@ import pandas as pd
 from pytorch_lightning.core.lightning import LightningModule
 import torch
 
+from collie_recs.config import warn_rename
 from collie_recs.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
                                       ExplicitInteractions,
                                       Interactions,
@@ -134,6 +135,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                  load_model_path: Optional[str] = None,
                  map_location: Optional[str] = None,
                  **kwargs):
+        warn_rename()
+
         if isinstance(train, Interactions) or isinstance(train, ExplicitInteractions):
             train = InteractionsDataLoader(interactions=train, shuffle=True)
         if isinstance(val, Interactions) or isinstance(val, ExplicitInteractions):

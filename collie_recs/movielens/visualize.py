@@ -6,6 +6,7 @@ from typing import Any, Iterable, Optional, Union
 import pandas as pd
 
 import collie_recs
+from collie_recs.config import warn_rename
 from collie_recs.movielens import (read_movielens_df,
                                    read_movielens_df_item,
                                    read_movielens_posters_df)
@@ -81,6 +82,8 @@ def get_recommendation_visualizations(
         displaying
 
     """
+    warn_rename()
+
     assert num_similar_movies > 0, 'Number of similar movies returned must be 1 or greater.'
 
     if df_user is None:

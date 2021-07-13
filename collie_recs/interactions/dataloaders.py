@@ -6,6 +6,7 @@ import numpy as np
 from scipy.sparse import coo_matrix
 import torch
 
+from collie_recs.config import warn_rename
 from collie_recs.interactions.datasets import (BaseInteractions,
                                                ExplicitInteractions,
                                                HDF5Interactions,
@@ -33,6 +34,7 @@ class BaseInteractionsDataLoader(torch.utils.data.DataLoader):
                  interactions: Union[Interactions, HDF5Interactions] = None,
                  num_workers: int = multiprocessing.cpu_count(),
                  **kwargs):
+        warn_rename()
 
         super().__init__(
             dataset=interactions,
