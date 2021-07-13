@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
+# [1.0.1] - 2021-7-13
+### Fixed
+ - GitHub URL in ``read_movielens_posters_df`` to point to new repo name
+
 # [1.0.0] - 2021-7-13
 ### Changed
  - name of library to ``collie``!
