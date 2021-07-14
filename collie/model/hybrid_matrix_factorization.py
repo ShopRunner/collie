@@ -231,6 +231,10 @@ class HybridModel(MultiStagePipeline):
 
     __doc__ = merge_docstrings(MultiStagePipeline, __doc__, __init__)
 
+    def _move_any_external_data_to_device(self):
+        """Move item metadata to the device before training."""
+        self.item_metadata = self.item_metadata.to(self.device)
+
     def _load_model_init_helper(self, load_model_path: str, map_location: str, **kwargs) -> None:
         self.item_metadata = (
             joblib.load(os.path.join(load_model_path, 'metadata.pkl'))
@@ -309,9 +313,6 @@ class HybridModel(MultiStagePipeline):
             Predicted ratings or rankings
 
         """
-        if self.device != self.item_metadata.device:
-            self.item_metadata.to(self.device)
-
         if self.hparams.stage == 'matrix_factorization':
             pred_scores = (
                 torch.mul(

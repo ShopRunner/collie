@@ -957,7 +957,11 @@ def test_loading_and_saving_hybrid_pretrained_model(implicit_model,
                                   trained_model=implicit_model,
                                   metadata_layers_dims=[16, 8],
                                   freeze_embeddings=True)
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            checkpoint_callback=False,
+                            max_epochs=1,
+                            gpus=int(str(implicit_model.device).startswith('cuda:0')))
     trainer.fit(model)
 
     expected = model.get_item_predictions(user_id=42, unseen_items_only=False)

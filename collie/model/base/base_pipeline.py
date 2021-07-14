@@ -246,6 +246,10 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         """``forward`` should be implemented in all subclasses."""
         pass
 
+    def _move_any_external_data_to_device(self):
+        """Code for ensuring all side-data is put onto the model's device before training."""
+        pass
+
     def _configure_loss(self) -> None:
         # set up loss function
         self.loss_function = None
@@ -326,6 +330,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         exception of the learning rate, which will be set to ``self.hparams.bias_lr``.
 
         """
+        # since this function is called before each ``trainer.fit`` call, we will also take this
+        # time to ensure any external data a model might rely on has been properly moved to the
+        # device before training
+        self._move_any_external_data_to_device()
+
         if self.bias_optimizer is not None:
             if self.bias_optimizer == 'infer':
                 self.bias_optimizer = self.optimizer

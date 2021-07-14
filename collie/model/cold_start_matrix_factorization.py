@@ -209,6 +209,10 @@ class ColdStartModel(MultiStagePipeline):
 
     __doc__ = merge_docstrings(MultiStagePipeline, __doc__, __init__)
 
+    def _move_any_external_data_to_device(self):
+        """Move the item buckets to the device before training."""
+        self.hparams.item_buckets = self.hparams.item_buckets.to(self.device)
+
     def _copy_weights(self, old: nn.Embedding, new: nn.Embedding, buckets: torch.tensor) -> None:
         new.weight.data.copy_(old.weight.data[buckets])
 
