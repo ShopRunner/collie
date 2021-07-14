@@ -352,7 +352,7 @@ class HybridModel(MultiStagePipeline):
         return pred_scores.squeeze()
 
     def _get_item_embeddings(self) -> torch.tensor:
-        """Get item embeddings."""
+        """Get item embeddings on device."""
         # TODO: update this to get the embeddings post-MLP
         return self.item_embeddings.weight.data
 

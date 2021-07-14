@@ -28,6 +28,7 @@ from collie.model import (BasePipeline,
                           HybridModel,
                           HybridPretrainedModel,
                           MatrixFactorizationModel,
+                          MultiStagePipeline,
                           NeuralCollaborativeFiltering)
 
 
@@ -868,6 +869,24 @@ def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_mode
 
     assert model_1.item_metadata.equal(model_2.item_metadata)
     assert model_2.item_metadata.equal(model_3.item_metadata)
+
+
+def test_bad_initialization_of_multi_stage_model(train_val_implicit_data):
+    class BadMultiStageModel(MultiStagePipeline):
+        """Initializes a multi-stage model with no ``optimizer_config_list``."""
+        def __init__(self, train=None, val=None):
+            super().__init__(train=train, val=val, optimizer_config_list=None)
+
+        def _setup_model():
+            pass
+
+        def forward():
+            pass
+
+    train, val = train_val_implicit_data
+
+    with pytest.raises(ValueError):
+        BadMultiStageModel(train=train, val=val)
 
 
 def test_bad_initialization_of_hybrid_model(movielens_metadata_df, train_val_implicit_data):

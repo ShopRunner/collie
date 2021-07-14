@@ -103,12 +103,18 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
                  **kwargs):
         stage_list = None
 
-        if optimizer_config_list is not None:
-            stage_list = list(
-                OrderedDict.fromkeys(
-                    [optimizer_config['stage'] for optimizer_config in optimizer_config_list]
+        if load_model_path is None:
+            if optimizer_config_list is None:
+                raise ValueError(
+                    'Must provide ``optimizer_config_list`` when initializing a new multi-stage '
+                    'model!'
                 )
-            )
+            else:
+                stage_list = list(
+                    OrderedDict.fromkeys(
+                        [optimizer_config['stage'] for optimizer_config in optimizer_config_list]
+                    )
+                )
 
         super().__init__(stage_list=stage_list,
                          **get_init_arguments())

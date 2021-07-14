@@ -42,7 +42,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
     For ``item_item_similarity`` to work properly, all subclasses are should also implement:
 
-    * ``_get_item_embeddings`` - Returns item embeddings from the model
+    * ``_get_item_embeddings`` - Returns item embeddings from the model on the device
 
     Parameters
     ----------
@@ -112,7 +112,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         * a 0% match if it's a different item with a different genre and different director,
           which is equivalent to the loss without any partial credit
     load_model_path: str or Path
-        To load a previously-saved model, pass in path to output of ``model.save_model()`` method.
+        To load a previously-saved model for inference, pass in path to output of
+        ``model.save_model()`` method. Note that datasets and optimizers will NOT be restored.
         If ``None``, will initialize model as normal
     map_location: str or torch.device
         If ``load_model_path`` is provided, device specifying how to remap storage locations when

@@ -194,7 +194,7 @@ class NeuralCollaborativeFiltering(BasePipeline):
         return prediction.view(-1)
 
     def _get_item_embeddings(self) -> torch.tensor:
-        """Get item embeddings, which are the concatenated CF and MLP item embeddings."""
+        """Get item embeddings, which are the concatenated CF and MLP item embeddings, on device."""
         items = torch.arange(self.hparams.num_items, device=self.device)
 
         return torch.cat((

@@ -157,5 +157,5 @@ class MatrixFactorizationModel(BasePipeline):
         return preds
 
     def _get_item_embeddings(self) -> torch.tensor:
-        """Get item embeddings."""
+        """Get item embeddings on device."""
         return self.item_embeddings.weight.data

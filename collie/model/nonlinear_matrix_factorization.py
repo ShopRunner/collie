@@ -210,7 +210,7 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
         return preds
 
     def _get_item_embeddings(self) -> torch.tensor:
-        """Get item embeddings."""
+        """Get item embeddings on device."""
         if not hasattr(self, 'item_embeddings_'):
             items = torch.arange(self.hparams.num_items, device=self.device)
 

@@ -354,5 +354,5 @@ class ColdStartModel(MultiStagePipeline):
         return sim_score_idxs_series
 
     def _get_item_embeddings(self) -> torch.tensor:
-        """Get item embeddings."""
+        """Get item embeddings on device."""
         return self.item_embeddings.weight.data

@@ -311,7 +311,7 @@ class CollieMinimalTrainer():
             self.logger.log_hyperparams(model.hparams)
             self.logger.save()
 
-        # move the model over to the GPU
+        # move the model over to the device
         model.to(self.device)
 
     def _initialize_optimizers_and_lr_schedulers(self, model: BasePipeline) -> None:
