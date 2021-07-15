@@ -1090,7 +1090,7 @@ def test_bad_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data,
     model.save_model(save_model_path, overwrite=True)
 
 
-def test_models_trained_for_one_step(models_trained_for_one_step, train_val_implicit_data):
+def test_implicit_models_trained_for_one_step(models_trained_for_one_step, train_val_implicit_data):
     train, _ = train_val_implicit_data
 
     if not isinstance(models_trained_for_one_step.train_loader, HDF5InteractionsDataLoader):
@@ -1107,6 +1107,7 @@ def test_models_trained_for_one_step(models_trained_for_one_step, train_val_impl
     if not isinstance(models_trained_for_one_step, ColdStartModel):
         # cold start models aren't trained enough for this check to be true
         assert item_similarities.index[0] == 42
+        assert round(item_similarities.values[0], 1) == 1
     else:
         # ensure ``item_bucket_item_similarity`` works for cold start models
         item_bucket_similarities = (
@@ -1130,7 +1131,17 @@ def test_explicit_models_trained_for_one_step(explicit_models_trained_for_one_st
 
     item_similarities = explicit_models_trained_for_one_step.item_item_similarity(item_id=42)
 
-    assert item_similarities.index[0] == 42
+    if not isinstance(explicit_models_trained_for_one_step, ColdStartModel):
+        # cold start models aren't trained enough for this check to be true
+        assert item_similarities.index[0] == 42
+        assert round(item_similarities.values[0], 1) == 1
+    else:
+        # ensure ``item_bucket_item_similarity`` works for cold start models
+        item_bucket_similarities = (
+            explicit_models_trained_for_one_step.item_bucket_item_similarity(item_bucket_id=0)
+        )
+
+        assert len(item_similarities) == len(item_bucket_similarities)
 
 
 def test_bad_implicit_model_explicit_data(train_val_explicit_data):

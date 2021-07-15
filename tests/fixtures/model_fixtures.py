@@ -510,12 +510,25 @@ def models_trained_for_one_step(request,
                         'sparse_mf',
                         'nonlinear_mf',
                         'neucf',
-                        'hybrid_pretrained'])
+                        'hybrid_pretrained',
+                        'hybrid_mf',
+                        'cold_start'])
 def explicit_models_trained_for_one_step(request,
                                          train_val_explicit_sample_data,
                                          movielens_metadata_df,
                                          gpu_count):
     train, val = train_val_explicit_sample_data
+
+    genres = (
+        torch.tensor(movielens_metadata_df[
+            [c for c in movielens_metadata_df.columns if 'genre' in c]
+        ].values)
+        .topk(1)
+        .indices
+        .view(-1)
+    )
+
+    number_of_stages = None
 
     if request.param == 'mf':
         model = MatrixFactorizationModel(train=train, val=val, loss='mse')
@@ -616,6 +629,28 @@ def explicit_models_trained_for_one_step(request,
                                       metadata_for_loss_weights={'genre': .4},
                                       weight_decay=0.0)
         model.load_from_hybrid_model(model_frozen)
+    elif request.param == 'hybrid_mf':
+        number_of_stages = 3
+
+        model = HybridModel(train=train,
+                            val=val,
+                            item_metadata=movielens_metadata_df,
+                            embedding_dim=10,
+                            metadata_layers_dims=[16, 12],
+                            lr=1e-1,
+                            loss='mae',
+                            optimizer='adam')
+    elif request.param == 'cold_start':
+        number_of_stages = 2
+
+        model = ColdStartModel(train=train,
+                               val=val,
+                               item_buckets=genres[:train.num_items],
+                               embedding_dim=10,
+                               item_buckets_stage_lr=1e-2,
+                               no_buckets_stage_lr=1e-2,
+                               loss='mse',
+                               item_buckets_stage_optimizer='sgd')
 
     model_trainer = CollieTrainer(model=model,
                                   gpus=gpu_count,
@@ -628,7 +663,15 @@ def explicit_models_trained_for_one_step(request,
         with pytest.warns(UserWarning):
             model_trainer.fit(model)
     else:
-        model_trainer.fit(model)
+        if number_of_stages is None:
+            model_trainer.fit(model)
+        else:
+            for idx in range(number_of_stages):
+                model_trainer.fit(model)
+
+                if idx < (number_of_stages - 1):
+                    model_trainer.max_steps += 1
+                    model.advance_stage()
 
     model.freeze()
 

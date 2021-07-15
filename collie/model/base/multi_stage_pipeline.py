@@ -195,9 +195,9 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
         ``self.hparams.optimizer_config_list``.
 
         """
-        # since this function is called before each ``trainer.fit`` call, we will also take this
-        # time to ensure any external data a model might rely on has been properly moved to the
-        # device before training
+        # since this is the only function that is called before each ``trainer.fit`` call, we will
+        # also take this time to ensure any external data a model might rely on has been properly
+        # moved to the device before training
         self._move_any_external_data_to_device()
 
         optimizer_config_list = [
