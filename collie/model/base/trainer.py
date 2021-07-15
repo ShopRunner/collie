@@ -226,8 +226,10 @@ class CollieMinimalTrainer():
             not hasattr(self, 'first_run_pre_training_setup_complete_')
             or not self.first_run_pre_training_setup_complete_
         ):
-            self._pre_training_setup(model)
+            self._pre_training_setup(model=model)
             self.first_run_pre_training_setup_complete_ = True
+
+        self._initialize_optimizers_and_lr_schedulers(model=model)
 
         # set up top-level epoch progress bar
         epoch_iterator = range(self.num_epochs_completed + 1, self.max_epochs + 1)
@@ -301,6 +303,18 @@ class CollieMinimalTrainer():
         self.train_dataloader = model.train_dataloader()
         self.val_dataloader = model.val_dataloader()
 
+        if self.verbosity != 0 and self.weights_summary is not None:
+            print(ModelSummary(model, mode=self.weights_summary))
+
+        # log model hyperparameters, if applicable
+        if self.logger is not None:
+            self.logger.log_hyperparams(model.hparams)
+            self.logger.save()
+
+        # move the model over to the device
+        model.to(self.device)
+
+    def _initialize_optimizers_and_lr_schedulers(self, model: BasePipeline) -> None:
         self.lr_scheduler = None
         configure_optimizers_return_value = model.configure_optimizers()
         if isinstance(configure_optimizers_return_value, tuple):
@@ -313,21 +327,10 @@ class CollieMinimalTrainer():
             self.optimizer = MultiOptimizer(configure_optimizers_return_value)
         elif isinstance(configure_optimizers_return_value, torch.optim.Optimizer):
             # we have a single optimizer
-            self.optimizer = configure_optimizers_return_value
+            self.optimizer = MultiOptimizer([configure_optimizers_return_value])
         else:
             # we have something we've never seen before
             raise ValueError('Unexpected output from ``model.configure_optimizers()``!')
-
-        if self.verbosity != 0 and self.weights_summary is not None:
-            print(ModelSummary(model, mode=self.weights_summary))
-
-        # log model hyperparameters, if applicable
-        if self.logger is not None:
-            self.logger.log_hyperparams(model.hparams)
-            self.logger.save()
-
-        # move the model over to the GPU
-        model.to(self.device)
 
     def _train_loop_single_epoch(self, model: torch.nn.Module, epoch: int) -> float:
         """Training loop for a single epoch, where gradients are optimized for."""
@@ -349,7 +352,13 @@ class CollieMinimalTrainer():
             loss = model.calculate_loss(batch)
             loss.backward()
 
-            self.optimizer.step()
+            for optimizer_idx, optimizer in enumerate(self.optimizer.optimizers):
+                model.optimizer_step(epoch=epoch,
+                                     batch_idx=batch_idx,
+                                     optimizer=optimizer,
+                                     optimizer_idx=optimizer_idx,
+                                     optimizer_closure=None)
+
             self.train_steps += 1
 
             if self.terminate_on_nan and not torch.isfinite(loss).all():

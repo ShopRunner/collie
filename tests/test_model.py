@@ -21,11 +21,14 @@ from collie.loss import (adaptive_bpr_loss,
                          warp_loss)
 from collie.metrics import evaluate_in_batches, explicit_evaluate_in_batches, mapk
 from collie.model import (BasePipeline,
+                          ColdStartModel,
                           CollieMinimalTrainer,
                           CollieTrainer,
                           DeepFM,
+                          HybridModel,
                           HybridPretrainedModel,
                           MatrixFactorizationModel,
+                          MultiStagePipeline,
                           NeuralCollaborativeFiltering)
 
 
@@ -563,6 +566,37 @@ class TestCollieMinimalTrainer():
                 assert str(actual_batch.device) == 'cpu'
 
 
+class TestMultiStageModelsCollieMinimalTrainer():
+    def test_hybrid_model_collie_minimal_trainer(self,
+                                                 movielens_metadata_df,
+                                                 train_val_implicit_data):
+        train, val = train_val_implicit_data
+
+        # ensure that we can train with a ``CollieMinimalTrainer``
+        model = HybridModel(train=train, val=val, item_metadata=movielens_metadata_df)
+        trainer = CollieMinimalTrainer(model=model, logger=False, max_epochs=1)
+        trainer.fit(model)
+
+        item_similarities = model.item_item_similarity(item_id=42)
+
+        assert item_similarities.index[0] == 42
+
+    def test_cold_start_model_collie_minimal_trainer(self, train_val_implicit_data):
+        train, val = train_val_implicit_data
+        item_buckets = torch.randint(low=0, high=5, size=(train.num_items,))
+
+        # ensure that we can train with a ``CollieMinimalTrainer``
+        model = ColdStartModel(train=train, val=val, item_buckets=item_buckets)
+        trainer = CollieMinimalTrainer(model=model, logger=False, max_epochs=1)
+        trainer.fit(model)
+
+        item_similarities = model.item_item_similarity(item_id=42)
+
+        # we can't check if the first value in the list matches, but it just shouldn't be the last
+        # one
+        assert item_similarities.index[-1] != 42
+
+
 def test_model_instantiation_no_train_data():
     with pytest.raises(TypeError):
         MatrixFactorizationModel()
@@ -699,6 +733,93 @@ def test_bad_final_layer_of_deep_fm(train_val_implicit_data):
         trainer.fit(model)
 
 
+class TestBadInitializationColdStartModel:
+    def test_item_buckets_not_1d(self, train_val_implicit_data):
+        train, val = train_val_implicit_data
+
+        item_buckets_2d = torch.randint(low=0, high=5, size=(train.num_items, 2))
+
+        with pytest.raises(AssertionError):
+            ColdStartModel(train=train, val=val, item_buckets=item_buckets_2d)
+
+    def test_item_buckets_not_starting_at_0(self, train_val_implicit_data):
+        train, val = train_val_implicit_data
+
+        item_buckets_not_starting_at_0 = torch.randint(low=1, high=5, size=(train.num_items,))
+
+        with pytest.raises(ValueError):
+            ColdStartModel(train=train, val=val, item_buckets=item_buckets_not_starting_at_0)
+
+    def test_item_buckets_too_short(self, train_val_implicit_data):
+        train, val = train_val_implicit_data
+
+        item_buckets_too_short = torch.randint(low=0, high=5, size=(train.num_items - 1,))
+
+        with pytest.raises(ValueError):
+            ColdStartModel(train=train, val=val, item_buckets=item_buckets_too_short)
+
+    def test_item_buckets_too_long(self, train_val_implicit_data):
+        train, val = train_val_implicit_data
+
+        item_buckets_too_long = torch.randint(low=0, high=5, size=(train.num_items + 1,))
+
+        with pytest.raises(ValueError):
+            ColdStartModel(train=train, val=val, item_buckets=item_buckets_too_long)
+
+    def test_item_buckets_wrong_type(self, train_val_implicit_data):
+        train, val = train_val_implicit_data
+
+        item_buckets_list = torch.randint(low=0, high=5, size=(train.num_items,)).tolist()
+        item_buckets_numpy = torch.randint(low=0, high=5, size=(train.num_items,)).numpy()
+
+        model_1 = ColdStartModel(train=train, val=val, item_buckets=item_buckets_list)
+        model_2 = ColdStartModel(train=train, val=val, item_buckets=item_buckets_numpy)
+
+        assert isinstance(model_1.hparams.item_buckets, torch.Tensor)
+        assert isinstance(model_2.hparams.item_buckets, torch.Tensor)
+
+
+def test_cold_start_stages_progression(train_val_implicit_data):
+    train, val = train_val_implicit_data
+    item_buckets = torch.randint(low=0, high=5, size=(train.num_items,))
+
+    model = ColdStartModel(train=train, val=val, item_buckets=item_buckets)
+
+    assert model.hparams.stage == 'item_buckets'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'no_buckets'
+
+    with pytest.raises(ValueError):
+        model.advance_stage()
+
+    with pytest.raises(ValueError):
+        model.set_stage('invalid_stage_name')
+
+
+def test_hybrid_model_stages_progression(train_val_implicit_data, movielens_metadata_df):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train, val=val, item_metadata=movielens_metadata_df)
+
+    assert model.hparams.stage == 'matrix_factorization'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'metadata_only'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'all'
+
+    with pytest.raises(ValueError):
+        model.advance_stage()
+
+    with pytest.raises(ValueError):
+        model.set_stage('invalid_stage_name')
+
+
 def test_bad_initialization_of_hybrid_pretrained_model(implicit_model,
                                                        movielens_metadata_df,
                                                        train_val_implicit_data):
@@ -750,6 +871,60 @@ def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_mode
     assert model_2.item_metadata.equal(model_3.item_metadata)
 
 
+def test_bad_initialization_of_multi_stage_model(train_val_implicit_data):
+    class BadMultiStageModel(MultiStagePipeline):
+        """Initializes a multi-stage model with no ``optimizer_config_list``."""
+        def __init__(self, train=None, val=None):
+            super().__init__(train=train, val=val, optimizer_config_list=None)
+
+        def _setup_model():
+            pass
+
+        def forward():
+            pass
+
+    train, val = train_val_implicit_data
+
+    with pytest.raises(ValueError):
+        BadMultiStageModel(train=train, val=val)
+
+
+def test_bad_initialization_of_hybrid_model(movielens_metadata_df, train_val_implicit_data):
+    train, val = train_val_implicit_data
+
+    with pytest.raises(ValueError):
+        HybridModel(train=train, val=val, item_metadata=None)
+
+
+def test_different_item_metadata_types_for_hybrid_model(movielens_metadata_df,
+                                                        train_val_implicit_data):
+    train, val = train_val_implicit_data
+
+    # ensure that we end up with the same ``item_metadata`` regardless of the input type
+    model_1 = HybridModel(train=train,
+                          val=val,
+                          item_metadata=movielens_metadata_df)
+    trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_1.fit(model_1)
+
+    model_2 = HybridModel(train=train,
+                          val=val,
+                          item_metadata=movielens_metadata_df.to_numpy())
+    trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_2.fit(model_2)
+
+    model_3 = HybridModel(
+        train=train,
+        val=val,
+        item_metadata=torch.from_numpy(movielens_metadata_df.to_numpy()),
+    )
+    trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_3.fit(model_3)
+
+    assert model_1.item_metadata.equal(model_2.item_metadata)
+    assert model_2.item_metadata.equal(model_3.item_metadata)
+
+
 def test_loading_and_saving_implicit_model(implicit_model, untrained_implicit_model, tmpdir):
     expected = implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
 
@@ -782,7 +957,11 @@ def test_loading_and_saving_hybrid_pretrained_model(implicit_model,
                                   trained_model=implicit_model,
                                   metadata_layers_dims=[16, 8],
                                   freeze_embeddings=True)
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=10)
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            checkpoint_callback=False,
+                            max_epochs=1,
+                            gpus=int(str(implicit_model.device).startswith('cuda:0')))
     trainer.fit(model)
 
     expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
@@ -790,7 +969,7 @@ def test_loading_and_saving_hybrid_pretrained_model(implicit_model,
     # set up TemporaryDirectory for writing and reading the file in this test
     temp_dir_name = str(tmpdir)
 
-    save_model_path = os.path.join(temp_dir_name, 'test_hybrid_model_save')
+    save_model_path = os.path.join(temp_dir_name, 'test_hybrid_pretrained_model_save')
     model.save_model(save_model_path)
     loaded_model = HybridPretrainedModel(load_model_path=save_model_path)
 
@@ -816,7 +995,86 @@ def test_bad_saving_hybrid_pretrained_model(implicit_model,
                                   trained_model=implicit_model,
                                   metadata_layers_dims=[16, 8],
                                   freeze_embeddings=True)
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=10)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer.fit(model)
+
+    # set up TemporaryDirectory for writing and reading all files in this test
+    temp_dir_name = str(tmpdir)
+
+    # we shouldn't be able to overwrite a model in an existing directory unless we specifically say
+    save_model_path = os.path.join(temp_dir_name, 'test_hybrid_pretrained_model_save_to_overwrite')
+    model.save_model(save_model_path)
+
+    with pytest.raises(ValueError):
+        model.save_model(save_model_path)
+
+    model.save_model(save_model_path, overwrite=True)
+
+
+def test_loading_and_saving_cold_start_model(train_val_implicit_data, tmpdir):
+    train, val = train_val_implicit_data
+    item_buckets = torch.randint(low=0, high=3, size=(train.num_items,))
+
+    model = ColdStartModel(train=train, val=val, item_buckets=item_buckets)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer.fit(model)
+
+    # we have to advance to the final stage so our item embeddings are copied over before saving
+    model.advance_stage()
+
+    expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name, 'test_cold_start_model_save.pth')
+    model.save_model(save_model_path)
+    loaded_model = ColdStartModel(load_model_path=save_model_path)
+
+    actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+
+    assert expected.equals(actual)
+
+    assert loaded_model.hparams.stage == 'no_buckets'
+
+
+def test_loading_and_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data, tmpdir):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train,
+                        val=val,
+                        item_metadata=movielens_metadata_df,
+                        metadata_layers_dims=[16, 8])
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer.fit(model)
+
+    expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name, 'test_hybrid_model_save')
+    model.save_model(save_model_path)
+    loaded_model = HybridModel(load_model_path=save_model_path)
+
+    assert loaded_model.hparams.stage == 'all'
+
+    # set the stage of the loaded in model to be the same as the saved model so
+    # ``get_item_predictions`` is the same
+    loaded_model.set_stage('matrix_factorization')
+
+    actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+
+    assert expected.equals(actual)
+
+
+def test_bad_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data, tmpdir):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train,
+                        val=val,
+                        item_metadata=movielens_metadata_df)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
     trainer.fit(model)
 
     # set up TemporaryDirectory for writing and reading all files in this test
@@ -832,7 +1090,7 @@ def test_bad_saving_hybrid_pretrained_model(implicit_model,
     model.save_model(save_model_path, overwrite=True)
 
 
-def test_models_trained_for_one_step(models_trained_for_one_step, train_val_implicit_data):
+def test_implicit_models_trained_for_one_step(models_trained_for_one_step, train_val_implicit_data):
     train, _ = train_val_implicit_data
 
     if not isinstance(models_trained_for_one_step.train_loader, HDF5InteractionsDataLoader):
@@ -846,7 +1104,17 @@ def test_models_trained_for_one_step(models_trained_for_one_step, train_val_impl
 
     item_similarities = models_trained_for_one_step.item_item_similarity(item_id=42)
 
-    assert item_similarities.index[0] == 42
+    if not isinstance(models_trained_for_one_step, ColdStartModel):
+        # cold start models aren't trained enough for this check to be true
+        assert item_similarities.index[0] == 42
+        assert round(item_similarities.values[0], 1) == 1
+    else:
+        # ensure ``item_bucket_item_similarity`` works for cold start models
+        item_bucket_similarities = (
+            models_trained_for_one_step.item_bucket_item_similarity(item_bucket_id=0)
+        )
+
+        assert len(item_similarities) == len(item_bucket_similarities)
 
 
 def test_explicit_models_trained_for_one_step(explicit_models_trained_for_one_step,
@@ -863,7 +1131,17 @@ def test_explicit_models_trained_for_one_step(explicit_models_trained_for_one_st
 
     item_similarities = explicit_models_trained_for_one_step.item_item_similarity(item_id=42)
 
-    assert item_similarities.index[0] == 42
+    if not isinstance(explicit_models_trained_for_one_step, ColdStartModel):
+        # cold start models aren't trained enough for this check to be true
+        assert item_similarities.index[0] == 42
+        assert round(item_similarities.values[0], 1) == 1
+    else:
+        # ensure ``item_bucket_item_similarity`` works for cold start models
+        item_bucket_similarities = (
+            explicit_models_trained_for_one_step.item_bucket_item_similarity(item_bucket_id=0)
+        )
+
+        assert len(item_similarities) == len(item_bucket_similarities)
 
 
 def test_bad_implicit_model_explicit_data(train_val_explicit_data):

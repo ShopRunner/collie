@@ -3,6 +3,20 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
+# [1.1.0] - 2021-7-15
+### Added
+ - multi-stage model template ``MultiStagePipeline``
+ - multi-stage models ``HybridModel`` and ``ColdStartModel``
+### Changed
+ - optimizers and learning rate schedulers are now reset upon each call of ``fit`` in ``CollieMinimalTrainer``, matching the behavior in ``CollieTrainer``
+ - ``HybridPretrainedModel`` now includes bias terms from the ``MatrixFactorizationModel`` in score calculation
+ - ``item_item_similarity`` now uses a more efficient, on-device calculation for item-item similarity
+ - optimizers are now stepped using the ``optimizer_step`` method for ``CollieMinimalTrainer``
+ - ``_get_item_embeddings`` methods now return a ``torch.tensor`` type on device
+ - ``_move_external_data_to_device`` optional method to all models
+### Removed
+ - ``MultiOptimizer.step`` method
+
 # [1.0.1] - 2021-7-13
 ### Fixed
  - GitHub URL in ``read_movielens_posters_df`` to point to new repo name

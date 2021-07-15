@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from collie.config import DATA_PATH
-from collie.model.base import BasePipeline, INTERACTIONS_LIKE_INPUT, ScaledEmbedding
+from collie.model.base import BasePipeline, INTERACTIONS_LIKE_INPUT, ScaledEmbedding, ZeroEmbedding
 from collie.model.matrix_factorization import MatrixFactorizationModel
 from collie.utils import get_init_arguments, merge_docstrings
 
@@ -23,12 +23,15 @@ class HybridPretrainedModel(BasePipeline):
     # NOTE: the full docstring is merged in with ``BasePipeline``'s using ``merge_docstrings``.
     # Only the description of new or changed parameters are included in this docstring
     """
-    Training pipeline for a hybrid recommendation model.
+    Training pipeline for a hybrid recommendation model using a pre-trained matrix factorization
+    model as its base.
 
     ``HybridPretrainedModel`` models contain dense layers that process item metadata, concatenate
     this embedding with the user and item embeddings copied from a trained
     ``MatrixFactorizationModel``, and send this concatenated embedding through more dense layers to
-    output a single float ranking / rating.
+    output a single float ranking / rating. We add both user and item biases to this score before
+    returning. This is the same architecture as the ``HybridModel``, but we are using the embeddings
+    from a pre-trained model rather than training them up ourselves.
 
     All ``HybridPretrainedModel`` instances are subclasses of the ``LightningModule`` class
     provided by PyTorch Lightning. This means to train a model, you will need a
@@ -129,8 +132,14 @@ class HybridPretrainedModel(BasePipeline):
 
     __doc__ = merge_docstrings(BasePipeline, __doc__, __init__)
 
+    def _move_any_external_data_to_device(self):
+        """Move item metadata to the device before training."""
+        self.item_metadata = self.item_metadata.to(self.device)
+
     def _load_model_init_helper(self, load_model_path: str, map_location: str, **kwargs) -> None:
-        self.item_metadata = joblib.load(os.path.join(load_model_path, 'metadata.pkl'))
+        self.item_metadata = (
+            joblib.load(os.path.join(load_model_path, 'metadata.pkl'))
+        )
         super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
                                         map_location=map_location)
 
@@ -153,6 +162,10 @@ class HybridPretrainedModel(BasePipeline):
                 copy.deepcopy(self._trained_model.user_embeddings),
                 copy.deepcopy(self._trained_model.item_embeddings)
             )
+            self.biases = nn.Sequential(
+                copy.deepcopy(self._trained_model.user_biases),
+                copy.deepcopy(self._trained_model.item_biases)
+            )
 
             if self.hparams.freeze_embeddings:
                 self.freeze_embeddings()
@@ -170,6 +183,10 @@ class HybridPretrainedModel(BasePipeline):
             self.embeddings = nn.Sequential(
                 ScaledEmbedding(self.hparams.user_num_embeddings, self.hparams.user_embeddings_dim),
                 ScaledEmbedding(self.hparams.item_num_embeddings, self.hparams.item_embeddings_dim)
+            )
+            self.biases = nn.Sequential(
+                ZeroEmbedding(self.hparams.user_num_embeddings, 1),
+                ZeroEmbedding(self.hparams.item_num_embeddings, 1)
             )
 
         self.dropout = nn.Dropout(p=self.hparams.dropout_p)
@@ -223,8 +240,10 @@ class HybridPretrainedModel(BasePipeline):
             Predicted ratings or rankings
 
         """
-        # TODO: remove self.device and let lightning do it
-        metadata_output = self.item_metadata[items, :].to(self.device)
+        if str(self.device) != str(self.item_metadata.device):
+            self._move_any_external_data_to_device()
+
+        metadata_output = self.item_metadata[items, :]
         if self.metadata_layers is not None:
             for metadata_nn_layer in self.metadata_layers:
                 metadata_output = self.dropout(
@@ -243,16 +262,18 @@ class HybridPretrainedModel(BasePipeline):
                 )
             )
 
-        pred_scores = self.combined_layers[-1](combined_output)
+        pred_scores = (
+            self.combined_layers[-1](combined_output)
+            + self.biases[0](users)
+            + self.biases[1](items)
+        )
 
         return pred_scores.squeeze()
 
-    def _get_item_embeddings(self) -> np.array:
-        """Get item embeddings."""
+    def _get_item_embeddings(self) -> torch.tensor:
+        """Get item embeddings on device."""
         # TODO: update this to get the embeddings post-MLP
-        return self.embeddings[1](
-            torch.arange(self.hparams.num_items, device=self.device)
-        ).detach().cpu()
+        return self.embeddings[1].weight.data
 
     def freeze_embeddings(self) -> None:
         """Remove gradient requirement from the embeddings."""

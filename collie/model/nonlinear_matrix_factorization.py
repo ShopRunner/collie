@@ -1,7 +1,6 @@
 from functools import partial
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -210,8 +209,8 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
 
         return preds
 
-    def _get_item_embeddings(self) -> np.array:
-        """Get item embeddings."""
+    def _get_item_embeddings(self) -> torch.tensor:
+        """Get item embeddings on device."""
         if not hasattr(self, 'item_embeddings_'):
             items = torch.arange(self.hparams.num_items, device=self.device)
 
@@ -222,6 +221,6 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
                     item_dense_layer(item_embeddings)
                 )
 
-            self.item_embeddings_ = item_embeddings.detach().cpu()
+            self.item_embeddings_ = item_embeddings.detach()
 
         return self.item_embeddings_

@@ -42,7 +42,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
     For ``item_item_similarity`` to work properly, all subclasses are should also implement:
 
-    * ``_get_item_embeddings`` - Returns item embeddings from the model
+    * ``_get_item_embeddings`` - Returns item embeddings from the model on the device
 
     Parameters
     ----------
@@ -112,7 +112,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         * a 0% match if it's a different item with a different genre and different director,
           which is equivalent to the loss without any partial credit
     load_model_path: str or Path
-        To load a previously-saved model, pass in path to output of ``model.save_model()`` method.
+        To load a previously-saved model for inference, pass in path to output of
+        ``model.save_model()`` method. Note that datasets and optimizers will NOT be restored.
         If ``None``, will initialize model as normal
     map_location: str or torch.device
         If ``load_model_path`` is provided, device specifying how to remap storage locations when
@@ -245,6 +246,10 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         """``forward`` should be implemented in all subclasses."""
         pass
 
+    def _move_any_external_data_to_device(self):
+        """Code for ensuring all side-data is put onto the model's device before training."""
+        pass
+
     def _configure_loss(self) -> None:
         # set up loss function
         self.loss_function = None
@@ -325,6 +330,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         exception of the learning rate, which will be set to ``self.hparams.bias_lr``.
 
         """
+        # since this is the only function that is called before each ``trainer.fit`` call, we will
+        # also take this time to ensure any external data a model might rely on has been properly
+        # moved to the device before training
+        self._move_any_external_data_to_device()
+
         if self.bias_optimizer is not None:
             if self.bias_optimizer == 'infer':
                 self.bias_optimizer = self.optimizer
@@ -683,21 +693,23 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         always be the item itself.
 
         """
-        item_embs = self._get_item_embeddings()
+        item_embeddings = self._get_item_embeddings()
+        item_embeddings = item_embeddings / item_embeddings.norm(dim=1)[:, None]
 
-        results = [
-            np.inner(item_embs[item_id], item_embs[idx]) / (np.linalg.norm(item_embs[idx]) + 1e-11)
-            for idx in range(self.hparams.num_items)
-        ]
-
-        sim_score_idxs = np.array(results) / (np.linalg.norm(item_embs[item_id]) + 1e-11)
+        sim_score_idxs = (
+            torch.matmul(item_embeddings[[item_id], :], item_embeddings.transpose(1, 0))
+            .detach()
+            .cpu()
+            .numpy()
+            .squeeze()
+        )
 
         sim_score_idxs_series = pd.Series(sim_score_idxs)
         sim_score_idxs_series = sim_score_idxs_series.sort_values(ascending=False)
 
         return sim_score_idxs_series
 
-    def _get_item_embeddings(self) -> np.array:
+    def _get_item_embeddings(self) -> torch.tensor:
         """``_get_item_embeddings`` should be implemented in all subclasses."""
         raise NotImplementedError(
             '``BasePipeline`` is meant to be inherited from, not used. '

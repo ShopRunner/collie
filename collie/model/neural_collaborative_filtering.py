@@ -1,7 +1,6 @@
 from functools import partial
 from typing import Callable, Dict, Optional, Union
 
-import numpy as np
 import torch
 from torch import nn
 import torch.nn.functional as F
@@ -194,11 +193,11 @@ class NeuralCollaborativeFiltering(BasePipeline):
 
         return prediction.view(-1)
 
-    def _get_item_embeddings(self) -> np.array:
-        """Get item embeddings, which are the concatenated CF and MLP item embeddings."""
+    def _get_item_embeddings(self) -> torch.tensor:
+        """Get item embeddings, which are the concatenated CF and MLP item embeddings, on device."""
         items = torch.arange(self.hparams.num_items, device=self.device)
 
-        return np.concatenate((
-            self.item_embeddings_cf(items).detach().cpu(),
-            self.item_embeddings_mlp(items).detach().cpu()
-        ), axis=1)
+        return torch.cat((
+            self.item_embeddings_cf(items),
+            self.item_embeddings_mlp(items),
+        ), axis=1).detach()
