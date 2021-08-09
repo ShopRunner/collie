@@ -481,7 +481,7 @@ class TestCollieMinimalTrainer():
         train, val = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train,
                                          val=val,
-                                         optimizer='adam',
+                                         optimizer='adagrad',
                                          bias_optimizer='sgd',
                                          lr_scheduler_func=None)
         trainer = CollieMinimalTrainer(model=model, max_epochs=1)
