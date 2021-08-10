@@ -115,7 +115,7 @@ def test_okay_mismatched_train_and_val_loaders(train_val_implicit_data):
     val.num_negative_samples = 3
 
     model = MatrixFactorizationModel(train=train, val=val)
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer.fit(model)
 
 
@@ -163,7 +163,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     train, val = train_val_implicit_data
 
     model_1 = MatrixFactorizationModel(train=train, val=val, bias_optimizer=None)
-    trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_1.fit(model_1)
     assert not isinstance(model_1.optimizers(), list)
     model_1_lr_schedulers = [s['scheduler'] for s in trainer_1.lr_schedulers]
@@ -173,7 +173,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
                                        val=val,
                                        bias_optimizer=None,
                                        lr_scheduler_func=None)
-    trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_2.fit(model_2)
     assert not isinstance(model_2.optimizers(), list)
     model_2_lr_schedulers = [s['scheduler'] for s in trainer_2.lr_schedulers]
@@ -183,7 +183,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
                                        val=val,
                                        bias_optimizer='infer',
                                        bias_lr='infer')
-    trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_3.fit(model_3)
     assert len(model_3.optimizers()) == 2
     assert model_3.bias_optimizer == model_3.optimizer
@@ -196,7 +196,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
                                        bias_optimizer='infer',
                                        bias_lr='infer',
                                        lr_scheduler_func=None)
-    trainer_4 = CollieTrainer(model=model_4, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_4 = CollieTrainer(model=model_4, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_4.fit(model_4)
     assert len(model_4.optimizers()) == 2
     assert model_4.bias_optimizer == model_4.optimizer
@@ -209,7 +209,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
                                        bias_optimizer='infer',
                                        bias_lr=10,
                                        lr_scheduler_func=None)
-    trainer_5 = CollieTrainer(model=model_5, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_5 = CollieTrainer(model=model_5, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_5.fit(model_5)
     assert len(model_5.optimizers()) == 2
     assert model_5.bias_optimizer == model_5.optimizer
@@ -218,18 +218,18 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     assert len(model_5_lr_schedulers) == 0
 
     model_6 = MatrixFactorizationModel(train=train, val=val, optimizer='fake_optimizer')
-    trainer_6 = CollieTrainer(model=model_6, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_6 = CollieTrainer(model=model_6, logger=False, checkpoint_callback=False, max_epochs=1)
     with pytest.raises(ValueError):
         trainer_6.fit(model_6)
 
     model_7 = MatrixFactorizationModel(train=train, val=val, bias_optimizer='fake_optimizer')
-    trainer_7 = CollieTrainer(model=model_7, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_7 = CollieTrainer(model=model_7, logger=False, checkpoint_callback=False, max_epochs=1)
     with pytest.raises(ValueError):
         trainer_7.fit(model_7)
 
     # ``Adadelta`` accepts ``weight_decay`` parameter
     model_8 = MatrixFactorizationModel(train=train, val=val, optimizer=torch.optim.Adadelta)
-    trainer_8 = CollieTrainer(model=model_8, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_8 = CollieTrainer(model=model_8, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_8.fit(model_8)
 
     # ``LBFGS`` does not accept ``weight_decay`` parameter
@@ -237,7 +237,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
                                        val=val,
                                        optimizer=torch.optim.LBFGS,
                                        sparse=True)
-    trainer_9 = CollieTrainer(model=model_9, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_9 = CollieTrainer(model=model_9, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_9.fit(model_9)
 
 
@@ -264,7 +264,7 @@ class TestCollieMinimalTrainer():
         assert model.hparams.num_epochs_completed == 2
         assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
 
-        trainer.max_epochs += 1
+        trainer.increase_max_epochs(1)
         trainer.fit(model)
         assert model.hparams.num_epochs_completed == 3
         assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
@@ -715,7 +715,7 @@ def test_bad_final_layer_of_neucf(train_val_implicit_data):
     model = NeuralCollaborativeFiltering(train=train,
                                          val=val,
                                          final_layer='nonexistent_final_layer')
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
 
     with pytest.raises(ValueError):
         trainer.fit(model)
@@ -727,7 +727,7 @@ def test_bad_final_layer_of_deep_fm(train_val_implicit_data):
     model = DeepFM(train=train,
                    val=val,
                    final_layer='nonexistent_final_layer')
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
 
     with pytest.raises(ValueError):
         trainer.fit(model)
@@ -848,14 +848,14 @@ def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_mode
                                     val=val,
                                     item_metadata=movielens_metadata_df,
                                     trained_model=implicit_model)
-    trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_1.fit(model_1)
 
     model_2 = HybridPretrainedModel(train=train,
                                     val=val,
                                     item_metadata=movielens_metadata_df.to_numpy(),
                                     trained_model=implicit_model)
-    trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_2.fit(model_2)
 
     model_3 = HybridPretrainedModel(
@@ -864,7 +864,7 @@ def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_mode
         item_metadata=torch.from_numpy(movielens_metadata_df.to_numpy()),
         trained_model=implicit_model,
     )
-    trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_3.fit(model_3)
 
     assert model_1.item_metadata.equal(model_2.item_metadata)
@@ -904,13 +904,13 @@ def test_different_item_metadata_types_for_hybrid_model(movielens_metadata_df,
     model_1 = HybridModel(train=train,
                           val=val,
                           item_metadata=movielens_metadata_df)
-    trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_1.fit(model_1)
 
     model_2 = HybridModel(train=train,
                           val=val,
                           item_metadata=movielens_metadata_df.to_numpy())
-    trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_2.fit(model_2)
 
     model_3 = HybridModel(
@@ -918,7 +918,7 @@ def test_different_item_metadata_types_for_hybrid_model(movielens_metadata_df,
         val=val,
         item_metadata=torch.from_numpy(movielens_metadata_df.to_numpy()),
     )
-    trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer_3.fit(model_3)
 
     assert model_1.item_metadata.equal(model_2.item_metadata)
@@ -995,7 +995,7 @@ def test_bad_saving_hybrid_pretrained_model(implicit_model,
                                   trained_model=implicit_model,
                                   metadata_layers_dims=[16, 8],
                                   freeze_embeddings=True)
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer.fit(model)
 
     # set up TemporaryDirectory for writing and reading all files in this test
@@ -1074,7 +1074,7 @@ def test_bad_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data,
     model = HybridModel(train=train,
                         val=val,
                         item_metadata=movielens_metadata_df)
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
     trainer.fit(model)
 
     # set up TemporaryDirectory for writing and reading all files in this test
@@ -1163,7 +1163,7 @@ def test_really_bad_implicit_model_explicit_data(train_val_explicit_data, train_
     model.train_loader = InteractionsDataLoader(explicit_train)
     model.val_loader = InteractionsDataLoader(explicit_val)
 
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
 
     with pytest.raises(ValueError):
         trainer.fit(model)
@@ -1175,7 +1175,7 @@ def test_bad_explicit_model_implicit_data(train_val_implicit_sample_data):
     model = MatrixFactorizationModel(train=train,
                                      val=val,
                                      loss='mse')
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_steps=1)
+    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
 
     with pytest.raises(ValueError):
         trainer.fit(model)

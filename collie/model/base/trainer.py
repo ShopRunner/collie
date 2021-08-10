@@ -65,6 +65,22 @@ class CollieTrainer(Trainer):
 
         super().__init__(**kwargs)
 
+    def increase_max_epochs(self, value: int):
+        """
+        Increase the ``max_epochs`` a model trains for by ``value``.
+
+        Parameters
+        ----------
+        value: int
+            Amount to increase the ``max_epochs`` attribute by
+
+        """
+        try:
+            self.fit_loop.max_epochs += value
+        except AttributeError:
+            # compatible with old Pytorch Lightning ``Trainer`` API prior to version ``1.4.0``
+            self.max_epochs += value
+
 
 class CollieMinimalTrainer():
     """
@@ -212,6 +228,18 @@ class CollieMinimalTrainer():
         torch.backends.cudnn.benchmark = self.benchmark
         torch.backends.cudnn.deterministic = self.deterministic
 
+    def increase_max_epochs(self, value: int):
+        """
+        Increase the ``max_epochs`` a model trains for by ``value``.
+
+        Parameters
+        ----------
+        value: int
+            Amount to increase the ``max_epochs`` attribute by
+
+        """
+        self.max_epochs += value
+
     def fit(self, model: BasePipeline) -> None:
         """
         Runs the full optimization routine.
@@ -304,7 +332,12 @@ class CollieMinimalTrainer():
         self.val_dataloader = model.val_dataloader()
 
         if self.verbosity != 0 and self.weights_summary is not None:
-            print(ModelSummary(model, mode=self.weights_summary))
+            try:
+                max_depth = ModelSummary.MODES[self.weights_summary]
+                print(ModelSummary(model, max_depth=max_depth))
+            except TypeError:
+                # compatible with old ``ModelSummary`` API used in versions prior to ``1.6``
+                print(ModelSummary(model, mode=self.weights_summary))
 
         # log model hyperparameters, if applicable
         if self.logger is not None:

@@ -39,12 +39,12 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
         trainer.fit(model)
 
         # fit stage 2
-        trainer.max_epochs += 10
+        trainer.increase_max_epochs(10)
         model.advance_stage()
         trainer.fit(model)
 
         # fit stage 3
-        trainer.max_epochs += 10
+        trainer.increase_max_epochs(10)
         model.advance_stage()
         trainer.fit(model)
 
