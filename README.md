@@ -7,7 +7,7 @@
 [![codecov](https://codecov.io/gh/ShopRunner/collie/branch/main/graph/badge.svg)](https://codecov.io/gh/ShopRunner/collie)
 [![license](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](https://github.com/ShopRunner/collie/blob/main/LICENSE)
 
-Collie is a library for preparing, training, and evaluating implicit deep learning hybrid recommender systems, named after the Border Collie dog breed.
+Collie is a library for preparing, training, nd evaluating implicit deep learning hybrid recommender systems, named after the Border Collie dog breed.
 
 Collie offers a collection of simple APIs for preparing and splitting datasets, incorporating item metadata directly into a model architecture or loss, efficiently evaluating a model's performance on the GPU, and so much more. Above all else though, Collie is built with flexibility and customization in mind, allowing for faster prototyping and experimentation.
 
