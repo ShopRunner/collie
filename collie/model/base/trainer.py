@@ -69,8 +69,6 @@ class CollieTrainer(Trainer):
 
         super().__init__(**kwargs)
 
-        self._max_epochs = max_epochs
-
     @property
     def max_epochs(self):
         """
@@ -222,7 +220,7 @@ class CollieMinimalTrainer():
         elif verbosity is False:
             verbosity = 0
 
-        self._max_epochs = max_epochs
+        self.max_epochs = max_epochs
         self.gpus = gpus
         self.benchmark = benchmark
         self.deterministic = deterministic
