@@ -69,7 +69,7 @@ class ColdStartModel(MultiStagePipeline):
         trainer.fit(model)
 
         # train for X more epochs on the next stage, ``no_buckets``
-        trainer.increase_max_epochs(X)
+        trainer.max_epochs += X
         model.advance_stage()
         trainer.fit(model)
 

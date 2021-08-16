@@ -3,9 +3,9 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
-# [1.1.1] - 2021-8-10
+# [1.1.1] - 2021-8-16
 ### Changed
- - updated method of increasing ``CollieTrainer.max_epochs`` with the helper function ``increase_max_epochs``, to reflect the changes made to PyTorch Lightning in version ``1.4.0``. Now, what once was ``trainer.max_epochs += 1`` is now ``trainer.increase_max_epochs(1)``
+ - added property ``max_epochs`` to ``CollieTrainer`` and ``CollieMinimalTrainer`` with ``setter`` method
 ### Fixed
  - used new API for setting verbosity in ``ModelSummary`` in ``CollieMinimalTrainer``
 

@@ -64,12 +64,12 @@ class HybridModel(MultiStagePipeline):
         trainer.fit(model)
 
         # train for X more epochs on the next stage, ``metadata_only``
-        trainer.increase_max_epochs(X)
+        trainer.max_epochs += X
         model.advance_stage()
         trainer.fit(model)
 
         # train for Y more epochs on the next stage, ``all``
-        trainer.increase_max_epochs(Y)
+        trainer.max_epochs += Y
         model.advance_stage()
         trainer.fit(model)
 

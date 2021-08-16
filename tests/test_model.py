@@ -264,7 +264,7 @@ class TestCollieMinimalTrainer():
         assert model.hparams.num_epochs_completed == 2
         assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
 
-        trainer.increase_max_epochs(1)
+        trainer.max_epochs += 1
         trainer.fit(model)
         assert model.hparams.num_epochs_completed == 3
         assert model.hparams.num_epochs_completed == trainer.num_epochs_completed
@@ -564,6 +564,33 @@ class TestCollieMinimalTrainer():
                 assert str(actual_batch.device) == 'cuda:0'
             else:
                 assert str(actual_batch.device) == 'cpu'
+
+
+class TestMaxEpochsSetter():
+    def test_max_epochs_setter_lightning(self, untrained_implicit_model):
+        trainer = CollieTrainer(model=untrained_implicit_model,
+                                logger=False,
+                                checkpoint_callback=False,
+                                max_epochs=3)
+        assert trainer.max_epochs == 3
+
+        trainer.max_epochs += 5
+        assert trainer.max_epochs == 8
+
+        trainer.max_epochs = 7
+        assert trainer.max_epochs == 7
+
+    def test_max_epochs_setter_non_lightning(self, untrained_implicit_model):
+        trainer = CollieMinimalTrainer(model=untrained_implicit_model,
+                                       logger=False,
+                                       max_epochs=3)
+        assert trainer.max_epochs == 3
+
+        trainer.max_epochs += 5
+        assert trainer.max_epochs == 8
+
+        trainer.max_epochs = 7
+        assert trainer.max_epochs == 7
 
 
 class TestMultiStageModelsCollieMinimalTrainer():

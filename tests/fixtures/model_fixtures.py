@@ -498,7 +498,7 @@ def models_trained_for_one_step(request,
                 model_trainer.fit(model)
 
                 if idx < (number_of_stages - 1):
-                    model_trainer.increase_max_epochs(1)
+                    model_trainer.max_epochs += 1
                     model.advance_stage()
 
     model.eval()
@@ -670,7 +670,7 @@ def explicit_models_trained_for_one_step(request,
                 model_trainer.fit(model)
 
                 if idx < (number_of_stages - 1):
-                    model_trainer.increase_max_epochs(1)
+                    model_trainer.max_epochs += 1
                     model.advance_stage()
 
     model.freeze()
