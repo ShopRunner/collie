@@ -6,6 +6,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 # [1.1.1] - 2021-8-16
 ### Changed
  - added property ``max_epochs`` to ``CollieTrainer`` and ``CollieMinimalTrainer`` with ``setter`` method
+ - `CollieTrainer`'s default `max_epochs` from `1000` to `10`
 ### Fixed
  - used new API for setting verbosity in ``ModelSummary`` in ``CollieMinimalTrainer``
 
