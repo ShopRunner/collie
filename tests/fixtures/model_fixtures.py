@@ -209,7 +209,7 @@ def models_trained_for_one_step(request,
 
             model_trainer = CollieTrainer(model=model,
                                           gpus=gpu_count,
-                                          max_steps=1,
+                                          max_epochs=1,
                                           deterministic=True,
                                           logger=False,
                                           checkpoint_callback=False)
@@ -377,7 +377,7 @@ def models_trained_for_one_step(request,
                                                   optimizer='adam')
         implicit_model_trainer = CollieTrainer(model=implicit_model,
                                                gpus=gpu_count,
-                                               max_steps=1,
+                                               max_epochs=1,
                                                deterministic=True,
                                                logger=False,
                                                checkpoint_callback=False)
@@ -401,7 +401,7 @@ def models_trained_for_one_step(request,
                                              weight_decay=0.0)
         model_frozen_trainer = CollieTrainer(model=model_frozen,
                                              gpus=gpu_count,
-                                             max_steps=1,
+                                             max_epochs=1,
                                              deterministic=True,
                                              logger=False,
                                              checkpoint_callback=False)
@@ -482,7 +482,7 @@ def models_trained_for_one_step(request,
 
     model_trainer = CollieTrainer(model=model,
                                   gpus=gpu_count,
-                                  max_steps=1,
+                                  max_epochs=1,
                                   deterministic=True,
                                   logger=False,
                                   checkpoint_callback=False)
@@ -498,7 +498,7 @@ def models_trained_for_one_step(request,
                 model_trainer.fit(model)
 
                 if idx < (number_of_stages - 1):
-                    model_trainer.max_steps += 1
+                    model_trainer.max_epochs += 1
                     model.advance_stage()
 
     model.eval()
@@ -578,7 +578,7 @@ def explicit_models_trained_for_one_step(request,
                                                   loss='mse')
         implicit_model_trainer = CollieTrainer(model=implicit_model,
                                                gpus=gpu_count,
-                                               max_steps=1,
+                                               max_epochs=1,
                                                deterministic=True,
                                                logger=False,
                                                checkpoint_callback=False)
@@ -609,7 +609,7 @@ def explicit_models_trained_for_one_step(request,
                                              weight_decay=0.0)
         model_frozen_trainer = CollieTrainer(model=model_frozen,
                                              gpus=gpu_count,
-                                             max_steps=1,
+                                             max_epochs=1,
                                              deterministic=True,
                                              logger=False,
                                              checkpoint_callback=False)
@@ -654,7 +654,7 @@ def explicit_models_trained_for_one_step(request,
 
     model_trainer = CollieTrainer(model=model,
                                   gpus=gpu_count,
-                                  max_steps=1,
+                                  max_epochs=1,
                                   deterministic=True,
                                   logger=False,
                                   checkpoint_callback=False)
@@ -670,7 +670,7 @@ def explicit_models_trained_for_one_step(request,
                 model_trainer.fit(model)
 
                 if idx < (number_of_stages - 1):
-                    model_trainer.max_steps += 1
+                    model_trainer.max_epochs += 1
                     model.advance_stage()
 
     model.freeze()
