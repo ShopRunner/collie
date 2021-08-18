@@ -145,7 +145,7 @@ print(f'MSE: {mse_score}')
 | Includes **model zoo** with two or more model architectures implemented  |  |  |  | ✓ | ✓ |  | ✓ |
 | Includes **implicit loss functions** for training and **metric functions** for model evaluation  |  | ✓ |  | ✓ | ✓ |  | ✓ |
 | Includes **adaptive loss functions** for multiple negative examples  |  | ✓ |  | ✓ |  |  | ✓ |
-| Includes **loss functions with [partial credit for side-data](https://github.com/ShopRunner/collie/blob/main/collie/loss/metadata_utils.py#L13-L24)**  |  | ✓ |  |  |  |  | ✓ |
+| Includes **loss functions with [partial credit for side-data](https://collie.readthedocs.io/en/latest/loss.html)**  |  |  |  |  |  |  | ✓ |
 
 The following table notes shows the results of an experiment training and evaluating recommendation models in some popular implicit recommendation model frameworks on a common [MovieLens 10M](https://grouplens.org/datasets/movielens/10m/) dataset. The data was split via a 90/5/5 stratified data split. Each model was trained for a maximum of 40 epochs using an embedding dimension of 32. For each model, we used default hyperparameters (unless otherwise noted below).
 
