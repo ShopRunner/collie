@@ -63,6 +63,8 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         * ``'sgd'`` (for ``torch.optim.SGD``)
 
+        * ``'adagrad'`` (for ``torch.optim.Adagrad``)
+
         * ``'adam'`` (for ``torch.optim.Adam``)
 
         * ``'sparse_adam'`` (for ``torch.optim.SparseAdam``)
@@ -392,6 +394,10 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                 )
         elif optimizer == 'sgd':
             optimizer = torch.optim.SGD(
+                self._get_optimizer_parameters(include_weight_decay=True, **kwargs)
+            )
+        elif optimizer == 'adagrad':
+            optimizer = torch.optim.Adagrad(
                 self._get_optimizer_parameters(include_weight_decay=True, **kwargs)
             )
         elif optimizer == 'adam':
