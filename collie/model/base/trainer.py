@@ -37,6 +37,8 @@ class CollieTrainer(Trainer):
     ----------
     model: collie.model.BasePipeline
         Initialized Collie model
+    max_epochs: int
+        Stop training once this number of epochs is reached
     benchmark: bool
         If set to ``True``, enables ``cudnn.benchmark``
     deterministic: bool
@@ -48,6 +50,7 @@ class CollieTrainer(Trainer):
     """
     def __init__(self,
                  model: torch.nn.Module,
+                 max_epochs: int = 10,
                  benchmark: bool = True,
                  deterministic: bool = True,
                  **kwargs):
@@ -60,10 +63,41 @@ class CollieTrainer(Trainer):
             print('Detected GPU. Setting ``gpus`` to 1.')
             kwargs['gpus'] = 1
 
+        kwargs['max_epochs'] = max_epochs
         kwargs['benchmark'] = benchmark
         kwargs['deterministic'] = deterministic
 
         super().__init__(**kwargs)
+
+    @property
+    def max_epochs(self):
+        """
+        Property that just returns ``max_epochs``, included only so we can have
+        a setter for it without an ``AttributeError``.
+
+        """
+        try:
+            return self.fit_loop.max_epochs
+        except AttributeError:
+            # compatible with old Pytorch Lightning ``Trainer`` API prior to version ``1.4.0``
+            return self._max_epochs
+
+    @max_epochs.setter
+    def max_epochs(self, value: int):
+        """
+        Set the ``max_epochs`` attribute to ``value``.
+
+        Parameters
+        ----------
+        value: int
+            Value to set ``max_epochs`` attribute to
+
+        """
+        try:
+            self.fit_loop.max_epochs = value
+        except AttributeError:
+            # compatible with old Pytorch Lightning ``Trainer`` API prior to version ``1.4.0``
+            self._max_epochs = value
 
 
 class CollieMinimalTrainer():
@@ -212,6 +246,28 @@ class CollieMinimalTrainer():
         torch.backends.cudnn.benchmark = self.benchmark
         torch.backends.cudnn.deterministic = self.deterministic
 
+    @property
+    def max_epochs(self):
+        """
+        Property that just returns ``max_epochs``, included only so we can have
+        a setter for it without an ``AttributeError``.
+
+        """
+        return self._max_epochs
+
+    @max_epochs.setter
+    def max_epochs(self, value: int):
+        """
+        Set the ``max_epochs`` attribute to ``value``.
+
+        Parameters
+        ----------
+        value: int
+            Value to set ``max_epochs`` attribute to
+
+        """
+        self._max_epochs = value
+
     def fit(self, model: BasePipeline) -> None:
         """
         Runs the full optimization routine.
@@ -304,7 +360,12 @@ class CollieMinimalTrainer():
         self.val_dataloader = model.val_dataloader()
 
         if self.verbosity != 0 and self.weights_summary is not None:
-            print(ModelSummary(model, mode=self.weights_summary))
+            try:
+                max_depth = ModelSummary.MODES[self.weights_summary]
+                print(ModelSummary(model, max_depth=max_depth))
+            except TypeError:
+                # compatible with old ``ModelSummary`` API used in versions prior to ``1.6``
+                print(ModelSummary(model, mode=self.weights_summary))
 
         # log model hyperparameters, if applicable
         if self.logger is not None:

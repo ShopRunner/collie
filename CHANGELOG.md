@@ -3,9 +3,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
-# [1.1.1] - 2021-8-5
+# [1.1.2] - 2021-8-17
 ### Added
- - Support for AdaGrad optimizer
+ - string support for Adagrad optimizer in model pipelines
+
+# [1.1.1] - 2021-8-17
+### Changed
+ - added property ``max_epochs`` to ``CollieTrainer`` and ``CollieMinimalTrainer`` with ``setter`` method
+ - `CollieTrainer`'s default `max_epochs` from `1000` to `10`
+### Fixed
+ - used new API for setting verbosity in ``ModelSummary`` in ``CollieMinimalTrainer``
 
 # [1.1.0] - 2021-7-15
 ### Added
