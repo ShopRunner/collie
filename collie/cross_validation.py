@@ -7,11 +7,13 @@ from joblib import delayed, Parallel
 import numpy as np
 from scipy.sparse import coo_matrix
 from sklearn.model_selection import train_test_split
+from sklearn.utils import murmurhash3_32
 
 from collie.interactions import (BaseInteractions,
                                  ExplicitInteractions,
                                  HDF5Interactions,
-                                 Interactions)
+                                 Interactions,
+                                 SequentialInteractions)
 from collie.utils import get_random_seed
 
 
@@ -279,6 +281,84 @@ def _stratified_split_parallel_worker(idxs_to_split: Iterable[Any],
                                     stratify=np.ones_like(idxs_to_split))
 
     return test_idxs
+
+
+def user_based_sequential_train_test_split(interactions: SequentialInteractions,
+                                           val_p: float = 0.0,
+                                           test_p: float = 0.2,
+                                           seed: Optional[int] = None,
+                                           **kwargs) -> Tuple[Interactions, ...]:
+    """
+    Split interactions between a train and a test set based on user IDs, so that a given user's
+    entire interaction history is either in the train, validation, or test set.
+
+    Parameters
+    ----------
+    interactions: collie.interactions.SequentialInteractions
+    val_p: float
+        Proportion of data used for validation
+    test_p: float
+        Proportion of data used for testing
+    seed: int
+        Random seed for splits
+    kwargs: keyword arguments
+        Ignored, included only for compatability with `stratified_split` API
+
+    Returns
+    ----------
+    train_interactions: collie.interactions.SequentialInteractions
+        Training data of size proportional to `1 - validate_p - test_p`
+    validate_interactions: collie.interactions.SequentialInteractions
+        Validation data of size proportional to `validate_p`, returned only if `validate_p > 0`
+    test_interactions: collie.interactions.SequentialInteractions
+        Testing data of size proportional to `test_p`
+
+    """
+    _validate_val_p_and_test_p(val_p=val_p, test_p=test_p)
+    validate_and_test_p = val_p + test_p
+
+    if seed is None:
+        seed = get_random_seed()
+
+    np.random.seed(seed)
+    hash_seed = np.random.randint(np.iinfo(np.uint32).min, np.iinfo(np.uint32).max, dtype=np.int64)
+    murmurhashed_result = (
+        (
+            murmurhash3_32(interactions.users.astype(np.int32), seed=hash_seed, positive=True)
+        ) % 100 / 100.0
+    )
+
+    not_in_train_set = murmurhashed_result < validate_and_test_p
+    in_test = murmurhashed_result < test_p
+    in_train = np.logical_not(not_in_train_set)
+
+    train_interactions = _subset_sequential_interactions(interactions=interactions, idxs=in_train)
+    test_interactions = _subset_sequential_interactions(interactions=interactions, idxs=in_test)
+
+    if val_p > 0:
+        in_val = murmurhashed_result < validate_and_test_p and murmurhashed_result > test_p
+        validate_interactions = _subset_sequential_interactions(interactions=interactions,
+                                                                idxs=in_val)
+
+        return train_interactions, validate_interactions, test_interactions
+    else:
+        return train_interactions, test_interactions
+
+
+def _subset_sequential_interactions(interactions: SequentialInteractions,
+                                    idxs: Iterable[int]) -> SequentialInteractions:
+    return SequentialInteractions(
+        users=interactions.users[idxs],
+        items=interactions.items[idxs],
+        timestamps=interactions.timestamps[idxs],
+        max_sequence_length=interactions.max_sequence_length,
+        min_sequence_length=interactions.min_sequence_length,
+        step_size=interactions.step_size,
+        num_negative_samples=interactions.num_negative_samples,
+        allow_missing_ids=True,
+        num_items=interactions.num_items,
+        seed=interactions.seed,
+    )
 
 
 def _validate_val_p_and_test_p(val_p: float, test_p: float) -> None:

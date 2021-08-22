@@ -129,6 +129,15 @@ def explicit_interactions_sparse_matrix(sparse_ratings_matrix_for_interactions):
 
 
 @pytest.fixture()
+def users_items_timestamps_sequential():
+    users = [0, 0, 0, 0, 0, 0, 0, 0]
+    items = [0, 1, 2, 3, 4, 5, 6, 7]
+    timestamps = [0, 2, 4, 6, 9, 11, 14, 17]
+
+    return users, items, timestamps
+
+
+@pytest.fixture()
 def hdf5_pandas_df_path(df_for_interactions, tmpdir):
     hdf5_path = os.path.join(str(tmpdir), 'df_for_interactions.h5')
     pandas_df_to_hdf5(df=df_for_interactions, out_path=hdf5_path, key='interactions')

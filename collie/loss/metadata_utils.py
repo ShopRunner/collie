@@ -69,3 +69,25 @@ def ideal_difference_from_metadata(
         ).int().to(positive_items.device)*metadata_weights[k]
 
     return 1.0 - match_frac
+
+
+def mask_loss(loss, mask):
+    """
+    Apply a boolean, 1-d tensor to a loss to mask out loss terms that should not contribute to the
+    overall loss, useful for sequential recommendations.
+
+    Parameters
+    ----------
+    loss: torch.tensor, 1-d
+        Loss vector for each interactions before being aggregated into a single
+        term
+    mask: torch.tensor, 1-d
+        Boolean vector used for masking loss terms for sequential recommendations
+
+    Returns
+    -------
+    loss: torch.tensor, 1-d
+        Loss vector with 0s corresponding to those masked out in ``mask``
+
+    """
+    return loss * mask.float()

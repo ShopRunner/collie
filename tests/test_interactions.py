@@ -9,7 +9,8 @@ from collie.interactions import (ApproximateNegativeSamplingInteractionsDataLoad
                                  HDF5Interactions,
                                  HDF5InteractionsDataLoader,
                                  Interactions,
-                                 InteractionsDataLoader)
+                                 InteractionsDataLoader,
+                                 SequentialInteractions)
 
 
 NUM_NEGATIVE_SAMPLES = 3
@@ -454,6 +455,397 @@ class TestInteractionsNegativeSampling:
             Interactions(mat=ratings_matrix_for_interactions,
                          max_number_of_samples_to_consider=200,
                          num_negative_samples=8)
+
+
+class TestSequentialInteractions():
+    def test_sequences_one_sequence(self, users_items_timestamps_sequential):
+        expected = np.array([
+            [-1, -1, 0, 1, 2, 3, 4, 5, 6, 7],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    @pytest.mark.parametrize('sequence_method', ['none', 'todense', 'toarray'])
+    def test_sequences_one_sequence_shorter_max_sequence(
+        self, sequence_method, users_items_timestamps_sequential,
+    ):
+        expected = np.array([
+            [5, 6, 7],
+            [2, 3, 4],
+            [-1, 0, 1],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_sequence_length=3)
+
+        if sequence_method == 'none':
+            actual = test_interactions.sequences
+        elif sequence_method == 'todense':
+            actual = test_interactions.todense()
+        elif sequence_method == 'toarray':
+            actual = test_interactions.toarray()
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(actual, expected)
+
+    def test_sequences_one_sequence_shorter_max_sequence_step_size(
+        self, users_items_timestamps_sequential,
+    ):
+        expected = np.array([
+            [5, 6, 7],
+            [3, 4, 5],
+            [1, 2, 3],
+            [-1, 0, 1],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_sequence_length=3,
+                                                   step_size=2)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_one_sequence_shorter_min_sequence(self, users_items_timestamps_sequential):
+        expected = np.array([
+            [5, 6, 7],
+            [2, 3, 4],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   min_sequence_length=3,
+                                                   max_sequence_length=3)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_one_sequence_shorter_max_time(self, users_items_timestamps_sequential):
+        expected = np.array([
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 7],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 6],
+            [-1, -1, -1, -1, -1, -1, -1, -1, 4, 5],
+            [-1, -1, -1, -1, -1, -1, 0, 1, 2, 3],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_time=2)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_one_sequence_max_time_1(self, users_items_timestamps_sequential):
+        expected = np.array([
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 7],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 6],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 5],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 4],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 3],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 2],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 1],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 0],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_time=1)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_one_sequence_max_time_1_uneven_time(self, users_items_timestamps_sequential):
+        expected = np.array([
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 7],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 6],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 5],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 4],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 3],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 2],
+            [-1, -1, -1, -1, -1, -1, -1, -1, 0, 1],
+        ])
+        users, items, _ = users_items_timestamps_sequential
+        timestamps = [0, 0.9, 4, 6, 9, 11, 14, 17]
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_time=1)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_one_sequence_shorter_max_time_min_length_2(
+        self, users_items_timestamps_sequential,
+    ):
+        expected = np.array([
+            [-1, -1, -1, -1, -1, -1, -1, -1, 4, 5],
+            [-1, -1, -1, -1, -1, -1, 0, 1, 2, 3],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_time=2,
+                                                   min_sequence_length=2)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_one_sequence_shorter_max_time_min_length_2_step_size(
+        self, users_items_timestamps_sequential,
+    ):
+        expected = np.array([
+            [-1, -1, -1, -1, -1, -1, -1, -1, 4, 5],
+            [-1, -1, -1, -1, -1, -1, 0, 1, 2, 3],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_time=2,
+                                                   min_sequence_length=2,
+                                                   step_size=3)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_one_sequence_shorter_max_time_step_size(
+        self, users_items_timestamps_sequential,
+    ):
+        expected = np.array([
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 7],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 6],
+            [-1, -1, -1, -1, -1, -1, -1, -1, 4, 5],
+            [-1, -1, -1, -1, -1, -1, 0, 1, 2, 3],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 0],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_time=2,
+                                                   step_size=3)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_one_sequence_shorter_max_time_min_length_3(
+        self, users_items_timestamps_sequential,
+    ):
+        expected = np.array([
+            [-1, -1, -1, -1, -1, -1, 0, 1, 2, 3],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_time=2,
+                                                   min_sequence_length=3)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_one_sequence_shorter_max_time_max_length_min_length_3(
+        self, users_items_timestamps_sequential,
+    ):
+        expected = np.array([
+            [1, 2, 3],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_time=2,
+                                                   max_sequence_length=3,
+                                                   min_sequence_length=3)
+
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_multiple_users(self, users_items_timestamps_sequential):
+        expected = np.array([
+            [-1, -1, -1, -1, -1, -1, -1, 0, 1, 2],
+            [-1, -1, -1, -1, -1, -1, -1, -1, 3, 4],
+            [-1, -1, -1, -1, -1, -1, -1, -1, 5, 6],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 7],
+        ])
+        _, items, timestamps = users_items_timestamps_sequential
+        users = [0, 0, 0, 1, 1, 3, 3, 4]
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps)
+
+        print(test_interactions.sequences)
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_multiple_users_time_difference(self, users_items_timestamps_sequential):
+        expected = np.array([
+            [-1, -1, -1, -1, -1, -1, -1, 0, 1, 2],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 7],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 6],
+            [-1, -1, -1, -1, -1, -1, -1, -1, 4, 5],
+            [-1, -1, -1, -1, -1, -1, -1, -1, -1, 3],
+        ])
+
+        _, items, timestamps = users_items_timestamps_sequential
+        users = [0, 0, 0, 1, 1, 1, 1, 1]
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_time=2)
+
+        print(test_interactions.sequences)
+        assert len(test_interactions) == len(expected)
+        assert np.array_equal(test_interactions.sequences, expected)
+
+    def test_sequences_with_missing_ids(self):
+        with pytest.raises(ValueError):
+            SequentialInteractions(
+                users=[0, 0, 0, 0, 0, 0, 0, 0],
+                # note the lack of an item ID of ``3``
+                items=[0, 1, 2, 2, 4, 5, 6, 7],
+                timestamps=[0, 2, 4, 6, 9, 11, 14, 17],
+            )
+
+        SequentialInteractions(
+            users=[0, 0, 0, 0, 0, 2, 2, 2],
+            # again, note the lack of an item ID of ``3``
+            items=[0, 1, 2, 2, 4, 5, 6, 7],
+            timestamps=[0, 2, 4, 6, 9, 11, 14, 17],
+            allow_missing_ids=True,
+        )
+
+    def test_sequences_repr_with_min_sequence_length(self, users_items_timestamps_sequential):
+        _, items, timestamps = users_items_timestamps_sequential
+        users = [0, 0, 0, 1, 1, 3, 3, 4]
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_sequence_length=4,
+                                                   min_sequence_length=2,
+                                                   step_size=3,
+                                                   num_negative_samples=5)
+
+        assert str(test_interactions) == (
+            'SequentialInteractions object with 3 sequences between 4 users and 8 items, returning'
+            ' 5 negative samples per interaction with sequence length between 2 and 4, and step'
+            ' size 3.'
+        )
+
+    def test_sequences_repr_without_min_sequence_length(self, users_items_timestamps_sequential):
+        _, items, timestamps = users_items_timestamps_sequential
+        users = [0, 0, 0, 1, 1, 3, 3, 4]
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_sequence_length=4,
+                                                   step_size=3,
+                                                   num_negative_samples=5)
+
+        assert str(test_interactions) == (
+            'SequentialInteractions object with 4 sequences between 4 users and 8 items, returning'
+            ' 5 negative samples per interaction with sequence length less than 4, and step size 3.'
+        )
+
+    def test_sequences__getitem__single(
+        self, users_items_timestamps_sequential,
+    ):
+        expected = np.array([
+            [5, 6, 7],
+            [3, 4, 5],
+            [1, 2, 3],
+            [-1, 0, 1],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+        num_negative_samples = 7
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_sequence_length=3,
+                                                   step_size=2,
+                                                   num_negative_samples=num_negative_samples)
+
+        actual = test_interactions[0]
+
+        assert len(actual) == 2
+
+        assert np.array_equal(actual[0], expected[0])
+        assert len(actual[1]) == num_negative_samples
+
+    def test_sequences__getitem__multiple(
+        self, users_items_timestamps_sequential,
+    ):
+        expected = np.array([
+            [5, 6, 7],
+            [3, 4, 5],
+            [1, 2, 3],
+            [-1, 0, 1],
+        ])
+        users, items, timestamps = users_items_timestamps_sequential
+        num_negative_samples = 7
+
+        test_interactions = SequentialInteractions(users=users,
+                                                   items=items,
+                                                   timestamps=timestamps,
+                                                   max_sequence_length=3,
+                                                   step_size=2,
+                                                   num_negative_samples=num_negative_samples)
+
+        actual = test_interactions[[0, 1, 2]]
+
+        assert len(actual) == 2
+
+        assert np.array_equal(actual[0], expected[[0, 1, 2]])
+        assert actual[1].shape == (3, num_negative_samples)
+
+    # def test_sequences_head(self, users_items_timestamps_sequential):
+    #     expected = np.array([
+    #         [-1, -1, -1, -1, -1, -1, -1, -1, -1, 7],
+    #         [-1, -1, -1, -1, -1, -1, -1, -1, -1, 6],
+    #         [-1, -1, -1, -1, -1, -1, -1, -1, -1, 5],
+    #         [-1, -1, -1, -1, -1, -1, -1, -1, -1, 4],
+    #         [-1, -1, -1, -1, -1, -1, -1, -1, -1, 3],
+    #         [-1, -1, -1, -1, -1, -1, -1, -1, -1, 2],
+    #         [-1, -1, -1, -1, -1, -1, -1, -1, -1, 1],
+    #         [-1, -1, -1, -1, -1, -1, -1, -1, -1, 0],
+    #     ])
+    #     users, items, timestamps = users_items_timestamps_sequential
+    #
+    #     test_interactions = SequentialInteractions(users=users,
+    #                                                items=items,
+    #                                                timestamps=timestamps,
+    #                                                max_time=1)
+    #
+    #     assert np.array_equal(test_interactions.head(5), expected)
 
 
 def test_HDF5Interactions_meta_instantiation(hdf5_pandas_df_path,

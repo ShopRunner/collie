@@ -13,7 +13,9 @@ import torch
 from collie.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
                                  ExplicitInteractions,
                                  Interactions,
-                                 InteractionsDataLoader)
+                                 InteractionsDataLoader,
+                                 SequentialInteractions,
+                                 SequentialInteractionsDataLoader)
 from collie.loss import (adaptive_bpr_loss,
                          adaptive_hinge_loss,
                          bpr_loss,
@@ -142,6 +144,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         if isinstance(val, Interactions) or isinstance(val, ExplicitInteractions):
             val = InteractionsDataLoader(interactions=val, shuffle=False)
 
+        if isinstance(train, SequentialInteractions):
+            train = SequentialInteractionsDataLoader(interactions=train, shuffle=True)
+        if isinstance(val, SequentialInteractions):
+            val = SequentialInteractionsDataLoader(interactions=val, shuffle=False)
+
         super().__init__()
 
         # save datasets as class-level attributes and NOT ``hparams`` so model checkpointing /
@@ -166,10 +173,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             if self.train_loader is None:
                 raise TypeError('``train`` must be provided to all newly-instantiated models!')
             elif self.val_loader is not None:
-                assert self.train_loader.num_users == self.val_loader.num_users, (
-                    'Both training and val ``num_users`` must equal: '
-                    f'{self.train_loader.num_users} != {self.val_loader.num_users}.'
-                )
+                if not isinstance(self.train_loader.interactions, SequentialInteractions):
+                    assert self.train_loader.num_users == self.val_loader.num_users, (
+                        'Both training and val ``num_users`` must equal: '
+                        f'{self.train_loader.num_users} != {self.val_loader.num_users}.'
+                    )
                 assert self.train_loader.num_items == self.val_loader.num_items, (
                     'Both training and val ``num_items`` must equal: '
                     f'{self.train_loader.num_items} != {self.val_loader.num_items}.'
@@ -568,38 +576,80 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
               - **Explicit**
 
         """
-        if len(batch) == 2 and isinstance(batch[0], Iterable) and len(batch[0]) == 2:
-            if self.hparams.get('_is_implicit') is False:
-                raise ValueError('Explicit loss with implicit data is invalid!')
+        if len(batch) == 2 and isinstance(batch[0], Iterable):
+            if len(batch[0]) == 2 and (batch[0][0].shape == batch[0][1].shape):
+                if self.hparams.get('_is_implicit') is False:
+                    raise ValueError('Explicit loss with implicit data is invalid!')
 
-            # implicit data
-            ((users, pos_items), neg_items) = batch
+                # implicit data
+                ((users, pos_items), neg_items) = batch
 
-            users = users.long()
-            pos_items = pos_items.long()
-            # TODO: see if there is a way to not have to transpose each time - probably a bit costly
-            neg_items = torch.transpose(neg_items, 0, 1).long()
+                users = users.long()
+                pos_items = pos_items.long()
+                # TODO: see if there is a way to not have to transpose each time - probably a bit
+                # costly
+                neg_items = torch.transpose(neg_items, 0, 1).long()
 
-            # get positive item predictions from model
-            pos_preds = self(users, pos_items)
+                # get positive item predictions from model
+                pos_preds = self(users, pos_items)
 
-            # get negative item predictions from model
-            users_repeated = users.repeat(neg_items.shape[0])
-            neg_items_flattened = neg_items.flatten()
-            neg_preds = self(users_repeated, neg_items_flattened).view(
-                neg_items.shape[0], len(users)
-            )
+                # get negative item predictions from model
+                users_repeated = users.repeat(neg_items.shape[0])
+                neg_items_flattened = neg_items.flatten()
+                neg_preds = self(users_repeated, neg_items_flattened).view(
+                    neg_items.shape[0], len(users)
+                )
 
-            # implicit loss function
-            loss = self.loss_function(
-                pos_preds,
-                neg_preds,
-                num_items=self.hparams.num_items,
-                positive_items=pos_items,
-                negative_items=neg_items,
-                metadata=self.hparams.metadata_for_loss,
-                metadata_weights=self.hparams.metadata_for_loss_weights,
-            )
+                mask = None
+
+                # implicit loss function
+                loss = self.loss_function(
+                    pos_preds,
+                    neg_preds,
+                    num_items=self.hparams.num_items,
+                    positive_items=pos_items,
+                    negative_items=neg_items,
+                    metadata=self.hparams.metadata_for_loss,
+                    metadata_weights=self.hparams.metadata_for_loss_weights,
+                    mask=mask,
+                )
+            elif batch[0].shape[1] == batch[1].shape[1]:
+                if self.hparams.get('_is_implicit') is False:
+                    raise ValueError('Explicit loss with sequential data is invalid!')
+
+                (sequence_var, neg_items) = batch
+
+                # get positive item predictions from model
+                user_representation = self.compute_user_representation(sequence_var,
+                                                                       predicting=False)
+                pos_preds = self(user_representation, sequence_var)
+
+                # get negative item predictions from model
+                num_negative_samples = int(neg_items.shape[0] / sequence_var.shape[0])
+                repeat_size = (num_negative_samples,) + (1,) * (user_representation.dim() - 1)
+                users_repeated = user_representation.repeat(repeat_size)
+                neg_preds = self(users_repeated, neg_items).view(
+                    num_negative_samples, sequence_var.shape[0], sequence_var.shape[1]
+                )
+
+                mask = (sequence_var != 0)
+
+                # implicit loss function
+                # TODO: get partial credit loss working
+                loss = self.loss_function(
+                    pos_preds,
+                    neg_preds,
+                    num_items=self.hparams.num_items,
+                    # positive_items=pos_items,
+                    # negative_items=neg_items,
+                    # metadata=self.hparams.metadata_for_loss,
+                    # metadata_weights=self.hparams.metadata_for_loss_weights,
+                    mask=mask,
+                )
+            else:
+                raise ValueError(
+                    f'Unexpected format for batch: {batch}. See docs for expected format.'
+                )
         elif len(batch) == 3:
             if self.hparams.get('_is_implicit') is True:
                 raise ValueError('Implicit loss with explicit data is invalid!')
