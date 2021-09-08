@@ -18,10 +18,6 @@ alabaster==0.7.12
     # via sphinx
 anyio==3.2.0
     # via jupyter-server
-appnope==0.1.2
-    # via
-    #   ipykernel
-    #   ipython
 argon2-cffi==20.1.0
     # via
     #   jupyter-server
@@ -77,7 +73,7 @@ defusedxml==0.7.1
 docstring-parser==0.8.1
     # via
     #   -c requirements.txt
-    #   collie
+    #   sanitized-package
 docutils==0.16
     # via
     #   m2r2
@@ -88,15 +84,15 @@ entrypoints==0.3
 fire==0.4.0
     # via
     #   -c requirements.txt
-    #   collie
-flake8-docstrings==1.6.0
-    # via collie
-flake8-import-order==0.18.1
-    # via collie
+    #   sanitized-package
 flake8==3.9.2
     # via
-    #   collie
     #   flake8-docstrings
+    #   sanitized-package
+flake8-docstrings==1.6.0
+    # via sanitized-package
+flake8-import-order==0.18.1
+    # via sanitized-package
 fsspec[http]==2021.5.0
     # via
     #   -c requirements.txt
@@ -105,14 +101,14 @@ future==0.18.2
     # via
     #   -c requirements.txt
     #   pytorch-lightning
-google-auth-oauthlib==0.4.4
-    # via
-    #   -c requirements.txt
-    #   tensorboard
 google-auth==1.32.1
     # via
     #   -c requirements.txt
     #   google-auth-oauthlib
+    #   tensorboard
+google-auth-oauthlib==0.4.4
+    # via
+    #   -c requirements.txt
     #   tensorboard
 grpcio==1.38.1
     # via
@@ -126,36 +122,26 @@ idna==3.2
     #   yarl
 imagesize==1.2.0
     # via sphinx
-importlib-metadata==4.6.1
-    # via
-    #   -c requirements.txt
-    #   click
-    #   flake8
-    #   jsonschema
-    #   markdown
-    #   pep517
-    #   pluggy
-    #   pytest
 iniconfig==1.1.1
     # via pytest
 ipykernel==5.5.5
     # via
     #   ipywidgets
     #   notebook
+ipython==7.24.1
+    # via
+    #   ipykernel
+    #   ipywidgets
+    #   jupyterlab
+    #   sanitized-package
 ipython-genutils==0.2.0
     # via
     #   jupyter-server
     #   nbformat
     #   notebook
     #   traitlets
-ipython==7.24.1
-    # via
-    #   collie
-    #   ipykernel
-    #   ipywidgets
-    #   jupyterlab
 ipywidgets==7.6.3
-    # via collie
+    # via sanitized-package
 jedi==0.18.0
     # via ipython
 jinja2==3.0.1
@@ -169,7 +155,7 @@ jinja2==3.0.1
 joblib==1.0.1
     # via
     #   -c requirements.txt
-    #   collie
+    #   sanitized-package
     #   scikit-learn
 json5==0.9.6
     # via jupyterlab-server
@@ -196,28 +182,28 @@ jupyter-server==1.8.0
     #   jupyterlab
     #   jupyterlab-server
     #   nbclassic
+jupyterlab==3.0.16
+    # via sanitized-package
 jupyterlab-pygments==0.1.2
     # via nbconvert
 jupyterlab-server==2.6.0
     # via jupyterlab
 jupyterlab-widgets==1.0.0
     # via ipywidgets
-jupyterlab==3.0.16
-    # via collie
 kiwisolver==1.3.1
     # via matplotlib
 m2r2==0.2.7
-    # via collie
+    # via sanitized-package
 markdown==3.3.4
     # via
     #   -c requirements.txt
     #   tensorboard
 markupsafe==2.0.1
     # via jinja2
+matplotlib==3.4.2
+    # via sanitized-package
 matplotlib-inline==0.1.2
     # via ipython
-matplotlib==3.4.2
-    # via collie
 mccabe==0.6.1
     # via flake8
 mistune==0.8.4
@@ -257,11 +243,11 @@ numexpr==2.7.3
 numpy==1.21.0
     # via
     #   -c requirements.txt
-    #   collie
     #   matplotlib
     #   numexpr
     #   pandas
     #   pytorch-lightning
+    #   sanitized-package
     #   scikit-learn
     #   scipy
     #   tables
@@ -284,7 +270,7 @@ packaging==21.0
 pandas==1.2.5
     # via
     #   -c requirements.txt
-    #   collie
+    #   sanitized-package
 pandocfilters==1.4.3
     # via nbconvert
 parso==0.8.2
@@ -295,10 +281,10 @@ pexpect==4.8.0
     # via ipython
 pickleshare==0.7.5
     # via ipython
-pillow==8.3.1
+pillow==8.3.2
     # via matplotlib
 pip-tools==6.2.0
-    # via collie
+    # via sanitized-package
 pluggy==0.13.1
     # via pytest
 prometheus-client==0.11.0
@@ -317,15 +303,15 @@ ptyprocess==0.7.0
     #   terminado
 py==1.10.0
     # via pytest
-pyasn1-modules==0.2.8
-    # via
-    #   -c requirements.txt
-    #   google-auth
 pyasn1==0.4.8
     # via
     #   -c requirements.txt
     #   pyasn1-modules
     #   rsa
+pyasn1-modules==0.2.8
+    # via
+    #   -c requirements.txt
+    #   google-auth
 pycodestyle==2.7.0
     # via
     #   flake8
@@ -338,8 +324,8 @@ pydeprecate==0.3.0
     #   pytorch-lightning
 pydocstyle==3.0.0
     # via
-    #   collie
     #   flake8-docstrings
+    #   sanitized-package
 pyflakes==2.3.1
     # via flake8
 pygments==2.9.0
@@ -355,12 +341,12 @@ pyparsing==2.4.7
     #   packaging
 pyrsistent==0.17.3
     # via jsonschema
-pytest-cov==2.12.1
-    # via collie
 pytest==6.2.4
     # via
-    #   collie
     #   pytest-cov
+    #   sanitized-package
+pytest-cov==2.12.1
+    # via sanitized-package
 python-dateutil==2.8.1
     # via
     #   -c requirements.txt
@@ -370,7 +356,7 @@ python-dateutil==2.8.1
 pytorch-lightning==1.3.7
     # via
     #   -c requirements.txt
-    #   collie
+    #   sanitized-package
 pytz==2021.1
     # via
     #   -c requirements.txt
@@ -385,10 +371,6 @@ pyzmq==22.1.0
     #   jupyter-client
     #   jupyter-server
     #   notebook
-requests-oauthlib==1.3.0
-    # via
-    #   -c requirements.txt
-    #   google-auth-oauthlib
 requests==2.26.0
     # via
     #   -c requirements.txt
@@ -397,6 +379,10 @@ requests==2.26.0
     #   requests-oauthlib
     #   sphinx
     #   tensorboard
+requests-oauthlib==1.3.0
+    # via
+    #   -c requirements.txt
+    #   google-auth-oauthlib
 rsa==4.7.2
     # via
     #   -c requirements.txt
@@ -404,7 +390,7 @@ rsa==4.7.2
 scikit-learn==0.24.2
     # via
     #   -c requirements.txt
-    #   collie
+    #   sanitized-package
 scipy==1.7.0
     # via
     #   -c requirements.txt
@@ -434,14 +420,14 @@ snowballstemmer==2.1.0
     # via
     #   pydocstyle
     #   sphinx
-sphinx-copybutton==0.3.3
-    # via collie
-sphinx-rtd-theme==0.5.2
-    # via collie
 sphinx==4.0.2
     # via
     #   sphinx-copybutton
     #   sphinx-rtd-theme
+sphinx-copybutton==0.3.3
+    # via sanitized-package
+sphinx-rtd-theme==0.5.2
+    # via sanitized-package
 sphinxcontrib-applehelp==1.0.2
     # via sphinx
 sphinxcontrib-devhelp==1.0.2
@@ -457,15 +443,15 @@ sphinxcontrib-serializinghtml==1.1.5
 tables==3.6.1
     # via
     #   -c requirements.txt
-    #   collie
-tensorboard-plugin-wit==1.8.0
-    # via
-    #   -c requirements.txt
-    #   tensorboard
+    #   sanitized-package
 tensorboard==2.4.1
     # via
     #   -c requirements.txt
     #   pytorch-lightning
+tensorboard-plugin-wit==1.8.0
+    # via
+    #   -c requirements.txt
+    #   tensorboard
 termcolor==1.1.0
     # via
     #   -c requirements.txt
@@ -488,14 +474,14 @@ toml==0.10.2
 torch==1.9.0
     # via
     #   -c requirements.txt
-    #   collie
     #   pytorch-lightning
+    #   sanitized-package
     #   torchmetrics
 torchmetrics==0.4.1
     # via
     #   -c requirements.txt
-    #   collie
     #   pytorch-lightning
+    #   sanitized-package
 tornado==6.1
     # via
     #   ipykernel
@@ -507,8 +493,8 @@ tornado==6.1
 tqdm==4.61.2
     # via
     #   -c requirements.txt
-    #   collie
     #   pytorch-lightning
+    #   sanitized-package
 traitlets==5.0.5
     # via
     #   ipykernel
@@ -526,10 +512,7 @@ typing-extensions==3.10.0.0
     # via
     #   -c requirements.txt
     #   aiohttp
-    #   anyio
-    #   importlib-metadata
     #   torch
-    #   yarl
 urllib3==1.26.5
     # via
     #   -c requirements.txt
@@ -551,17 +534,12 @@ wheel==0.36.2
     #   tensorboard
 widgetsnbextension==3.5.1
     # via
-    #   collie
     #   ipywidgets
+    #   sanitized-package
 yarl==1.6.3
     # via
     #   -c requirements.txt
     #   aiohttp
-zipp==3.5.0
-    # via
-    #   -c requirements.txt
-    #   importlib-metadata
-    #   pep517
 
 # The following packages are considered to be unsafe in a requirements file:
 # pip
