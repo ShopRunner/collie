@@ -58,10 +58,8 @@ def run_movielens_example(epochs: int = 20, gpus: int = 0) -> None:
                             max_epochs=epochs,
                             deterministic=True,
                             logger=False,
-                            checkpoint_callback=False,
-                            callbacks=[EarlyStopping(monitor='val_loss_epoch', mode='min')],
-                            weights_summary='full',
-                            terminate_on_nan=True)
+                            enable_checkpointing=False,
+                            callbacks=[EarlyStopping(monitor='val_loss_epoch', mode='min')])
     trainer.fit(model)
     model.eval()
     t.timecheck('\n  3.0 complete')

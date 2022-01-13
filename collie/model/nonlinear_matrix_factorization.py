@@ -97,13 +97,15 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
                  dense_dropout_p: float = 0.0,
                  lr: float = 1e-3,
                  bias_lr: Optional[Union[float, str]] = 1e-2,
-                 lr_scheduler_func: Optional[Callable] = partial(ReduceLROnPlateau,
-                                                                 patience=1,
-                                                                 verbose=True),
+                 lr_scheduler_func: Optional[torch.optim.lr_scheduler._LRScheduler] = partial(
+                     ReduceLROnPlateau,
+                     patience=1,
+                     verbose=True
+                 ),
                  weight_decay: float = 0.0,
-                 optimizer: Union[str, Callable] = 'adam',
-                 bias_optimizer: Optional[Union[str, Callable]] = 'sgd',
-                 loss: Union[str, Callable] = 'hinge',
+                 optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+                 bias_optimizer: Optional[Union[str, torch.optim.Optimizer]] = 'sgd',
+                 loss: Union[str, Callable[..., torch.tensor]] = 'hinge',
                  metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
                  metadata_for_loss_weights: Optional[Dict[str, float]] = None,
                  y_range: Optional[Tuple[float, float]] = None,
@@ -224,3 +226,19 @@ class NonlinearMatrixFactorizationModel(BasePipeline):
             self.item_embeddings_ = item_embeddings.detach()
 
         return self.item_embeddings_
+
+    def _get_user_embeddings(self) -> torch.tensor:
+        """Get user embeddings on device."""
+        if not hasattr(self, 'user_embeddings_'):
+            users = torch.arange(self.hparams.num_users, device=self.device)
+
+            user_embeddings = self.user_embeddings(users)
+
+            for user_dense_layer in self.user_dense_layers:
+                user_embeddings = F.leaky_relu(
+                    user_dense_layer(user_embeddings)
+                )
+
+            self.user_embeddings_ = user_embeddings.detach()
+
+        return self.user_embeddings_

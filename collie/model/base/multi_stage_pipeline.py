@@ -1,7 +1,7 @@
 from abc import ABCMeta
 from collections import OrderedDict
 from functools import reduce
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import torch
 
@@ -92,10 +92,10 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
     def __init__(self,
                  train: INTERACTIONS_LIKE_INPUT = None,
                  val: INTERACTIONS_LIKE_INPUT = None,
-                 lr_scheduler_func: Optional[Callable] = None,
+                 lr_scheduler_func: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
                  weight_decay: float = 0.0,
                  optimizer_config_list: List[Dict[str, Union[float, List[str], str]]] = None,
-                 loss: Union[str, Callable] = 'hinge',
+                 loss: Union[str, Callable[..., torch.tensor]] = 'hinge',
                  metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
                  metadata_for_loss_weights: Optional[Dict[str, float]] = None,
                  load_model_path: Optional[str] = None,
@@ -184,7 +184,11 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
         return optimizer_parameters
 
     def configure_optimizers(self) -> (
-        Union[Tuple[List[Callable], List[Callable]], Tuple[Callable, Callable], Callable]
+        Union[
+            Tuple[List[torch.optim.Optimizer], List[torch.optim.Optimizer]],
+            Tuple[torch.optim.Optimizer, torch.optim.Optimizer],
+            torch.optim.Optimizer
+        ]
     ):
         """
         Configure optimizers and learning rate schedulers to use in optimization.
@@ -229,7 +233,7 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
                        batch_idx: int = None,
                        optimizer: torch.optim.Optimizer = None,
                        optimizer_idx: int = None,
-                       optimizer_closure: Optional[Callable] = None,
+                       optimizer_closure: Optional[Callable[..., Any]] = None,
                        **kwargs) -> None:
         """
         Overriding Lightning's optimizer step function to only step the optimizer associated with
@@ -254,3 +258,5 @@ class MultiStagePipeline(BasePipeline, metaclass=ABCMeta):
         """
         if self.hparams.optimizer_config_list[optimizer_idx]['stage'] == self.hparams.stage:
             optimizer.step(closure=optimizer_closure)
+        elif optimizer_closure is not None:
+            optimizer_closure()

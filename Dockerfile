@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
+FROM pytorch/pytorch:1.10.0-cuda11.3-cudnn8-devel
 MAINTAINER data-science@shoprunner.com
 
 RUN apt-get update \
