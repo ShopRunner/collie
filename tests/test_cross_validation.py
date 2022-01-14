@@ -276,6 +276,7 @@ def test_stratified_split_with_users_with_only_one_interaction_force_split(
         val_p=0.1,
         test_p=0.2,
         seed=42,
+        processes=0,  # disable parallelization
         force_split=True
     )
 
