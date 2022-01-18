@@ -25,6 +25,8 @@ class BaseInteractionsDataLoader(torch.utils.data.DataLoader):
         Keyword arguments passed into ``torch.utils.data.DataLoader.__init__``:
         https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
 
+    Original ``torch.utils.data.DataLoader`` docstring as follows:
+    ########
     """
     def __init__(self,
                  interactions: Union[Interactions, HDF5Interactions] = None,
@@ -36,6 +38,8 @@ class BaseInteractionsDataLoader(torch.utils.data.DataLoader):
         )
 
         self.interactions = interactions
+
+    __doc__ += torch.utils.data.DataLoader.__doc__
 
     @property
     def num_users(self) -> int:
@@ -108,6 +112,8 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
     ----------
     interactions: Interactions (default) or ExplicitInteractions
 
+    Original ``torch.utils.data.DataLoader`` docstring as follows:
+    ########
     """
     def __init__(self,
                  interactions: BaseInteractions = None,
@@ -145,6 +151,8 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
         )
 
         self.shuffle = shuffle
+
+    __doc__ += torch.utils.data.DataLoader.__doc__
 
     def __repr__(self) -> str:
         """String representation of ``InteractionsDataLoader`` class."""
@@ -216,6 +224,8 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
     ----------
     interactions: Interactions
 
+    Original ``torch.utils.data.DataLoader`` docstring as follows:
+    ########
     """
     def __init__(self,
                  interactions: Interactions = None,
@@ -268,6 +278,8 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
 
         self.approximate_negative_sampler = approximate_negative_sampler
         self.shuffle = shuffle
+
+    __doc__ += torch.utils.data.DataLoader.__doc__
 
     def __repr__(self) -> str:
         """String representation of ``ApproximateNegativeSamplingInteractionsDataLoader`` class."""
@@ -322,6 +334,8 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
         passed into ``torch.utils.data.DataLoader``:
         https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
 
+    Original ``torch.utils.data.DataLoader`` docstring as follows:
+    ########
     """
     def __init__(self,
                  hdf5_interactions: HDF5Interactions = None,
@@ -361,6 +375,8 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
         self.hdf5_sampler = hdf5_sampler
         self.hdf5_path = hdf5_path
         self.shuffle = shuffle
+
+    __doc__ += torch.utils.data.DataLoader.__doc__
 
     @property
     def mat(self) -> None:

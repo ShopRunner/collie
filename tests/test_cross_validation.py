@@ -248,8 +248,10 @@ def test_stratified_split(implicit_interactions_to_split,
     )
 
 
+@pytest.mark.parametrize('processes', [0, -1])
 def test_stratified_split_with_users_with_only_one_interaction_raises_error(
     interactions_to_split_with_users_with_only_one_interaction,
+    processes
 ):
     with pytest.raises(
         ValueError,
@@ -262,12 +264,14 @@ def test_stratified_split_with_users_with_only_one_interaction_raises_error(
             interactions=interactions_to_split_with_users_with_only_one_interaction,
             test_p=0.2,
             seed=42,
-            processes=0,  # disable parallelization
+            processes=processes,
         )
 
 
+@pytest.mark.parametrize('processes', [0, -1])
 def test_stratified_split_with_users_with_only_one_interaction_force_split(
     interactions_to_split_with_users_with_only_one_interaction,
+    processes
 ):
     users_with_only_one_interaction = [0, 5, 6]
 
@@ -276,7 +280,7 @@ def test_stratified_split_with_users_with_only_one_interaction_force_split(
         val_p=0.1,
         test_p=0.2,
         seed=42,
-        processes=0,  # disable parallelization
+        processes=processes,
         force_split=True
     )
 
