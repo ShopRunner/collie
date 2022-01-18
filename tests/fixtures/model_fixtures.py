@@ -33,7 +33,7 @@ def implicit_model(train_val_implicit_data, gpu_count):
                                   max_epochs=10,
                                   deterministic=True,
                                   logger=False,
-                                  checkpoint_callback=False)
+                                  enable_checkpointing=False)
     model_trainer.fit(model)
     model.eval()
 
@@ -73,7 +73,7 @@ def explicit_model(train_val_explicit_data, gpu_count):
                                   max_epochs=10,
                                   deterministic=True,
                                   logger=False,
-                                  checkpoint_callback=False)
+                                  enable_checkpointing=False)
     model_trainer.fit(model)
     model.freeze()
 
@@ -212,7 +212,7 @@ def models_trained_for_one_step(request,
                                           max_epochs=1,
                                           deterministic=True,
                                           logger=False,
-                                          checkpoint_callback=False)
+                                          enable_checkpointing=False)
 
             model_trainer.fit(model)
             model.eval()
@@ -380,7 +380,7 @@ def models_trained_for_one_step(request,
                                                max_epochs=1,
                                                deterministic=True,
                                                logger=False,
-                                               checkpoint_callback=False)
+                                               enable_checkpointing=False)
         implicit_model_trainer.fit(implicit_model)
         implicit_model.eval()
 
@@ -404,7 +404,7 @@ def models_trained_for_one_step(request,
                                              max_epochs=1,
                                              deterministic=True,
                                              logger=False,
-                                             checkpoint_callback=False)
+                                             enable_checkpointing=False)
         model_frozen_trainer.fit(model_frozen)
 
         model = HybridPretrainedModel(train=train,
@@ -485,7 +485,7 @@ def models_trained_for_one_step(request,
                                   max_epochs=1,
                                   deterministic=True,
                                   logger=False,
-                                  checkpoint_callback=False)
+                                  enable_checkpointing=False)
 
     if request.param == 'mf_no_val':
         with pytest.warns(UserWarning):
@@ -581,7 +581,7 @@ def explicit_models_trained_for_one_step(request,
                                                max_epochs=1,
                                                deterministic=True,
                                                logger=False,
-                                               checkpoint_callback=False)
+                                               enable_checkpointing=False)
         implicit_model_trainer.fit(implicit_model)
         implicit_model.freeze()
 
@@ -612,7 +612,7 @@ def explicit_models_trained_for_one_step(request,
                                              max_epochs=1,
                                              deterministic=True,
                                              logger=False,
-                                             checkpoint_callback=False)
+                                             enable_checkpointing=False)
         model_frozen_trainer.fit(model_frozen)
 
         model = HybridPretrainedModel(train=train,
@@ -657,7 +657,7 @@ def explicit_models_trained_for_one_step(request,
                                   max_epochs=1,
                                   deterministic=True,
                                   logger=False,
-                                  checkpoint_callback=False)
+                                  enable_checkpointing=False)
 
     if request.param == 'mf_no_val':
         with pytest.warns(UserWarning):

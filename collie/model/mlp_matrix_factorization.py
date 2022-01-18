@@ -77,13 +77,15 @@ class MLPMatrixFactorizationModel(BasePipeline):
                  dropout_p: float = 0.0,
                  lr: float = 1e-3,
                  bias_lr: Optional[Union[float, str]] = 1e-2,
-                 lr_scheduler_func: Optional[Callable] = partial(ReduceLROnPlateau,
-                                                                 patience=1,
-                                                                 verbose=True),
+                 lr_scheduler_func: Optional[torch.optim.lr_scheduler._LRScheduler] = partial(
+                     ReduceLROnPlateau,
+                     patience=1,
+                     verbose=True
+                 ),
                  weight_decay: float = 0.0,
-                 optimizer: Union[str, Callable] = 'adam',
-                 bias_optimizer: Optional[Union[str, Callable]] = 'sgd',
-                 loss: Union[str, Callable] = 'hinge',
+                 optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+                 bias_optimizer: Optional[Union[str, torch.optim.Optimizer]] = 'sgd',
+                 loss: Union[str, Callable[..., torch.tensor]] = 'hinge',
                  metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
                  metadata_for_loss_weights: Optional[Dict[str, float]] = None,
                  y_range: Optional[Tuple[float, float]] = None,
@@ -176,3 +178,7 @@ class MLPMatrixFactorizationModel(BasePipeline):
     def _get_item_embeddings(self) -> torch.tensor:
         """Get item embeddings on device."""
         return self.item_embeddings.weight.data
+
+    def _get_user_embeddings(self) -> torch.tensor:
+        """Get user embeddings on device."""
+        return self.user_embeddings.weight.data

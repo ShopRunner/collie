@@ -1,4 +1,3 @@
-import multiprocessing
 import textwrap
 from typing import Iterable, Optional, Union
 
@@ -22,25 +21,25 @@ class BaseInteractionsDataLoader(torch.utils.data.DataLoader):
     Parameters
     ----------
     interactions: Interactions or HDF5Interactions
-    num_workers: int
-        Number of subprocesses to use for data loading
     **kwargs: keyword arguments
         Keyword arguments passed into ``torch.utils.data.DataLoader.__init__``:
         https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
 
+    Original ``torch.utils.data.DataLoader`` docstring as follows:
+    ########
     """
     def __init__(self,
                  interactions: Union[Interactions, HDF5Interactions] = None,
-                 num_workers: int = multiprocessing.cpu_count(),
                  **kwargs):
 
         super().__init__(
             dataset=interactions,
-            num_workers=num_workers,
             **kwargs,
         )
 
         self.interactions = interactions
+
+    __doc__ += torch.utils.data.DataLoader.__doc__
 
     @property
     def num_users(self) -> int:
@@ -102,8 +101,6 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
     shuffle: bool
         Whether to shuffle the order of data returned or not. This is especially useful for training
         data to ensure the model does not overfit to a specific order of data
-    num_workers: int
-        Number of subprocesses to use for data loading
     **kwargs: keyword arguments
         Relevant keyword arguments will be passed into ``Interactions`` object creation, if
         ``interactions is None`` and the keyword argument matches one of
@@ -115,6 +112,8 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
     ----------
     interactions: Interactions (default) or ExplicitInteractions
 
+    Original ``torch.utils.data.DataLoader`` docstring as follows:
+    ########
     """
     def __init__(self,
                  interactions: BaseInteractions = None,
@@ -124,7 +123,6 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
                  ratings: Optional[Iterable[int]] = None,
                  batch_size: int = 1024,
                  shuffle: bool = False,
-                 num_workers: int = multiprocessing.cpu_count(),
                  **kwargs):
         if interactions is None:
             # find all kwargs in the ``__init__`` for a ``Interactions`` object
@@ -149,11 +147,12 @@ class InteractionsDataLoader(BaseInteractionsDataLoader):
             interactions=interactions,
             batch_size=batch_size,
             shuffle=shuffle,
-            num_workers=num_workers,
             **kwargs,
         )
 
         self.shuffle = shuffle
+
+    __doc__ += torch.utils.data.DataLoader.__doc__
 
     def __repr__(self) -> str:
         """String representation of ``InteractionsDataLoader`` class."""
@@ -225,6 +224,8 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
     ----------
     interactions: Interactions
 
+    Original ``torch.utils.data.DataLoader`` docstring as follows:
+    ########
     """
     def __init__(self,
                  interactions: Interactions = None,
@@ -234,7 +235,6 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
                  ratings: Optional[Iterable[int]] = None,
                  batch_size: int = 1024,
                  shuffle: bool = False,
-                 num_workers: int = multiprocessing.cpu_count(),
                  **kwargs):
         if isinstance(interactions, ExplicitInteractions):
             raise ValueError(
@@ -272,13 +272,14 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
         super().__init__(
             interactions=interactions,
             sampler=approximate_negative_sampler,
-            num_workers=num_workers,
             batch_size=None,  # Disable automated batching
             **kwargs,
         )
 
         self.approximate_negative_sampler = approximate_negative_sampler
         self.shuffle = shuffle
+
+    __doc__ += torch.utils.data.DataLoader.__doc__
 
     def __repr__(self) -> str:
         """String representation of ``ApproximateNegativeSamplingInteractionsDataLoader`` class."""
@@ -326,8 +327,6 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
         this will not perform a true shuffle of the data, but shuffle the order of batches. While
         this is an approximation of true sampling, it allows us a greater speed up during model
         training for a negligible effect on model performance
-    num_workers: int
-        Number of subprocesses to use for data loading
     **kwargs: keyword arguments
         Relevant keyword arguments will be passed into ``HDF5Interactions`` object creation, if
         ``hdf5_interactions is None`` and the keyword argument matches one of
@@ -335,13 +334,14 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
         passed into ``torch.utils.data.DataLoader``:
         https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
 
+    Original ``torch.utils.data.DataLoader`` docstring as follows:
+    ########
     """
     def __init__(self,
                  hdf5_interactions: HDF5Interactions = None,
                  hdf5_path: Optional[str] = None,
                  batch_size: int = 1024,
                  shuffle: bool = False,
-                 num_workers: int = multiprocessing.cpu_count(),
                  **kwargs):
         if hdf5_interactions is None:
             # find all kwargs in the ``__init__`` for a ``HDF5Interactions`` object
@@ -368,7 +368,6 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
         super().__init__(
             interactions=hdf5_interactions,
             sampler=hdf5_sampler,
-            num_workers=num_workers,
             batch_size=None,  # Disable automated batching
             **kwargs,
         )
@@ -376,6 +375,8 @@ class HDF5InteractionsDataLoader(BaseInteractionsDataLoader):
         self.hdf5_sampler = hdf5_sampler
         self.hdf5_path = hdf5_path
         self.shuffle = shuffle
+
+    __doc__ += torch.utils.data.DataLoader.__doc__
 
     @property
     def mat(self) -> None:

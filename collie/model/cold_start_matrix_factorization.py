@@ -143,15 +143,15 @@ class ColdStartModel(MultiStagePipeline):
                  sparse: bool = False,
                  item_buckets_stage_lr: float = 1e-3,
                  no_buckets_stage_lr: float = 1e-3,
-                 lr_scheduler_func: Optional[Callable] = partial(
+                 lr_scheduler_func: Optional[torch.optim.lr_scheduler._LRScheduler] = partial(
                      ReduceLROnPlateau,
                      patience=1,
                      verbose=False,
                  ),
                  weight_decay: float = 0.0,
-                 item_buckets_stage_optimizer: Union[str, Callable] = 'adam',
-                 no_buckets_stage_optimizer: Union[str, Callable] = 'adam',
-                 loss: Union[str, Callable] = 'hinge',
+                 item_buckets_stage_optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+                 no_buckets_stage_optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+                 loss: Union[str, Callable[..., torch.tensor]] = 'hinge',
                  metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
                  metadata_for_loss_weights: Optional[Dict[str, float]] = None,
                  load_model_path: Optional[str] = None,
@@ -360,3 +360,7 @@ class ColdStartModel(MultiStagePipeline):
     def _get_item_embeddings(self) -> torch.tensor:
         """Get item embeddings on device."""
         return self.item_embeddings.weight.data
+
+    def _get_user_embeddings(self) -> torch.tensor:
+        """Get user embeddings on device."""
+        return self.user_embeddings.weight.data

@@ -146,17 +146,17 @@ class HybridModel(MultiStagePipeline):
                  bias_lr: Optional[Union[float, str]] = 1e-2,
                  metadata_only_stage_lr: float = 1e-3,
                  all_stage_lr: float = 1e-4,
-                 lr_scheduler_func: Optional[Callable] = partial(
+                 lr_scheduler_func: Optional[torch.optim.lr_scheduler._LRScheduler] = partial(
                      ReduceLROnPlateau,
                      patience=1,
                      verbose=False,
                  ),
                  weight_decay: float = 0.0,
-                 optimizer: Union[str, Callable] = 'adam',
-                 bias_optimizer: Optional[Union[str, Callable]] = 'sgd',
-                 metadata_only_stage_optimizer: Union[str, Callable] = 'adam',
-                 all_stage_optimizer: Union[str, Callable] = 'adam',
-                 loss: Union[str, Callable] = 'hinge',
+                 optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+                 bias_optimizer: Optional[Union[str, torch.optim.Optimizer]] = 'sgd',
+                 metadata_only_stage_optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+                 all_stage_optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+                 loss: Union[str, Callable[..., torch.tensor]] = 'hinge',
                  metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
                  metadata_for_loss_weights: Optional[Dict[str, float]] = None,
                  load_model_path: Optional[str] = None,
@@ -356,6 +356,11 @@ class HybridModel(MultiStagePipeline):
         """Get item embeddings on device."""
         # TODO: update this to get the embeddings post-MLP
         return self.item_embeddings.weight.data
+
+    def _get_user_embeddings(self) -> torch.tensor:
+        """Get user embeddings on device."""
+        # TODO: update this to get the embeddings post-MLP
+        return self.user_embeddings.weight.data
 
     def save_model(self,
                    path: Union[str, Path] = os.path.join(DATA_PATH / 'model'),

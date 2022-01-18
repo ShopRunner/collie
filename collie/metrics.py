@@ -14,7 +14,7 @@ from collie.interactions import ExplicitInteractions, Interactions, Interactions
 from collie.model import BasePipeline
 
 
-def _get_user_item_pairs(user_ids: (np.array, torch.tensor),
+def _get_user_item_pairs(user_ids: Union[np.array, torch.tensor],
                          n_items: int,
                          device: Union[str, torch.device]) -> Tuple[torch.tensor, torch.tensor]:
     """
@@ -72,7 +72,7 @@ def _get_user_item_pairs(user_ids: (np.array, torch.tensor),
 
 
 def get_preds(model: BasePipeline,
-              user_ids: (np.array, torch.tensor),
+              user_ids: Union[np.array, torch.tensor],
               n_items: int,
               device: Union[str, torch.device]) -> torch.tensor:
     """
@@ -105,8 +105,8 @@ def get_preds(model: BasePipeline,
 
 
 def _get_labels(targets: csr_matrix,
-                user_ids: (np.array, torch.tensor),
-                preds: (np.array, torch.tensor),
+                user_ids: Union[np.array, torch.tensor],
+                preds: Union[np.array, torch.tensor],
                 device: str) -> torch.tensor:
     """
     Returns a binary array indicating which of the recommended products are in each user's target
@@ -139,8 +139,8 @@ def _get_labels(targets: csr_matrix,
 
 
 def mapk(targets: csr_matrix,
-         user_ids: (np.array, torch.tensor),
-         preds: (np.array, torch.tensor),
+         user_ids: Union[np.array, torch.tensor],
+         preds: Union[np.array, torch.tensor],
          k: int = 10) -> float:
     """
     Calculate the mean average precision at K (MAP@K) score for each user.
@@ -196,8 +196,8 @@ def mapk(targets: csr_matrix,
 
 
 def mrr(targets: csr_matrix,
-        user_ids: (np.array, torch.tensor),
-        preds: (np.array, torch.tensor),
+        user_ids: Union[np.array, torch.tensor],
+        preds: Union[np.array, torch.tensor],
         k: Optional[Any] = None) -> float:
     """
     Calculate the mean reciprocal rank (MRR) of the input predictions.
@@ -238,8 +238,8 @@ def mrr(targets: csr_matrix,
 
 
 def auc(targets: csr_matrix,
-        user_ids: (np.array, torch.tensor),
-        preds: (np.array, torch.tensor),
+        user_ids: Union[np.array, torch.tensor],
+        preds: Union[np.array, torch.tensor],
         k: Optional[Any] = None) -> float:
     """
     Calculate the area under the ROC curve (AUC) for each user and average the results.
@@ -277,7 +277,10 @@ def auc(targets: csr_matrix,
 
 
 def evaluate_in_batches(
-    metric_list: Iterable[Callable],
+    metric_list: Iterable[Callable[
+        [csr_matrix, Union[np.array, torch.tensor], Union[np.array, torch.tensor], Optional[int]],
+        float
+    ]],
     test_interactions: collie.interactions.Interactions,
     model: collie.model.BasePipeline,
     k: int = 10,
@@ -353,6 +356,7 @@ def evaluate_in_batches(
 
     device = _get_evaluate_in_batches_device(model=model)
     model.to(device)
+    model._move_any_external_data_to_device()
 
     test_users = np.unique(test_interactions.mat.row)
     targets = test_interactions.mat.tocsr()
@@ -419,7 +423,7 @@ def explicit_evaluate_in_batches(
         model training
     verbose: bool
         Display progress bar and print statements during function execution
-    kwargs: keyword arguments
+    **kwargs: keyword arguments
         Additional arguments sent to the ``InteractionsDataLoader``
 
     Returns
@@ -455,6 +459,7 @@ def explicit_evaluate_in_batches(
     try:
         device = _get_evaluate_in_batches_device(model=model)
         model.to(device)
+        model._move_any_external_data_to_device()
 
         test_loader = InteractionsDataLoader(interactions=test_interactions,
                                              **kwargs)
@@ -492,17 +497,27 @@ def explicit_evaluate_in_batches(
 
 
 def _get_evaluate_in_batches_device(model: BasePipeline):
-    device = getattr(model, 'device') or ('cuda:0' if torch.cuda.is_available() else 'cpu')
+    device = getattr(model, 'device', None)
 
-    if torch.cuda.is_available() and getattr(model, 'device') == 'cpu':
+    if torch.cuda.is_available() and str(device) == 'cpu':
         warnings.warn('CUDA available but model device is set to CPU - is this desired?')
+
+    if device is None:
+        if torch.cuda.is_available():
+            warnings.warn(
+                '``model.device`` attribute is ``None``. Since GPU is available, putting model on '
+                'GPU.'
+            )
+            device = 'cuda:0'
+        else:
+            device = 'cpu'
 
     return device
 
 
 def _log_metrics(model: BasePipeline,
                  logger: pytorch_lightning.loggers.base.LightningLoggerBase,
-                 metric_list: List[Union[Callable, Metric]],
+                 metric_list: List[Union[Callable[..., Any], Metric]],
                  all_scores: List[float],
                  verbose: bool):
     try:

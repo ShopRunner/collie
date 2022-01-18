@@ -16,15 +16,16 @@ def test_ideal_difference_from_metadata_error(
     metadata_a,
     metadata_b,
 ):
-    with pytest.raises(ValueError) as err:
+    with pytest.raises(
+        ValueError,
+        match='sum of metadata weights was 1.1, must be <=1'
+    ):
         ideal_difference_from_metadata(
             positive_items=positive_items,
             negative_items=negative_items,
             metadata={'a': metadata_a, 'b': metadata_b},
             metadata_weights={'a': .2, 'b': .9},
         )
-
-    assert str(err.value) == 'sum of metadata weights was 1.1, must be <=1'
 
 
 def test_ideal_difference_from_metadata_a(

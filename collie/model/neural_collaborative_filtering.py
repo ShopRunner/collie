@@ -88,15 +88,17 @@ class NeuralCollaborativeFiltering(BasePipeline):
                  val: INTERACTIONS_LIKE_INPUT = None,
                  embedding_dim: int = 8,
                  num_layers: int = 3,
-                 final_layer: Optional[Union[str, Callable]] = None,
+                 final_layer: Optional[Union[str, Callable[[torch.tensor], torch.tensor]]] = None,
                  dropout_p: float = 0.0,
                  lr: float = 1e-3,
-                 lr_scheduler_func: Optional[Callable] = partial(ReduceLROnPlateau,
-                                                                 patience=1,
-                                                                 verbose=True),
+                 lr_scheduler_func: Optional[torch.optim.lr_scheduler._LRScheduler] = partial(
+                     ReduceLROnPlateau,
+                     patience=1,
+                     verbose=True
+                 ),
                  weight_decay: float = 0.0,
-                 optimizer: Union[str, Callable] = 'adam',
-                 loss: Union[str, Callable] = 'hinge',
+                 optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+                 loss: Union[str, Callable[..., torch.tensor]] = 'hinge',
                  metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
                  metadata_for_loss_weights: Optional[Dict[str, float]] = None,
                  # y_range: Optional[Tuple[float, float]] = None,
@@ -200,4 +202,13 @@ class NeuralCollaborativeFiltering(BasePipeline):
         return torch.cat((
             self.item_embeddings_cf(items),
             self.item_embeddings_mlp(items),
+        ), axis=1).detach()
+
+    def _get_user_embeddings(self) -> torch.tensor:
+        """Get user embeddings, which are the concatenated CF and MLP user embeddings, on device."""
+        users = torch.arange(self.hparams.num_users, device=self.device)
+
+        return torch.cat((
+            self.user_embeddings_cf(users),
+            self.user_embeddings_mlp(users),
         ), axis=1).detach()
