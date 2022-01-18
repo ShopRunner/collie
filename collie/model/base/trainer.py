@@ -51,6 +51,8 @@ class CollieTrainer(Trainer):
         Additional keyword arguments to be sent to the ``Trainer`` class:
         https://pytorch-lightning.readthedocs.io/en/latest/common/trainer.html#trainer-class-api
 
+    Original ``pytorch_lightning.Trainer`` docstring as follows:
+    ########
     """
     def __init__(self,
                  model: torch.nn.Module,
@@ -72,6 +74,8 @@ class CollieTrainer(Trainer):
         kwargs['deterministic'] = deterministic
 
         super().__init__(**kwargs)
+
+    __doc__ += pytorch_lightning.Trainer.__init__.__doc__
 
     @property
     def max_epochs(self):

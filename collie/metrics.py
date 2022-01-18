@@ -423,7 +423,7 @@ def explicit_evaluate_in_batches(
         model training
     verbose: bool
         Display progress bar and print statements during function execution
-    kwargs: keyword arguments
+    **kwargs: keyword arguments
         Additional arguments sent to the ``InteractionsDataLoader``
 
     Returns
