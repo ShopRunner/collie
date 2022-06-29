@@ -1000,6 +1000,23 @@ def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_mode
     assert model_2.item_metadata.equal(model_3.item_metadata)
 
 
+def test_item_metadata_with_nulls_hybrid_pretrained_model(implicit_model,
+                                                          movielens_metadata_df,
+                                                          train_val_implicit_data):
+
+    train, val = train_val_implicit_data
+
+    # create copy of metadata and add column of nulls
+    movielens_metadata_df_with_bad_col = movielens_metadata_df.copy()
+    movielens_metadata_df_with_bad_col['bad_column'] = pd.np.NaN
+
+    with pytest.raises(ValueError):
+        HybridPretrainedModel(train=train,
+                              val=val,
+                              item_metadata=movielens_metadata_df_with_bad_col,
+                              trained_model=implicit_model)
+
+
 def test_bad_initialization_of_multi_stage_model(train_val_implicit_data):
     class BadMultiStageModel(MultiStagePipeline):
         """Initializes a multi-stage model with no ``optimizer_config_list``."""
@@ -1052,6 +1069,21 @@ def test_different_item_metadata_types_for_hybrid_model(movielens_metadata_df,
 
     assert model_1.item_metadata.equal(model_2.item_metadata)
     assert model_2.item_metadata.equal(model_3.item_metadata)
+
+
+def test_item_metadata_with_nulls_hybrid_model(movielens_metadata_df,
+                                               train_val_implicit_data):
+
+    train, val = train_val_implicit_data
+
+    # create copy of metadata and add column of nulls
+    movielens_metadata_df_with_bad_col = movielens_metadata_df.copy()
+    movielens_metadata_df_with_bad_col['bad_column'] = pd.np.NaN
+
+    with pytest.raises(ValueError):
+        HybridModel(train=train,
+                    val=val,
+                    item_metadata=movielens_metadata_df_with_bad_col)
 
 
 def test_loading_and_saving_implicit_model(train_val_implicit_data,
