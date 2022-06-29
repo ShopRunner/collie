@@ -200,7 +200,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
             # saves all passed-in parameters
             init_args = get_init_arguments(
-                exclude=['train', 'val', 'item_metadata', 'trained_model'],
+                exclude=['train', 'val', 'trained_model'],
                 verbose=False,
             )
 
@@ -209,6 +209,13 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             self.hparams.num_users = self.train_loader.num_users
             self.hparams.num_items = self.train_loader.num_items
             self.hparams.num_epochs_completed = 0
+
+            # check there are no nulls in item_metadata
+            if hasattr(self.hparams, 'item_metadata'):
+                if torch.isnan(self.hparams.item_metadata).any():
+                    raise ValueError(
+                        '``item_metadata`` may not contain nulls'
+                    )
 
             self._configure_loss()
 
