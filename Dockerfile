@@ -1,6 +1,10 @@
 FROM pytorch/pytorch:1.10.0-cuda11.3-cudnn8-devel
 MAINTAINER data-science@shoprunner.com
 
+#nVidia fix based on Nathan's recommendation
+RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/3bf863cc.pub
+
+
 RUN apt-get update \
     && apt-get install -y tmux \
     && apt-get install -y vim \
