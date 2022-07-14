@@ -57,19 +57,6 @@ def test_CollieTrainer_no_gpu(is_available_mock, untrained_implicit_model, capfd
     assert 'Detected GPU. Setting ``gpus`` to 1.' in out
 
 
-@mock.patch('torch.cuda.is_available')
-def test_CollieTrainer_on_cpu(is_available_mock, untrained_implicit_model):
-    is_available_mock.return_value = True
-
-    with pytest.warns(UserWarning):
-        trainer = CollieTrainer(model=untrained_implicit_model,
-                                logger=False,
-                                enable_checkpointing=False,
-                                gpus=0)
-
-    assert trainer.gpus == 0
-
-
 def test_basepipeline_does_not_initialize(train_val_implicit_data):
     train, val = train_val_implicit_data
 
