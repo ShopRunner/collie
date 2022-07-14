@@ -5,6 +5,7 @@ import os
 import re
 from unittest import mock
 
+import numpy as np
 import pandas as pd
 import pytest
 import pytorch_lightning
@@ -995,9 +996,9 @@ def test_item_metadata_with_nulls_hybrid_pretrained_model(implicit_model,
 
     # create copy of metadata and add column of nulls
     movielens_metadata_df_with_bad_col = movielens_metadata_df.copy()
-    movielens_metadata_df_with_bad_col['bad_column'] = pd.np.NaN
+    movielens_metadata_df_with_bad_col['bad_column'] = np.nan
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='``item_metadata`` may not contain nulls'):
         HybridPretrainedModel(train=train,
                               val=val,
                               item_metadata=movielens_metadata_df_with_bad_col,
@@ -1065,9 +1066,9 @@ def test_item_metadata_with_nulls_hybrid_model(movielens_metadata_df,
 
     # create copy of metadata and add column of nulls
     movielens_metadata_df_with_bad_col = movielens_metadata_df.copy()
-    movielens_metadata_df_with_bad_col['bad_column'] = pd.np.NaN
+    movielens_metadata_df_with_bad_col['bad_column'] = np.nan
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match='``item_metadata`` may not contain nulls'):
         HybridModel(train=train,
                     val=val,
                     item_metadata=movielens_metadata_df_with_bad_col)
