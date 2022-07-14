@@ -210,7 +210,7 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             self.hparams.num_items = self.train_loader.num_items
             self.hparams.num_epochs_completed = 0
 
-            # check there are no nulls in item_metadata
+            # ensure there are no nulls in ``item_metadata``
             if hasattr(self.hparams, 'item_metadata'):
                 if torch.isnan(self.hparams.item_metadata).any():
                     raise ValueError(
