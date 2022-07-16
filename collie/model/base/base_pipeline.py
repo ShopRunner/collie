@@ -210,6 +210,13 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             self.hparams.num_items = self.train_loader.num_items
             self.hparams.num_epochs_completed = 0
 
+            # ensure there are no nulls in ``item_metadata``
+            if 'item_metadata' in kwargs:
+                if torch.isnan(kwargs.get('item_metadata')).any():
+                    raise ValueError(
+                        '``item_metadata`` may not contain nulls'
+                    )
+
             self._configure_loss()
 
             # check weight decay and sparsity
