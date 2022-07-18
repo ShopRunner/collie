@@ -25,6 +25,10 @@ def test_read_movielens_df_item(movielens_df_item):
     assert movielens_df_item.shape == (1682, 23)
 
 
+def test_read_movielens_df_user(movielens_df_user):
+    assert movielens_df_user.shape == (943, 5)
+
+
 def test_read_movielens_posters_df(movielens_posters_df):
     assert movielens_posters_df.shape == (1682, 2)
 
@@ -78,6 +82,38 @@ def test_get_movielens_metadata(movielens_metadata_df):
     ]
 
     assert movielens_metadata_df.columns.tolist() == expected_columns
+
+
+def test_get_user_metadata(user_metadata_df):
+    assert len(user_metadata_df) == 943
+
+    expected_columns = [
+        'age',
+        'female',
+        'occupation_administrator',
+        'occupation_artist',
+        'occupation_doctor',
+        'occupation_educator',
+        'occupation_engineer',
+        'occupation_entertainment',
+        'occupation_executive',
+        'occupation_healthcare',
+        'occupation_homemaker',
+        'occupation_lawyer',
+        'occupation_librarian',
+        'occupation_marketing',
+        'occupation_none',
+        'occupation_other',
+        'occupation_programmer',
+        'occupation_retired',
+        'occupation_salesman',
+        'occupation_scientist',
+        'occupation_student',
+        'occupation_technician',
+        'occupation_writer',
+    ]
+
+    assert user_metadata_df.columns.tolist() == expected_columns
 
 
 @mock.patch('collie.model.MatrixFactorizationModel')
