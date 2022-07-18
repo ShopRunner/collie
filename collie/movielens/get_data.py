@@ -143,6 +143,48 @@ def read_movielens_df_item() -> pd.DataFrame:
     return df_item
 
 
+def read_movielens_df_user() -> pd.DataFrame:
+    """
+    Read ``u.user`` from the MovieLens 100K dataset.
+
+    If there is not a directory at ``$DATA_PATH/ml-100k``, this function creates that directory and
+    downloads the entire dataset there.
+
+    See the MovieLens 100K README for additional information on the dataset:
+    https://files.grouplens.org/datasets/movielens/ml-100k-README.txt
+
+    Returns
+    -------
+    df_user: pd.DataFrame
+        MovieLens 100K ``u.user`` containing columns:
+
+            * user_id
+
+            * age
+
+            * gender
+
+            * occupation
+
+            * zip
+
+    Side Effects
+    ------------
+    Creates directory at ``$DATA_PATH/ml-100k`` and downloads data files if data does not exist.
+
+    """
+    _make_data_path_dirs_if_not_exist()
+
+    df_user_path = os.path.join(DATA_PATH, 'ml-100k', 'u.user')
+    if not Path(df_user_path).exists():
+        _download_movielens_100k()
+
+    column_names = ['user_id', 'age', 'gender', 'occupation', 'zip']
+    df_user = pd.read_csv(df_user_path, sep='|', encoding='latin-1', names=column_names)
+
+    return df_user
+
+
 def _make_data_path_dirs_if_not_exist() -> None:
     """Get path to the movielens dataset file."""
     if not DATA_PATH.exists():
@@ -258,3 +300,54 @@ def get_movielens_metadata(df_item: pd.DataFrame = None) -> pd.DataFrame:
     metadata_df = metadata_df[cols]
 
     return metadata_df
+
+
+def get_user_metadata(df_user: pd.DataFrame = None) -> pd.DataFrame:
+    """
+    Return MovieLens 100K user metadata as a DataFrame.
+
+    DataFrame returned has the following column order:
+
+    .. code-block:: python
+
+        [
+            'age', 'female', 'occupation_administrator', 'occupation_artist'
+            'occupation_doctor', 'occupation_educator', 'occupation_engineer'
+            'occupation_entertainment', 'occupation_executive'
+            'occupation_healthcare', 'occupation_homemaker'
+            'occupation_lawyer', 'occupation_librarian', 'occupation_marketing'
+            'occupation_none', 'occupation_other', 'occupation_programmer'
+            'occupation_retired', 'occupation_salesman', 'occupation_scientist'
+            'occupation_student', 'occupation_technician', 'occupation_writer',
+        ]
+
+    See the MovieLens 100K README for additional information on the dataset:
+    https://files.grouplens.org/datasets/movielens/ml-100k-README.txt
+
+    Parameters
+    ----------
+    df_user: pd.DataFrame
+        DataFrame of MovieLens 100K ``u.user`` containing columns of user
+        metadata. If ``None``, will automatically read the output of ``read_movielens_df_user()``
+
+    Returns
+    -------
+    metadata_df: pd.DataFrame
+
+    """
+    if df_user is None:
+        df_user = read_movielens_df_user()
+
+    # format user occupation
+    df_user_occupation = df_user.iloc[:, [3]].copy()
+    df_occupation = pd.get_dummies(df_user_occupation.occupation, prefix='occupation')
+    df_occupation = df_occupation.sort_index(axis=1)
+
+    # format user gender
+    df_user['female'] = df_user.gender.replace({'F': 1, 'M': 0})
+
+    # format final metadata structure
+    user_metadata_df = df_user[['age', 'female']].merge(df_occupation,
+                                                        left_index=True,
+                                                        right_index=True)
+    return user_metadata_df
