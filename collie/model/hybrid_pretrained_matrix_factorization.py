@@ -131,7 +131,7 @@ class HybridPretrainedModel(BasePipeline):
 
             if item_metadata is None and user_metadata is None:
                 raise ValueError(
-                    'Must provide item metadata or user_metadata for ``HybridPretrainedModel``.'
+                    'Must provide item metadata and/or user_metadata for ``HybridPretrainedModel``.'
                 )
 
             if item_metadata is not None:
@@ -418,7 +418,7 @@ class HybridPretrainedModel(BasePipeline):
                    path: Union[str, Path] = os.path.join(DATA_PATH / 'model'),
                    overwrite: bool = False) -> None:
         """
-        Save the model's state dictionary, hyperparameters, and item metadata.
+        Save the model's state dictionary, hyperparameters, and user and/or item metadata.
 
         While PyTorch Lightning offers a way to save and load models, there are two main reasons
         for overriding these:
