@@ -45,14 +45,10 @@ class HybridModel(MultiStagePipeline):
     1. ``matrix_factorization``
         Matrix factorization exactly as we do in ``MatrixFactorizationModel``. In this stage,
         metadata is NOT incorporated into the model.
-    2. ``item_metadata_only``
+    2. ``metadata_only``
         User and item embeddings terms are frozen, and the MLP layers for the metadata (if
         specified) and combined embedding-metadata data are optimized.
-    3. ``user_metadata_only``
-        User and item embeddings terms are frozen, and the MLP layers for the metadata (if
-        specified) and combined embedding-metadata data are optimized.
-
-    4. ``all``
+    3. ``all``
         Embedding and MLP layers are all optimized together, including those for metadata.
 
     All ``HybridModel`` instances are subclasses of the ``LightningModule`` class provided by
@@ -70,12 +66,7 @@ class HybridModel(MultiStagePipeline):
         trainer = CollieTrainer(model)
         trainer.fit(model)
 
-        # train for X more epochs on the next stage, ``item_metadata_only``
-        trainer.max_epochs += X
-        model.advance_stage()
-        trainer.fit(model)
-
-        # train for X more epochs on the next stage, ``user_metadata_only``
+        # train for X more epochs on the next stage, ``metadata_only``
         trainer.max_epochs += X
         model.advance_stage()
         trainer.fit(model)
@@ -189,7 +180,7 @@ class HybridModel(MultiStagePipeline):
         if load_model_path is None:
             if item_metadata is None and user_metadata is None:
                 raise ValueError(
-                    'Must provide item metadata or user metadata for ``HybridModel``.'
+                    'Must provide item metadata and/or user metadata for ``HybridModel``.'
                 )
 
             if item_metadata is not None:
@@ -246,18 +237,9 @@ class HybridModel(MultiStagePipeline):
                         'optimizer': metadata_only_stage_optimizer,
                         # optimize metadata layers only
                         'parameter_prefix_list': [
-                            'item_metadata', 'combined', 'user_bias', 'item_bias'
+                            'item_metadata', 'user_metadata', 'combined', 'user_bias', 'item_bias'
                         ],
-                        'stage': 'item_metadata_only',
-                    },
-                    {
-                        'lr': metadata_only_stage_lr,
-                        'optimizer': metadata_only_stage_optimizer,
-                        # optimize metadata layers only
-                        'parameter_prefix_list': [
-                            'user_metadata', 'combined', 'user_bias', 'item_bias'
-                        ],
-                        'stage': 'user_metadata_only',
+                        'stage': 'metadata_only',
                     },
                     {
                         'lr': all_stage_lr,
@@ -278,7 +260,7 @@ class HybridModel(MultiStagePipeline):
                         'parameter_prefix_list': [
                             'user_metadata', 'combined', 'user_bias', 'item_bias'
                         ],
-                        'stage': 'user_metadata_only',
+                        'stage': 'metadata_only',
                     },
                     {
                         'lr': all_stage_lr,
@@ -297,7 +279,7 @@ class HybridModel(MultiStagePipeline):
                         'parameter_prefix_list': [
                             'item_metadata', 'combined', 'user_bias', 'item_bias'
                         ],
-                        'stage': 'item_metadata_only',
+                        'stage': 'metadata_only',
                     },
                     {
                         'lr': all_stage_lr,
@@ -307,6 +289,7 @@ class HybridModel(MultiStagePipeline):
                         'stage': 'all',
                     },
                 ]
+
         super().__init__(optimizer_config_list=optimizer_config_list,
                          item_metadata_num_cols=item_metadata_num_cols,
                          user_metadata_num_cols=user_metadata_num_cols,
@@ -327,13 +310,15 @@ class HybridModel(MultiStagePipeline):
                 joblib.load(os.path.join(load_model_path, 'item_metadata.pkl'))
             )
         except FileNotFoundError:
-            warnings.warn('`item_metadata.pkl` not found')
+            if self.hparams.item_metadata_layers_dims is not None:
+                warnings.warn('```item_metadata.pkl`` not found')
         try:
             self.user_metadata = (
                 joblib.load(os.path.join(load_model_path, 'user_metadata.pkl'))
             )
         except FileNotFoundError:
-            warnings.warn('`user_metadata.pkl` not found')
+            if self.hparams.user_metadata_layers_dims is not None:
+                warnings.warn('``user_metadata.pkl`` not found')
 
         super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
                                         map_location=map_location,
@@ -347,9 +332,9 @@ class HybridModel(MultiStagePipeline):
 
         """
         if self.hparams.load_model_path is None:
-            if not hasattr(self, 'item_metadata') and 'item_metadata' in kwargs:
+            if 'item_metadata' in kwargs:
                 self.item_metadata = kwargs.pop('item_metadata')
-            if not hasattr(self, 'user_metadata') and 'user_metadata' in kwargs:
+            if 'user_metadata' in kwargs:
                 self.user_metadata = kwargs.pop('user_metadata')
 
         self.user_biases = ZeroEmbedding(num_embeddings=self.hparams.num_users,
@@ -367,6 +352,7 @@ class HybridModel(MultiStagePipeline):
         self.item_metadata_layers = None
 
         if self.hparams.item_metadata_layers_dims is not None:
+
             item_metadata_layers_dims = (
                 [self.hparams.item_metadata_num_cols] + self.hparams.item_metadata_layers_dims
             )
@@ -379,12 +365,12 @@ class HybridModel(MultiStagePipeline):
                 self.add_module('item_metadata_layer_{}'.format(i), layer)
 
             item_metadata_output_dim = item_metadata_layers_dims[-1]
-
         # set up user metadata-only layers
         user_metadata_output_dim = self.hparams.user_metadata_num_cols
         self.user_metadata_layers = None
 
         if self.hparams.user_metadata_layers_dims is not None:
+            self._get_metadata_layer_dims(user_or_item_metadata='user')
             user_metadata_layers_dims = (
                 [self.hparams.user_metadata_num_cols] + self.hparams.user_metadata_layers_dims
             )
@@ -397,14 +383,13 @@ class HybridModel(MultiStagePipeline):
                 self.add_module('user_metadata_layer_{}'.format(i), layer)
 
             user_metadata_output_dim = user_metadata_layers_dims[-1]
-
         # set up combined layers depending on metadata inputs
         if item_metadata_output_dim is not None and user_metadata_output_dim is not None:
             combined_dimension_input = (
-                self.user_embeddings.embedding_dim
+                user_metadata_output_dim
+                + self.user_embeddings.embedding_dim
                 + self.item_embeddings.embedding_dim
                 + item_metadata_output_dim
-                + user_metadata_output_dim
             )
         elif item_metadata_output_dim is not None:
             combined_dimension_input = (
@@ -414,9 +399,9 @@ class HybridModel(MultiStagePipeline):
             )
         elif user_metadata_output_dim is not None:
             combined_dimension_input = (
-                self.user_embeddings.embedding_dim
+                user_metadata_output_dim
+                + self.user_embeddings.embedding_dim
                 + self.item_embeddings.embedding_dim
-                + user_metadata_output_dim
             )
         combined_layers_dims = [combined_dimension_input] + self.hparams.combined_layers_dims + [1]
         self.combined_layers = [
@@ -453,7 +438,7 @@ class HybridModel(MultiStagePipeline):
                 + self.user_biases(users).squeeze(1)
                 + self.item_biases(items).squeeze(1)
             )
-        elif self.hparams.stage in ('item_metadata_only', 'all') and self.user_metadata is None:
+        elif self.hparams.stage in ('metadata_only', 'all') and self.user_metadata is None:
             # TODO: remove self.device and let lightning do it
             item_metadata_output = self.item_metadata[items, :].to(self.device)
             if self.item_metadata_layers is not None:
@@ -480,7 +465,7 @@ class HybridModel(MultiStagePipeline):
                 + self.user_biases(users)
                 + self.item_biases(items)
             )
-        elif self.hparams.stage in ('user_metadata_only', 'all') and self.item_metadata is None:
+        elif self.hparams.stage in ('metadata_only', 'all') and self.item_metadata is None:
             # TODO: remove self.device and let lightning do it
             user_metadata_output = self.user_metadata[users, :].to(self.device)
             if self.user_metadata_layers is not None:
@@ -561,7 +546,7 @@ class HybridModel(MultiStagePipeline):
                    path: Union[str, Path] = os.path.join(DATA_PATH / 'model'),
                    overwrite: bool = False) -> None:
         """
-        Save the model's state dictionary, hyperparameters, and user and item metadata.
+        Save the model's state dictionary, hyperparameters, and user and/or item metadata.
 
         While PyTorch Lightning offers a way to save and load models, there are two main reasons
         for overriding these:
