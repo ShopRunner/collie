@@ -211,14 +211,14 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             self.hparams.num_epochs_completed = 0
 
             # ensure there are no nulls in ``item_metadata``
-            if 'item_metadata' in kwargs and kwargs.get('item_metadata') is not None:
+            if kwargs.get('item_metadata') is not None:
                 if torch.isnan(kwargs.get('item_metadata')).any():
                     raise ValueError(
                         '``item_metadata`` may not contain nulls'
                     )
 
             # ensure there are no nulls in ``user_metadata``
-            if 'user_metadata' in kwargs and kwargs.get('user_metadata') is not None:
+            if kwargs.get('user_metadata') is not None:
                 if torch.isnan(kwargs.get('user_metadata')).any():
                     raise ValueError(
                         '``user_metadata`` may not contain nulls'
