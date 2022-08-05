@@ -311,7 +311,7 @@ def get_user_metadata(df_user: pd.DataFrame = None) -> pd.DataFrame:
     .. code-block:: python
 
         [
-            'age', 'female', 'occupation_administrator', 'occupation_artist'
+            'age', 'gender', 'occupation_administrator', 'occupation_artist'
             'occupation_doctor', 'occupation_educator', 'occupation_engineer'
             'occupation_entertainment', 'occupation_executive'
             'occupation_healthcare', 'occupation_homemaker'
@@ -339,15 +339,15 @@ def get_user_metadata(df_user: pd.DataFrame = None) -> pd.DataFrame:
         df_user = read_movielens_df_user()
 
     # format user occupation
-    df_user_occupation = df_user.iloc[:, [3]].copy()
+    df_user_occupation = df_user['occupation'].copy()
     df_occupation = pd.get_dummies(df_user_occupation.occupation, prefix='occupation')
     df_occupation = df_occupation.sort_index(axis=1)
 
     # format user gender
-    df_user['female'] = df_user.gender.replace({'F': 1, 'M': 0})
+    df_user['gender'] = df_user.gender.replace({'F': 1, 'M': 0})
 
     # format final metadata structure
-    user_metadata_df = df_user[['age', 'female']].merge(df_occupation,
+    user_metadata_df = df_user[['age', 'gender']].merge(df_occupation,
                                                         left_index=True,
                                                         right_index=True)
     return user_metadata_df
