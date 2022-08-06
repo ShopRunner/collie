@@ -370,7 +370,7 @@ class HybridModel(MultiStagePipeline):
         self.user_metadata_layers = None
 
         if self.hparams.user_metadata_layers_dims is not None:
-            self._get_metadata_layer_dims(user_or_item_metadata='user')
+
             user_metadata_layers_dims = (
                 [self.hparams.user_metadata_num_cols] + self.hparams.user_metadata_layers_dims
             )
