@@ -339,7 +339,7 @@ def get_user_metadata(df_user: pd.DataFrame = None) -> pd.DataFrame:
         df_user = read_movielens_df_user()
 
     # format user occupation
-    df_user_occupation = df_user['occupation'].copy()
+    df_user_occupation = df_user[['occupation']].copy()
     df_occupation = pd.get_dummies(df_user_occupation.occupation, prefix='occupation')
     df_occupation = df_occupation.sort_index(axis=1)
 
