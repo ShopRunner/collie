@@ -915,12 +915,62 @@ def test_cold_start_stages_progression(train_val_implicit_data):
         model.set_stage('invalid_stage_name')
 
 
-def test_hybrid_model_stages_progression(train_val_implicit_data,
-                                         movielens_metadata_df,
-                                         user_metadata_df):
+def test_hybrid_model_stages_progression_item_metadata_only(train_val_implicit_data,
+                                                            movielens_metadata_df,
+                                                            user_metadata_df):
     train, val = train_val_implicit_data
 
     model = HybridModel(train=train, val=val, item_metadata=movielens_metadata_df)
+
+    assert model.hparams.stage == 'matrix_factorization'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'metadata_only'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'all'
+
+    with pytest.raises(ValueError):
+        model.advance_stage()
+
+    with pytest.raises(ValueError):
+        model.set_stage('invalid_stage_name')
+
+
+def test_hybrid_model_stages_progression_user_metadata_only(train_val_implicit_data,
+                                                            user_metadata_df):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train, val=val, user_metadata=user_metadata_df)
+
+    assert model.hparams.stage == 'matrix_factorization'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'metadata_only'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'all'
+
+    with pytest.raises(ValueError):
+        model.advance_stage()
+
+    with pytest.raises(ValueError):
+        model.set_stage('invalid_stage_name')
+
+
+def test_hybrid_model_stages_progression_all_metadata(train_val_implicit_data,
+                                                      movielens_metadata_df,
+                                                      user_metadata_df):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train,
+                        val=val,
+                        item_metadata=movielens_metadata_df,
+                        user_metadata=user_metadata_df)
 
     assert model.hparams.stage == 'matrix_factorization'
 
@@ -1072,7 +1122,7 @@ def test_bad_initialization_of_hybrid_model(movielens_metadata_df, train_val_imp
     train, val = train_val_implicit_data
 
     with pytest.raises(ValueError,
-                       match='Must provide item metadata or user metadata for ``HybridModel``.'):
+                       match='Must provide item metadata and/or user metadata for ``HybridModel``.'):
         HybridModel(train=train, val=val, item_metadata=None, user_metadata=None)
 
 
