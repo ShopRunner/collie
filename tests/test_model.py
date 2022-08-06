@@ -926,50 +926,7 @@ def test_hybrid_model_stages_progression(train_val_implicit_data,
 
     model.advance_stage()
 
-    assert model.hparams.stage == 'item_metadata_only'
-
-    model.advance_stage()
-
-    assert model.hparams.stage == 'all'
-
-    with pytest.raises(ValueError):
-        model.advance_stage()
-
-    with pytest.raises(ValueError):
-        model.set_stage('invalid_stage_name')
-
-    model = HybridModel(train=train, val=val, user_metadata=user_metadata_df)
-
-    assert model.hparams.stage == 'matrix_factorization'
-
-    model.advance_stage()
-
-    assert model.hparams.stage == 'user_metadata_only'
-
-    model.advance_stage()
-
-    assert model.hparams.stage == 'all'
-
-    with pytest.raises(ValueError):
-        model.advance_stage()
-
-    with pytest.raises(ValueError):
-        model.set_stage('invalid_stage_name')
-
-    model = HybridModel(train=train,
-                        val=val,
-                        item_metadata=movielens_metadata_df,
-                        user_metadata=user_metadata_df)
-
-    assert model.hparams.stage == 'matrix_factorization'
-
-    model.advance_stage()
-
-    assert model.hparams.stage == 'item_metadata_only'
-
-    model.advance_stage()
-
-    assert model.hparams.stage == 'user_metadata_only'
+    assert model.hparams.stage == 'metadata_only'
 
     model.advance_stage()
 
