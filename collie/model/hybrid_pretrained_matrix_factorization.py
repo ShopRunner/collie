@@ -309,12 +309,10 @@ class HybridPretrainedModel(BasePipeline):
 
         """
 
-        if self.item_metadata is not None:
-            if str(self.device) != str(self.item_metadata.device):
-                self._move_any_external_data_to_device()
-        if self.user_metadata is not None:
-            if str(self.device) != str(self.user_metadata.device):
-                self._move_any_external_data_to_device()
+        if ((self.item_metadata is not None and str(self.device) != str(self.item_metadata.device))
+            or (self.user_metadata is not None
+                and str(self.device) != str(self.user_metadata.device))):
+            self._move_any_external_data_to_device()
 
         if self.item_metadata is not None and self.user_metadata is not None:
             item_metadata_output = self.item_metadata[items, :]
