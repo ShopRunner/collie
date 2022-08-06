@@ -89,7 +89,7 @@ def test_get_user_metadata(user_metadata_df):
 
     expected_columns = [
         'age',
-        'female',
+        'gender',
         'occupation_administrator',
         'occupation_artist',
         'occupation_doctor',
