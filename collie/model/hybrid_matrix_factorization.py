@@ -2,6 +2,7 @@ from functools import partial
 import os
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
+from collections.abc import Iterable
 
 import joblib
 import warnings
@@ -230,65 +231,27 @@ class HybridModel(MultiStagePipeline):
                         'stage': 'matrix_factorization',
                     },
                 ]
-            if item_metadata is not None and user_metadata is not None:
-                optimizer_config_list = initial_optimizer_block + [
-                    {
-                        'lr': metadata_only_stage_lr,
-                        'optimizer': metadata_only_stage_optimizer,
-                        # optimize metadata layers only
-                        'parameter_prefix_list': [
-                            'item_metadata', 'user_metadata', 'combined', 'user_bias', 'item_bias'
-                        ],
-                        'stage': 'metadata_only',
-                    },
-                    {
-                        'lr': all_stage_lr,
-                        'optimizer': all_stage_optimizer,
-                        # optimize everything
-                        'parameter_prefix_list': [
-                            'user', 'item', 'item_metadata', 'user_metadata', 'combined'
-                        ],
-                        'stage': 'all',
-                    },
-                ]
-            elif user_metadata is not None:
-                optimizer_config_list = initial_optimizer_block + [
-                    {
-                        'lr': metadata_only_stage_lr,
-                        'optimizer': metadata_only_stage_optimizer,
-                        # optimize metadata layers only
-                        'parameter_prefix_list': [
-                            'user_metadata', 'combined', 'user_bias', 'item_bias'
-                        ],
-                        'stage': 'metadata_only',
-                    },
-                    {
-                        'lr': all_stage_lr,
-                        'optimizer': all_stage_optimizer,
-                        # optimize everything
-                        'parameter_prefix_list': ['user', 'item', 'user_metadata', 'combined'],
-                        'stage': 'all',
-                    },
-                ]
-            elif item_metadata is not None:
-                optimizer_config_list = initial_optimizer_block + [
-                    {
-                        'lr': metadata_only_stage_lr,
-                        'optimizer': metadata_only_stage_optimizer,
-                        # optimize metadata layers only
-                        'parameter_prefix_list': [
-                            'item_metadata', 'combined', 'user_bias', 'item_bias'
-                        ],
-                        'stage': 'metadata_only',
-                    },
-                    {
-                        'lr': all_stage_lr,
-                        'optimizer': all_stage_optimizer,
-                        # optimize everything
-                        'parameter_prefix_list': ['user', 'item', 'item_metadata', 'combined'],
-                        'stage': 'all',
-                    },
-                ]
+
+            optimizer_config_list = initial_optimizer_block + [
+                {
+                    'lr': metadata_only_stage_lr,
+                    'optimizer': metadata_only_stage_optimizer,
+                    # optimize metadata layers only
+                    'parameter_prefix_list': [
+                        'item_metadata', 'user_metadata', 'combined', 'user_bias', 'item_bias'
+                    ],
+                    'stage': 'metadata_only',
+                },
+                {
+                    'lr': all_stage_lr,
+                    'optimizer': all_stage_optimizer,
+                    # optimize everything
+                    'parameter_prefix_list': [
+                        'user', 'item', 'item_metadata', 'user_metadata', 'combined'
+                    ],
+                    'stage': 'all',
+                },
+            ]
 
         super().__init__(optimizer_config_list=optimizer_config_list,
                          item_metadata_num_cols=item_metadata_num_cols,
@@ -324,6 +287,48 @@ class HybridModel(MultiStagePipeline):
                                         map_location=map_location,
                                         **kwargs)
 
+    def _configure_metadata_layers(
+        self,
+        metadata_layers_attr: str,
+        metadata_layer_name: str,
+        metadata_layers_dims: Optional[Iterable],
+        num_metadata_cols: Optional[int],
+    ) -> None:
+        """
+        Configure metadata layers for either item or user data.
+
+        Parameters
+        ----------
+        metadata_layers_attr: str
+            Attribute name for the metadata layers (e.g. ``item_metadata_layers``)
+        metadata_layer_name: str
+            Name for the added module used in model construction (e.g. ``item_metadata_layer``).
+            Note that in the actual model, the name will be appended with an ``_`` and
+            a numbered index, starting at ``0``
+        metadata_layers_dims: list
+            List of dimensions for the hidden state of the metadata layers
+        num_metadata_cols: int
+            Number of columns in the metadata dataset
+
+        """
+        if metadata_layers_dims is not None:
+            full_metadata_layers_dims = (
+                [num_metadata_cols] + metadata_layers_dims
+            )
+
+            full_metadata_layers = [
+                nn.Linear(full_metadata_layers_dims[idx - 1], full_metadata_layers_dims[idx])
+                for idx in range(1, len(full_metadata_layers_dims))
+            ]
+
+            setattr(self, metadata_layers_attr, full_metadata_layers)
+
+            for i, layer in enumerate(getattr(self, metadata_layers_attr)):
+                nn.init.xavier_normal_(getattr(self, metadata_layers_attr)[i].weight)
+                self.add_module(f'{metadata_layer_name}_{i}', layer)
+
+            setattr(self, f'{metadata_layers_attr}_dims', full_metadata_layers_dims)
+
     def _setup_model(self, **kwargs) -> None:
         """
         Method for building model internals that rely on the data passed in.
@@ -350,39 +355,27 @@ class HybridModel(MultiStagePipeline):
         # set up item metadata-only layers
         item_metadata_output_dim = self.hparams.item_metadata_num_cols
         self.item_metadata_layers = None
-
         if self.hparams.item_metadata_layers_dims is not None:
-
-            item_metadata_layers_dims = (
-                [self.hparams.item_metadata_num_cols] + self.hparams.item_metadata_layers_dims
+            self._configure_metadata_layers(
+                metadata_layers_attr='item_metadata_layers',
+                metadata_layer_name='item_metadata_layer',
+                metadata_layers_dims=self.hparams.item_metadata_layers_dims,
+                num_metadata_cols=self.hparams.item_metadata_num_cols,
             )
-            self.item_metadata_layers = [
-                nn.Linear(item_metadata_layers_dims[idx - 1], item_metadata_layers_dims[idx])
-                for idx in range(1, len(item_metadata_layers_dims))
-            ]
-            for i, layer in enumerate(self.item_metadata_layers):
-                nn.init.xavier_normal_(self.item_metadata_layers[i].weight)
-                self.add_module('item_metadata_layer_{}'.format(i), layer)
+            item_metadata_output_dim = self.item_metadata_layers_dims[-1]
 
-            item_metadata_output_dim = item_metadata_layers_dims[-1]
         # set up user metadata-only layers
         user_metadata_output_dim = self.hparams.user_metadata_num_cols
         self.user_metadata_layers = None
-
         if self.hparams.user_metadata_layers_dims is not None:
-
-            user_metadata_layers_dims = (
-                [self.hparams.user_metadata_num_cols] + self.hparams.user_metadata_layers_dims
+            self._configure_metadata_layers(
+                metadata_layers_attr='user_metadata_layers',
+                metadata_layer_name='user_metadata_layer',
+                metadata_layers_dims=self.hparams.user_metadata_layers_dims,
+                num_metadata_cols=self.hparams.user_metadata_num_cols,
             )
-            self.user_metadata_layers = [
-                nn.Linear(user_metadata_layers_dims[idx - 1], user_metadata_layers_dims[idx])
-                for idx in range(1, len(user_metadata_layers_dims))
-            ]
-            for i, layer in enumerate(self.user_metadata_layers):
-                nn.init.xavier_normal_(self.user_metadata_layers[i].weight)
-                self.add_module('user_metadata_layer_{}'.format(i), layer)
+            user_metadata_output_dim = self.user_metadata_layers_dims[-1]
 
-            user_metadata_output_dim = user_metadata_layers_dims[-1]
         # set up combined layers depending on metadata inputs
         if item_metadata_output_dim is not None and user_metadata_output_dim is not None:
             combined_dimension_input = (
@@ -412,6 +405,43 @@ class HybridModel(MultiStagePipeline):
             nn.init.xavier_normal_(self.combined_layers[i].weight)
             self.add_module('combined_layer_{}'.format(i), layer)
 
+    def _calculate_metadata_output(
+        self,
+        metadata_type: str,
+        users: torch.tensor,
+        items: torch.tensor,
+    ) -> None:
+        """
+        Calculate metadata output for either item or user data.
+
+        Parameters
+        ----------
+        metadata_type: str
+            Metadata type, one of ``user`` or ``item``
+        users: tensor, 1-d
+            Array of user indices
+        items: tensor, 1-d
+            Array of item indices
+
+        """
+        # TODO: remove self.device and let lightning do it
+
+        metadata = getattr(self, f'{metadata_type}_metadata')
+        metadata_layers = getattr(self, f'{metadata_type}_metadata_layers')
+        if metadata_type == 'item':
+            metadata_output = metadata[items, :].to(self.device)
+        else:
+            metadata_output = metadata[users, :].to(self.device)
+        if metadata_layers is not None:
+            for metadata_nn_layer in metadata_layers:
+                metadata_output = self.dropout(
+                    F.leaky_relu(
+                        metadata_nn_layer(metadata_output)
+                    )
+                )
+
+        setattr(self, f'{metadata_type}_metadata_output', metadata_output)
+
     def forward(self, users: torch.tensor, items: torch.tensor) -> torch.tensor:
         """
         Forward pass through the model.
@@ -439,20 +469,16 @@ class HybridModel(MultiStagePipeline):
                 + self.item_biases(items).squeeze(1)
             )
         elif self.hparams.stage in ('metadata_only', 'all') and self.user_metadata is None:
-            # TODO: remove self.device and let lightning do it
-            item_metadata_output = self.item_metadata[items, :].to(self.device)
-            if self.item_metadata_layers is not None:
-                for metadata_nn_layer in self.item_metadata_layers:
-                    item_metadata_output = self.dropout(
-                        F.leaky_relu(
-                            metadata_nn_layer(item_metadata_output)
-                        )
-                    )
+            self._calculate_metadata_output(
+                metadata_type='item',
+                users=users,
+                items=items
+            )
 
             # TODO: make this matrix factorization instead of only a MLP
             combined_output = torch.cat((self.user_embeddings(users),
                                          self.item_embeddings(items),
-                                         item_metadata_output), 1)
+                                         self.item_metadata_output), 1)
             for combined_nn_layer in self.combined_layers[:-1]:
                 combined_output = self.dropout(
                     F.leaky_relu(
@@ -466,20 +492,16 @@ class HybridModel(MultiStagePipeline):
                 + self.item_biases(items)
             )
         elif self.hparams.stage in ('metadata_only', 'all') and self.item_metadata is None:
-            # TODO: remove self.device and let lightning do it
-            user_metadata_output = self.user_metadata[users, :].to(self.device)
-            if self.user_metadata_layers is not None:
-                for metadata_nn_layer in self.user_metadata_layers:
-                    user_metadata_output = self.dropout(
-                        F.leaky_relu(
-                            metadata_nn_layer(user_metadata_output)
-                        )
-                    )
+            self._calculate_metadata_output(
+                metadata_type='user',
+                users=users,
+                items=items
+            )
 
             # TODO: make this matrix factorization instead of only a MLP
             combined_output = torch.cat((self.user_embeddings(users),
                                          self.item_embeddings(items),
-                                         user_metadata_output), 1)
+                                         self.user_metadata_output), 1)
             for combined_nn_layer in self.combined_layers[:-1]:
                 combined_output = self.dropout(
                     F.leaky_relu(
@@ -493,31 +515,41 @@ class HybridModel(MultiStagePipeline):
                 + self.item_biases(items)
             )
         else:
+            self._calculate_metadata_output(
+                metadata_type='user',
+                users=users,
+                items=items
+            )
+            self._calculate_metadata_output(
+                metadata_type='item',
+                users=users,
+                items=items
+            )
             # TODO: remove self.device and let lightning do it
-            item_metadata_output = self.item_metadata[items, :].to(self.device)
-            if self.item_metadata_layers is not None:
-                for metadata_nn_layer in self.item_metadata_layers:
-                    item_metadata_output = self.dropout(
-                        F.leaky_relu(
-                            metadata_nn_layer(item_metadata_output)
-                        )
-                    )
+            #item_metadata_output = self.item_metadata[items, :].to(self.device)
+            #if self.item_metadata_layers is not None:
+            #    for metadata_nn_layer in self.item_metadata_layers:
+            #        item_metadata_output = self.dropout(
+            #            F.leaky_relu(
+            #                metadata_nn_layer(item_metadata_output)
+            #            )
+            #        )
 
             # TODO: remove self.device and let lightning do it
-            user_metadata_output = self.user_metadata[users, :].to(self.device)
-            if self.user_metadata_layers is not None:
-                for metadata_nn_layer in self.user_metadata_layers:
-                    user_metadata_output = self.dropout(
-                        F.leaky_relu(
-                            metadata_nn_layer(user_metadata_output)
-                        )
-                    )
+            #user_metadata_output = self.user_metadata[users, :].to(self.device)
+            #if self.user_metadata_layers is not None:
+            #    for metadata_nn_layer in self.user_metadata_layers:
+            #        user_metadata_output = self.dropout(
+            #            F.leaky_relu(
+            #                metadata_nn_layer(user_metadata_output)
+            #            )
+            #        )
 
             # TODO: make this matrix factorization instead of only a MLP
             combined_output = torch.cat((self.user_embeddings(users),
                                          self.item_embeddings(items),
-                                         item_metadata_output,
-                                         user_metadata_output), 1)
+                                         self.item_metadata_output,
+                                         self.user_metadata_output), 1)
             for combined_nn_layer in self.combined_layers[:-1]:
                 combined_output = self.dropout(
                     F.leaky_relu(
