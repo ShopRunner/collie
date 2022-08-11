@@ -340,7 +340,7 @@ class HybridPretrainedModel(BasePipeline):
         Returns
         -------
         metadata_output: tensor, 1-d
-            Metadata layer
+            Metadata output
 
         """
         # TODO: remove self.device and let lightning do it

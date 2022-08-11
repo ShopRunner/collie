@@ -354,8 +354,7 @@ class HybridModel(MultiStagePipeline):
         self.item_metadata_layers = None
         if self.hparams.item_metadata_layers_dims is not None:
             self._configure_metadata_layers(
-                metadata_layers_attr='item_metadata_layers',
-                metadata_layer_name='item_metadata_layer',
+                metadata_type='item',
                 metadata_layers_dims=self.hparams.item_metadata_layers_dims,
                 num_metadata_cols=self.hparams.item_metadata_num_cols,
             )
@@ -366,8 +365,7 @@ class HybridModel(MultiStagePipeline):
         self.user_metadata_layers = None
         if self.hparams.user_metadata_layers_dims is not None:
             self._configure_metadata_layers(
-                metadata_layers_attr='user_metadata_layers',
-                metadata_layer_name='user_metadata_layer',
+                metadata_type='user',
                 metadata_layers_dims=self.hparams.user_metadata_layers_dims,
                 num_metadata_cols=self.hparams.user_metadata_num_cols,
             )
@@ -423,7 +421,7 @@ class HybridModel(MultiStagePipeline):
         Returns
         -------
         metadata_output: tensor, 1-d
-            Metadata layer
+            Metadata output
         """
         # TODO: remove self.device and let lightning do it
 
