@@ -247,7 +247,7 @@ class HybridModel(MultiStagePipeline):
                     'optimizer': all_stage_optimizer,
                     # optimize everything
                     'parameter_prefix_list': [
-                        'user', 'item', 'item_metadata', 'user_metadata', 'combined'
+                        'user', 'item', 'combined'
                     ],
                     'stage': 'all',
                 },
@@ -289,8 +289,7 @@ class HybridModel(MultiStagePipeline):
 
     def _configure_metadata_layers(
         self,
-        metadata_layers_attr: str,
-        metadata_layer_name: str,
+        metadata_type: str,
         metadata_layers_dims: Optional[Iterable],
         num_metadata_cols: Optional[int],
     ) -> None:
@@ -299,12 +298,8 @@ class HybridModel(MultiStagePipeline):
 
         Parameters
         ----------
-        metadata_layers_attr: str
-            Attribute name for the metadata layers (e.g. ``item_metadata_layers``)
-        metadata_layer_name: str
-            Name for the added module used in model construction (e.g. ``item_metadata_layer``).
-            Note that in the actual model, the name will be appended with an ``_`` and
-            a numbered index, starting at ``0``
+        metadata_type: str
+            Metadata type, one of ``user`` or ``item``
         metadata_layers_dims: list
             List of dimensions for the hidden state of the metadata layers
         num_metadata_cols: int
@@ -321,13 +316,15 @@ class HybridModel(MultiStagePipeline):
                 for idx in range(1, len(full_metadata_layers_dims))
             ]
 
-            setattr(self, metadata_layers_attr, full_metadata_layers)
+            setattr(self, f'{metadata_type}_metadata_layers', full_metadata_layers)
 
-            for i, layer in enumerate(getattr(self, metadata_layers_attr)):
-                nn.init.xavier_normal_(getattr(self, metadata_layers_attr)[i].weight)
-                self.add_module(f'{metadata_layer_name}_{i}', layer)
+            for i, layer in enumerate(getattr(self, f'{metadata_type}_metadata_layers')):
+                nn.init.xavier_normal_(
+                    getattr(self, f'{metadata_type}_metadata_layers')[i].weight
+                )
+                self.add_module(f'{metadata_type}_metadata_layer_{i}', layer)
 
-            setattr(self, f'{metadata_layers_attr}_dims', full_metadata_layers_dims)
+            setattr(self, f'{metadata_type}_metadata_layers_dims', full_metadata_layers_dims)
 
     def _setup_model(self, **kwargs) -> None:
         """
@@ -410,7 +407,7 @@ class HybridModel(MultiStagePipeline):
         metadata_type: str,
         users: torch.tensor,
         items: torch.tensor,
-    ) -> None:
+    ) -> torch.tensor:
         """
         Calculate metadata output for either item or user data.
 
@@ -423,6 +420,10 @@ class HybridModel(MultiStagePipeline):
         items: tensor, 1-d
             Array of item indices
 
+        Returns
+        -------
+        metadata_output: tensor, 1-d
+            Metadata layer
         """
         # TODO: remove self.device and let lightning do it
 
@@ -432,6 +433,7 @@ class HybridModel(MultiStagePipeline):
             metadata_output = metadata[items, :].to(self.device)
         else:
             metadata_output = metadata[users, :].to(self.device)
+
         if metadata_layers is not None:
             for metadata_nn_layer in metadata_layers:
                 metadata_output = self.dropout(
@@ -439,8 +441,7 @@ class HybridModel(MultiStagePipeline):
                         metadata_nn_layer(metadata_output)
                     )
                 )
-
-        setattr(self, f'{metadata_type}_metadata_output', metadata_output)
+        return metadata_output
 
     def forward(self, users: torch.tensor, items: torch.tensor) -> torch.tensor:
         """
@@ -469,7 +470,7 @@ class HybridModel(MultiStagePipeline):
                 + self.item_biases(items).squeeze(1)
             )
         elif self.hparams.stage in ('metadata_only', 'all') and self.user_metadata is None:
-            self._calculate_metadata_output(
+            item_metadata_output = self._calculate_metadata_output(
                 metadata_type='item',
                 users=users,
                 items=items
@@ -478,7 +479,7 @@ class HybridModel(MultiStagePipeline):
             # TODO: make this matrix factorization instead of only a MLP
             combined_output = torch.cat((self.user_embeddings(users),
                                          self.item_embeddings(items),
-                                         self.item_metadata_output), 1)
+                                         item_metadata_output), 1)
             for combined_nn_layer in self.combined_layers[:-1]:
                 combined_output = self.dropout(
                     F.leaky_relu(
@@ -492,16 +493,16 @@ class HybridModel(MultiStagePipeline):
                 + self.item_biases(items)
             )
         elif self.hparams.stage in ('metadata_only', 'all') and self.item_metadata is None:
-            self._calculate_metadata_output(
+            user_metadata_output = self._calculate_metadata_output(
                 metadata_type='user',
                 users=users,
                 items=items
             )
 
             # TODO: make this matrix factorization instead of only a MLP
-            combined_output = torch.cat((self.user_embeddings(users),
-                                         self.item_embeddings(items),
-                                         self.user_metadata_output), 1)
+            combined_output = torch.cat((user_metadata_output,
+                                         self.user_embeddings(users),
+                                         self.item_embeddings(items)), 1)
             for combined_nn_layer in self.combined_layers[:-1]:
                 combined_output = self.dropout(
                     F.leaky_relu(
@@ -515,41 +516,22 @@ class HybridModel(MultiStagePipeline):
                 + self.item_biases(items)
             )
         else:
-            self._calculate_metadata_output(
+            item_metadata_output = self._calculate_metadata_output(
                 metadata_type='user',
                 users=users,
                 items=items
             )
-            self._calculate_metadata_output(
+            user_metadata_output = self._calculate_metadata_output(
                 metadata_type='item',
                 users=users,
                 items=items
             )
-            # TODO: remove self.device and let lightning do it
-            #item_metadata_output = self.item_metadata[items, :].to(self.device)
-            #if self.item_metadata_layers is not None:
-            #    for metadata_nn_layer in self.item_metadata_layers:
-            #        item_metadata_output = self.dropout(
-            #            F.leaky_relu(
-            #                metadata_nn_layer(item_metadata_output)
-            #            )
-            #        )
-
-            # TODO: remove self.device and let lightning do it
-            #user_metadata_output = self.user_metadata[users, :].to(self.device)
-            #if self.user_metadata_layers is not None:
-            #    for metadata_nn_layer in self.user_metadata_layers:
-            #        user_metadata_output = self.dropout(
-            #            F.leaky_relu(
-            #                metadata_nn_layer(user_metadata_output)
-            #            )
-            #        )
 
             # TODO: make this matrix factorization instead of only a MLP
-            combined_output = torch.cat((self.user_embeddings(users),
+            combined_output = torch.cat((user_metadata_output,
+                                         self.user_embeddings(users),
                                          self.item_embeddings(items),
-                                         self.item_metadata_output,
-                                         self.user_metadata_output), 1)
+                                         item_metadata_output), 1)
             for combined_nn_layer in self.combined_layers[:-1]:
                 combined_output = self.dropout(
                     F.leaky_relu(
