@@ -4,7 +4,7 @@ from functools import partial
 import os
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Union
-from collections.abc import Iterable
+from typing import Iterable
 
 import joblib
 import warnings
@@ -183,7 +183,7 @@ class HybridPretrainedModel(BasePipeline):
     def _configure_metadata_layers(
         self,
         metadata_type: str,
-        metadata_layers_dims: Optional[Iterable],
+        metadata_layers_dims: Optional[Iterable[int]],
         num_metadata_cols: Optional[int],
     ) -> None:
         """
