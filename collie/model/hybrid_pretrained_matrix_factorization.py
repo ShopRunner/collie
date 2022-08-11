@@ -324,7 +324,7 @@ class HybridPretrainedModel(BasePipeline):
         metadata_type: str,
         users: torch.tensor,
         items: torch.tensor,
-    ) -> None:
+    ) -> torch.tensor:
         """
         Calculate metadata output for either item or user data.
 
@@ -337,6 +337,11 @@ class HybridPretrainedModel(BasePipeline):
         items: tensor, 1-d
             Array of item indices
 
+        Returns
+        -------
+        metadata_output: tensor, 1-d
+            Metadata layer
+
         """
         # TODO: remove self.device and let lightning do it
 
@@ -346,6 +351,7 @@ class HybridPretrainedModel(BasePipeline):
             metadata_output = metadata[items, :].to(self.device)
         else:
             metadata_output = metadata[users, :].to(self.device)
+
         if metadata_layers is not None:
             for metadata_nn_layer in metadata_layers:
                 metadata_output = self.dropout(
@@ -353,8 +359,7 @@ class HybridPretrainedModel(BasePipeline):
                         metadata_nn_layer(metadata_output)
                     )
                 )
-
-        setattr(self, f'{metadata_type}_metadata_output', metadata_output)
+        return metadata_output
 
     def forward(self, users: torch.tensor, items: torch.tensor) -> torch.tensor:
         """
@@ -384,22 +389,22 @@ class HybridPretrainedModel(BasePipeline):
             self._move_any_external_data_to_device()
 
         if self.item_metadata is not None and self.user_metadata is not None:
-            self._calculate_metadata_output(
+            user_metadata_output = self._calculate_metadata_output(
                 metadata_type='user',
                 users=users,
                 items=items
             )
 
-            self._calculate_metadata_output(
+            item_metadata_output = self._calculate_metadata_output(
                 metadata_type='item',
                 users=users,
                 items=items
             )
 
-            combined_output = torch.cat((self.embeddings[0](users),
+            combined_output = torch.cat((user_metadata_output,
+                                         self.embeddings[0](users),
                                          self.embeddings[1](items),
-                                         self.item_metadata_output,
-                                         self.user_metadata_output), 1)
+                                         item_metadata_output), 1)
             for combined_nn_layer in self.combined_layers[:-1]:
                 combined_output = self.dropout(
                     F.leaky_relu(
@@ -408,7 +413,7 @@ class HybridPretrainedModel(BasePipeline):
                 )
 
         elif self.item_metadata is not None:
-            self._calculate_metadata_output(
+            item_metadata_output = self._calculate_metadata_output(
                 metadata_type='item',
                 users=users,
                 items=items
@@ -416,7 +421,7 @@ class HybridPretrainedModel(BasePipeline):
 
             combined_output = torch.cat((self.embeddings[0](users),
                                          self.embeddings[1](items),
-                                         self.item_metadata_output), 1)
+                                         item_metadata_output), 1)
             for combined_nn_layer in self.combined_layers[:-1]:
                 combined_output = self.dropout(
                     F.leaky_relu(
@@ -425,15 +430,15 @@ class HybridPretrainedModel(BasePipeline):
                 )
 
         elif self.user_metadata is not None:
-            self._calculate_metadata_output(
+            user_metadata_output = self._calculate_metadata_output(
                 metadata_type='user',
                 users=users,
                 items=items
             )
 
-            combined_output = torch.cat((self.embeddings[0](users),
-                                         self.embeddings[1](items),
-                                         self.user_metadata_output), 1)
+            combined_output = torch.cat((user_metadata_output,
+                                         self.embeddings[0](users),
+                                         self.embeddings[1](items)), 1)
             for combined_nn_layer in self.combined_layers[:-1]:
                 combined_output = self.dropout(
                     F.leaky_relu(
