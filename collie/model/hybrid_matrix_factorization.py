@@ -62,7 +62,9 @@ class HybridModel(MultiStagePipeline):
 
 
         # instantiate and fit a ``HybridModel`` as expected
-        model = HybridModel(train=train, item_metadata=item_metadata)
+        model = HybridModel(train=train,
+                            item_metadata=item_metadata,
+                            user_metadata=user_metadata)
         trainer = CollieTrainer(model)
         trainer.fit(model)
 

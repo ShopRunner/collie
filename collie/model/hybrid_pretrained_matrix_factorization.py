@@ -51,6 +51,7 @@ class HybridPretrainedModel(BasePipeline):
 
         hybrid_model = HybridPretrainedModel(train=train,
                                              item_metadata=item_metadata,
+                                             user_metadata=user_metadata,
                                              trained_model=mf_model)
         hybrid_trainer = CollieTrainer(hybrid_model)
         hybrid_trainer.fit(hybrid_model)
