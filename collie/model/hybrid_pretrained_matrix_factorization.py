@@ -3,8 +3,7 @@ import copy
 from functools import partial
 import os
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
-from typing import Iterable
+from typing import Callable, Dict, List, Optional, Union, Iterable
 
 import joblib
 import warnings
@@ -192,7 +191,9 @@ class HybridPretrainedModel(BasePipeline):
         Parameters
         ----------
         metadata_type: str
-            Metadata type, one of ``user`` or ``item``
+            Metadata type, one of ``user`` or ``item``. It is used to set
+            the attributes ``{metadata_type}_metadata_layers`` and
+            ``{metadata_type}_metadata_layers_dims``
         metadata_layers_dims: list
             List of dimensions for the hidden state of the metadata layers
         num_metadata_cols: int
