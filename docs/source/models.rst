@@ -34,7 +34,7 @@ While each model's API differs slightly, generally, the training procedure for e
 
 When we have side-data about items, this can be incorporated directly into the loss function of the model. For details on this, see :ref:`Losses`.
 
-Hybrid Collie models also allow incorporating this side-data directly into the model. For an in-depth example of this, see :ref:`Tutorials`.
+Hybrid Collie models allow incorporating side-data about items and/or users directly into the model. For an in-depth example of this, see :ref:`Tutorials`.
 
 **Creating a Custom Architecture**
 
