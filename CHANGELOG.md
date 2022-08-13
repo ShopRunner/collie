@@ -11,7 +11,6 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 - Added ``item_metadata_layers_dims`` and ``user_metadata_layers_dims`` parameters to ``HybridPretrainedModel`` and ``HybridModel`` and deprecated ``metadata_layers_dims``
 - Updated notebooks and examples to include usage of ``user_metadata``
 
-
 # [1.2.2] - 2022-7-14
 ### Fixed
  - a ``Value Error`` is now raised when ``item_metadata`` contains nulls
