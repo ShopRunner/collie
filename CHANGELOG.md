@@ -3,6 +3,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
+# [1.2.3] - 2022-8-13
+### Added
+ - movielens ``get_data.py`` now includes ``get_user_metadata``
+ - ``HybridModel`` and ``HybridPretrainedModel`` now take additional optional parameters ``user_metadata`` and ``user_metadata_layers_dims``
+### Changed
+- Added ``item_metadata_layers_dims`` and ``user_metadata_layers_dims`` parameters to ``HybridPretrainedModel`` and ``HybridModel`` and deprecated ``metadata_layers_dims``
+- Updated notebooks and examples to include usage of ``user_metadata``
+
+
 # [1.2.2] - 2022-7-14
 ### Fixed
  - a ``Value Error`` is now raised when ``item_metadata`` contains nulls
