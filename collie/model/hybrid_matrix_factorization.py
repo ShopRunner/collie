@@ -1,9 +1,10 @@
 from functools import partial
 import os
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Union
+from typing import Callable, Dict, List, Optional, Union, Iterable
 
 import joblib
+import warnings
 import numpy as np
 import pandas as pd
 import torch
@@ -31,13 +32,15 @@ class HybridModel(MultiStagePipeline):
     """
     Training pipeline for a multi-stage hybrid recommendation model.
 
-    ``HybridModel`` models contain dense layers that process item metadata, concatenate this
-    embedding with user and item embeddings, sending this concatenated embedding through more dense
-    layers to output a single float ranking / rating. We add both user and item biases to this score
-    before returning. This is the same architecture as the ``HybridPretrainedModel``, but we are
-    training the embeddings ourselves rather than relying on pulling this from a pre-trained model.
+    ``HybridModel`` models contain dense layers that process item and/or user metadata, concatenate
+    this embedding with user and item embeddings, sending this concatenated embedding through more
+    dense layers to output a single float ranking / rating. We add both user and item biases to
+    this score before returning. This is the same architecture as the ``HybridPretrainedModel``,
+    but we are training the embeddings ourselves rather than relying on pulling this from a
+    pre-trained model.
 
-    The stages in a ``HybridModel`` are, in order:
+    The stages in a ``HybridModel`` depend on whether both item and user metadata is used.
+    For the full model, they are, in order:
 
     1. ``matrix_factorization``
         Matrix factorization exactly as we do in ``MatrixFactorizationModel``. In this stage,
@@ -59,7 +62,9 @@ class HybridModel(MultiStagePipeline):
 
 
         # instantiate and fit a ``HybridModel`` as expected
-        model = HybridModel(train=train, item_metadata=item_metadata)
+        model = HybridModel(train=train,
+                            item_metadata=item_metadata,
+                            user_metadata=user_metadata)
         trainer = CollieTrainer(model)
         trainer.fit(model)
 
@@ -92,12 +97,19 @@ class HybridModel(MultiStagePipeline):
     item_metadata: torch.tensor, pd.DataFrame, or np.array, 2-dimensional
         The shape of the item metadata should be (num_items x metadata_features), and each item's
         metadata should be available when indexing a row by an item ID
+    user_metadata: torch.tensor, pd.DataFrame, or np.array, 2-dimensional
+        The shape of the user metadata should be (num_users x metadata_features), and each user's
+        metadata should be available when indexing a row by a user ID
     embedding_dim: int
         Number of latent factors to use for user and item embeddings
-    metadata_layers_dims: list
-        List of linear layer dimensions to apply to the metadata only, starting with the dimension
-        directly following ``metadata_features`` and ending with the dimension to concatenate with
-        the item embeddings
+    item_metadata_layers_dims: list
+        List of linear layer dimensions to apply to the item metadata only, starting with
+        the dimension directly following ``item_metadata_features`` and ending with the
+        dimension to concatenate with the item embeddings
+    user_metadata_layers_dims: list
+        List of linear layer dimensions to apply to the user metadata only, starting with
+        the dimension directly following ``user_metadata_features`` and ending with the
+        dimension to concatenate with the user embeddings
     combined_layers_dims: list
         List of linear layer dimensions to apply to the concatenated item embeddings and item
         metadata, starting with the dimension directly following the shape of
@@ -138,8 +150,10 @@ class HybridModel(MultiStagePipeline):
                  train: INTERACTIONS_LIKE_INPUT = None,
                  val: INTERACTIONS_LIKE_INPUT = None,
                  item_metadata: Union[torch.tensor, pd.DataFrame, np.array] = None,
+                 user_metadata: Union[torch.tensor, pd.DataFrame, np.array] = None,
                  embedding_dim: int = 30,
-                 metadata_layers_dims: Optional[List[int]] = None,
+                 item_metadata_layers_dims: Optional[List[int]] = None,
+                 user_metadata_layers_dims: Optional[List[int]] = None,
                  combined_layers_dims: List[int] = [128, 64, 32],
                  dropout_p: float = 0.0,
                  lr: float = 1e-3,
@@ -162,19 +176,30 @@ class HybridModel(MultiStagePipeline):
                  load_model_path: Optional[str] = None,
                  map_location: Optional[str] = None):
         item_metadata_num_cols = None
+        user_metadata_num_cols = None
         optimizer_config_list = None
 
         if load_model_path is None:
-            if item_metadata is None:
-                raise ValueError('Must provide item metadata for ``HybridPretrainedModel``.')
-            elif isinstance(item_metadata, pd.DataFrame):
-                item_metadata = torch.from_numpy(item_metadata.to_numpy())
-            elif isinstance(item_metadata, np.ndarray):
-                item_metadata = torch.from_numpy(item_metadata)
+            if item_metadata is None and user_metadata is None:
+                raise ValueError(
+                    'Must provide item metadata and/or user metadata for ``HybridModel``.'
+                )
 
-            item_metadata = item_metadata.float()
+            if item_metadata is not None:
+                if isinstance(item_metadata, pd.DataFrame):
+                    item_metadata = torch.from_numpy(item_metadata.to_numpy())
+                elif isinstance(item_metadata, np.ndarray):
+                    item_metadata = torch.from_numpy(item_metadata)
+                item_metadata = item_metadata.float()
+                item_metadata_num_cols = item_metadata.shape[1]
 
-            item_metadata_num_cols = item_metadata.shape[1]
+            if user_metadata is not None:
+                if isinstance(user_metadata, pd.DataFrame):
+                    user_metadata = torch.from_numpy(user_metadata.to_numpy())
+                elif isinstance(user_metadata, np.ndarray):
+                    user_metadata = torch.from_numpy(user_metadata)
+                user_metadata = user_metadata.float()
+                user_metadata_num_cols = user_metadata.shape[1]
 
             if bias_optimizer is not None:
                 initial_optimizer_block = [
@@ -213,35 +238,96 @@ class HybridModel(MultiStagePipeline):
                     'lr': metadata_only_stage_lr,
                     'optimizer': metadata_only_stage_optimizer,
                     # optimize metadata layers only
-                    'parameter_prefix_list': ['metadata', 'combined', 'user_bias', 'item_bias'],
+                    'parameter_prefix_list': [
+                        'item_metadata', 'user_metadata', 'combined', 'user_bias', 'item_bias'
+                    ],
                     'stage': 'metadata_only',
                 },
                 {
                     'lr': all_stage_lr,
                     'optimizer': all_stage_optimizer,
                     # optimize everything
-                    'parameter_prefix_list': ['user', 'item', 'metadata', 'combined'],
+                    'parameter_prefix_list': [
+                        'user', 'item', 'combined'
+                    ],
                     'stage': 'all',
                 },
             ]
 
         super().__init__(optimizer_config_list=optimizer_config_list,
                          item_metadata_num_cols=item_metadata_num_cols,
+                         user_metadata_num_cols=user_metadata_num_cols,
                          **get_init_arguments())
 
     __doc__ = merge_docstrings(MultiStagePipeline, __doc__, __init__)
 
     def _move_any_external_data_to_device(self):
-        """Move item metadata to the device before training."""
-        self.item_metadata = self.item_metadata.to(self.device)
+        """Move item and user metadata to the device before training."""
+        if self.item_metadata is not None:
+            self.item_metadata = self.item_metadata.to(self.device)
+        if self.user_metadata is not None:
+            self.user_metadata = self.user_metadata.to(self.device)
 
     def _load_model_init_helper(self, load_model_path: str, map_location: str, **kwargs) -> None:
-        self.item_metadata = (
-            joblib.load(os.path.join(load_model_path, 'metadata.pkl'))
-        )
+        try:
+            self.item_metadata = (
+                joblib.load(os.path.join(load_model_path, 'item_metadata.pkl'))
+            )
+        except FileNotFoundError:
+            if self.hparams.item_metadata_layers_dims is not None:
+                warnings.warn('```item_metadata.pkl`` not found')
+        try:
+            self.user_metadata = (
+                joblib.load(os.path.join(load_model_path, 'user_metadata.pkl'))
+            )
+        except FileNotFoundError:
+            if self.hparams.user_metadata_layers_dims is not None:
+                warnings.warn('``user_metadata.pkl`` not found')
+
         super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
                                         map_location=map_location,
                                         **kwargs)
+
+    def _configure_metadata_layers(
+        self,
+        metadata_type: str,
+        metadata_layers_dims: Optional[Iterable[int]],
+        num_metadata_cols: Optional[int],
+    ) -> None:
+        """
+        Configure metadata layers for either item or user data.
+
+        Parameters
+        ----------
+        metadata_type: str
+            Metadata type, one of ``user`` or ``item``. It is used to set
+            the attributes ``{metadata_type}_metadata_layers`` and
+            ``{metadata_type}_metadata_layers_dims``
+        metadata_layers_dims: list
+            List of dimensions for the hidden state of the metadata layers
+        num_metadata_cols: int
+            Number of columns in the metadata dataset
+
+        """
+        if metadata_layers_dims is not None:
+            full_metadata_layers_dims = (
+                [num_metadata_cols] + metadata_layers_dims
+            )
+
+            full_metadata_layers = [
+                nn.Linear(full_metadata_layers_dims[idx - 1], full_metadata_layers_dims[idx])
+                for idx in range(1, len(full_metadata_layers_dims))
+            ]
+
+            setattr(self, f'{metadata_type}_metadata_layers', full_metadata_layers)
+
+            for i, layer in enumerate(getattr(self, f'{metadata_type}_metadata_layers')):
+                nn.init.xavier_normal_(
+                    getattr(self, f'{metadata_type}_metadata_layers')[i].weight
+                )
+                self.add_module(f'{metadata_type}_metadata_layer_{i}', layer)
+
+            setattr(self, f'{metadata_type}_metadata_layers_dims', full_metadata_layers_dims)
 
     def _setup_model(self, **kwargs) -> None:
         """
@@ -251,8 +337,10 @@ class HybridModel(MultiStagePipeline):
 
         """
         if self.hparams.load_model_path is None:
-            if not hasattr(self, 'item_metadata'):
+            if 'item_metadata' in kwargs:
                 self.item_metadata = kwargs.pop('item_metadata')
+            if 'user_metadata' in kwargs:
+                self.user_metadata = kwargs.pop('user_metadata')
 
         self.user_biases = ZeroEmbedding(num_embeddings=self.hparams.num_users,
                                          embedding_dim=1)
@@ -264,29 +352,48 @@ class HybridModel(MultiStagePipeline):
                                                embedding_dim=self.hparams.embedding_dim)
         self.dropout = nn.Dropout(p=self.hparams.dropout_p)
 
-        # set up metadata-only layers
-        metadata_output_dim = self.hparams.item_metadata_num_cols
-        self.metadata_layers = None
-        if self.hparams.metadata_layers_dims is not None:
-            metadata_layers_dims = (
-                [self.hparams.item_metadata_num_cols] + self.hparams.metadata_layers_dims
+        # set up item metadata-only layers
+        item_metadata_output_dim = self.hparams.item_metadata_num_cols
+        self.item_metadata_layers = None
+        if self.hparams.item_metadata_layers_dims is not None:
+            self._configure_metadata_layers(
+                metadata_type='item',
+                metadata_layers_dims=self.hparams.item_metadata_layers_dims,
+                num_metadata_cols=self.hparams.item_metadata_num_cols,
             )
-            self.metadata_layers = [
-                nn.Linear(metadata_layers_dims[idx - 1], metadata_layers_dims[idx])
-                for idx in range(1, len(metadata_layers_dims))
-            ]
-            for i, layer in enumerate(self.metadata_layers):
-                nn.init.xavier_normal_(self.metadata_layers[i].weight)
-                self.add_module('metadata_layer_{}'.format(i), layer)
+            item_metadata_output_dim = self.item_metadata_layers_dims[-1]
 
-            metadata_output_dim = metadata_layers_dims[-1]
+        # set up user metadata-only layers
+        user_metadata_output_dim = self.hparams.user_metadata_num_cols
+        self.user_metadata_layers = None
+        if self.hparams.user_metadata_layers_dims is not None:
+            self._configure_metadata_layers(
+                metadata_type='user',
+                metadata_layers_dims=self.hparams.user_metadata_layers_dims,
+                num_metadata_cols=self.hparams.user_metadata_num_cols,
+            )
+            user_metadata_output_dim = self.user_metadata_layers_dims[-1]
 
-        # set up combined layers
-        combined_dimension_input = (
-            self.user_embeddings.embedding_dim
-            + self.item_embeddings.embedding_dim
-            + metadata_output_dim
-        )
+        # set up combined layers depending on metadata inputs
+        if item_metadata_output_dim is not None and user_metadata_output_dim is not None:
+            combined_dimension_input = (
+                user_metadata_output_dim
+                + self.user_embeddings.embedding_dim
+                + self.item_embeddings.embedding_dim
+                + item_metadata_output_dim
+            )
+        elif item_metadata_output_dim is not None:
+            combined_dimension_input = (
+                self.user_embeddings.embedding_dim
+                + self.item_embeddings.embedding_dim
+                + item_metadata_output_dim
+            )
+        elif user_metadata_output_dim is not None:
+            combined_dimension_input = (
+                user_metadata_output_dim
+                + self.user_embeddings.embedding_dim
+                + self.item_embeddings.embedding_dim
+            )
         combined_layers_dims = [combined_dimension_input] + self.hparams.combined_layers_dims + [1]
         self.combined_layers = [
             nn.Linear(combined_layers_dims[idx - 1], combined_layers_dims[idx])
@@ -295,6 +402,47 @@ class HybridModel(MultiStagePipeline):
         for i, layer in enumerate(self.combined_layers):
             nn.init.xavier_normal_(self.combined_layers[i].weight)
             self.add_module('combined_layer_{}'.format(i), layer)
+
+    def _calculate_metadata_output(
+        self,
+        metadata_type: str,
+        users: torch.tensor,
+        items: torch.tensor,
+    ) -> torch.tensor:
+        """
+        Calculate metadata output for either item or user data.
+
+        Parameters
+        ----------
+        metadata_type: str
+            Metadata type, one of ``user`` or ``item``
+        users: tensor, 1-d
+            Array of user indices
+        items: tensor, 1-d
+            Array of item indices
+
+        Returns
+        -------
+        metadata_output: tensor, 1-d
+            Metadata output
+        """
+        # TODO: remove self.device and let lightning do it
+
+        metadata = getattr(self, f'{metadata_type}_metadata')
+        metadata_layers = getattr(self, f'{metadata_type}_metadata_layers')
+        if metadata_type == 'item':
+            metadata_output = metadata[items, :].to(self.device)
+        else:
+            metadata_output = metadata[users, :].to(self.device)
+
+        if metadata_layers is not None:
+            for metadata_nn_layer in metadata_layers:
+                metadata_output = self.dropout(
+                    F.leaky_relu(
+                        metadata_nn_layer(metadata_output)
+                    )
+                )
+        return metadata_output
 
     def forward(self, users: torch.tensor, items: torch.tensor) -> torch.tensor:
         """
@@ -322,21 +470,17 @@ class HybridModel(MultiStagePipeline):
                 + self.user_biases(users).squeeze(1)
                 + self.item_biases(items).squeeze(1)
             )
-        else:
-            # TODO: remove self.device and let lightning do it
-            metadata_output = self.item_metadata[items, :].to(self.device)
-            if self.metadata_layers is not None:
-                for metadata_nn_layer in self.metadata_layers:
-                    metadata_output = self.dropout(
-                        F.leaky_relu(
-                            metadata_nn_layer(metadata_output)
-                        )
-                    )
+        elif self.hparams.stage in ('metadata_only', 'all') and self.user_metadata is None:
+            item_metadata_output = self._calculate_metadata_output(
+                metadata_type='item',
+                users=users,
+                items=items
+            )
 
             # TODO: make this matrix factorization instead of only a MLP
             combined_output = torch.cat((self.user_embeddings(users),
                                          self.item_embeddings(items),
-                                         metadata_output), 1)
+                                         item_metadata_output), 1)
             for combined_nn_layer in self.combined_layers[:-1]:
                 combined_output = self.dropout(
                     F.leaky_relu(
@@ -349,7 +493,58 @@ class HybridModel(MultiStagePipeline):
                 + self.user_biases(users)
                 + self.item_biases(items)
             )
+        elif self.hparams.stage in ('metadata_only', 'all') and self.item_metadata is None:
+            user_metadata_output = self._calculate_metadata_output(
+                metadata_type='user',
+                users=users,
+                items=items
+            )
 
+            # TODO: make this matrix factorization instead of only a MLP
+            combined_output = torch.cat((user_metadata_output,
+                                         self.user_embeddings(users),
+                                         self.item_embeddings(items)), 1)
+            for combined_nn_layer in self.combined_layers[:-1]:
+                combined_output = self.dropout(
+                    F.leaky_relu(
+                        combined_nn_layer(combined_output)
+                    )
+                )
+
+            pred_scores = (
+                self.combined_layers[-1](combined_output)
+                + self.user_biases(users)
+                + self.item_biases(items)
+            )
+        else:
+            item_metadata_output = self._calculate_metadata_output(
+                metadata_type='user',
+                users=users,
+                items=items
+            )
+            user_metadata_output = self._calculate_metadata_output(
+                metadata_type='item',
+                users=users,
+                items=items
+            )
+
+            # TODO: make this matrix factorization instead of only a MLP
+            combined_output = torch.cat((user_metadata_output,
+                                         self.user_embeddings(users),
+                                         self.item_embeddings(items),
+                                         item_metadata_output), 1)
+            for combined_nn_layer in self.combined_layers[:-1]:
+                combined_output = self.dropout(
+                    F.leaky_relu(
+                        combined_nn_layer(combined_output)
+                    )
+                )
+
+            pred_scores = (
+                self.combined_layers[-1](combined_output)
+                + self.user_biases(users)
+                + self.item_biases(items)
+            )
         return pred_scores.squeeze()
 
     def _get_item_embeddings(self) -> torch.tensor:
@@ -366,7 +561,7 @@ class HybridModel(MultiStagePipeline):
                    path: Union[str, Path] = os.path.join(DATA_PATH / 'model'),
                    overwrite: bool = False) -> None:
         """
-        Save the model's state dictionary, hyperparameters, and item metadata.
+        Save the model's state dictionary, hyperparameters, and user and/or item metadata.
 
         While PyTorch Lightning offers a way to save and load models, there are two main reasons
         for overriding these:
@@ -393,6 +588,10 @@ class HybridModel(MultiStagePipeline):
                 raise ValueError(f'Data exists in ``path`` at {path} and ``overwrite`` is False.')
 
         Path(path).mkdir(parents=True, exist_ok=True)
-        joblib.dump(self.item_metadata, os.path.join(path, 'metadata.pkl'))
+        if self.item_metadata is not None:
+            joblib.dump(self.item_metadata, os.path.join(path, 'item_metadata.pkl'))
+
+        if self.user_metadata is not None:
+            joblib.dump(self.user_metadata, os.path.join(path, 'user_metadata.pkl'))
 
         super().save_model(filename=os.path.join(path, 'model.pth'))
