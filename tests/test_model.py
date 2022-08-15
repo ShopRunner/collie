@@ -1122,7 +1122,7 @@ def test_bad_initialization_of_hybrid_model(movielens_metadata_df, train_val_imp
     train, val = train_val_implicit_data
 
     with pytest.raises(ValueError,
-                       match='Must provide item metadata and/or user metadata for ``HybridModel``.'):
+                       match='Must provide item metadata and/or user metadata for ``HybridModel``'):
         HybridModel(train=train, val=val, item_metadata=None, user_metadata=None)
 
 
