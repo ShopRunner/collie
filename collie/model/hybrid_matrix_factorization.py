@@ -275,7 +275,8 @@ class HybridModel(MultiStagePipeline):
             )
         except FileNotFoundError:
             if self.hparams.item_metadata_layers_dims is not None:
-                warnings.warn('```item_metadata.pkl`` not found')
+                warnings.warn('``item_metadata.pkl`` not found')
+
         try:
             self.user_metadata = (
                 joblib.load(os.path.join(load_model_path, 'user_metadata.pkl'))
@@ -327,7 +328,9 @@ class HybridModel(MultiStagePipeline):
                 )
                 self.add_module(f'{metadata_type}_metadata_layer_{i}', layer)
 
-            setattr(self, f'{metadata_type}_metadata_layers_dims', full_metadata_layers_dims)
+            setattr(self,
+                    f'{metadata_type}_metadata_layers_dims',
+                    full_metadata_layers_dims)
 
     def _setup_model(self, **kwargs) -> None:
         """
@@ -403,11 +406,10 @@ class HybridModel(MultiStagePipeline):
             nn.init.xavier_normal_(self.combined_layers[i].weight)
             self.add_module('combined_layer_{}'.format(i), layer)
 
-    def _calculate_metadata_output(
+    def _compute_metadata_output(
         self,
         metadata_type: str,
-        users: torch.tensor,
-        items: torch.tensor,
+        ids: torch.tensor,
     ) -> torch.tensor:
         """
         Calculate metadata output for either item or user data.
@@ -416,10 +418,8 @@ class HybridModel(MultiStagePipeline):
         ----------
         metadata_type: str
             Metadata type, one of ``user`` or ``item``
-        users: tensor, 1-d
-            Array of user indices
-        items: tensor, 1-d
-            Array of item indices
+        ids: tensor, 1-d
+            Array of user indices or item indices
 
         Returns
         -------
@@ -430,10 +430,7 @@ class HybridModel(MultiStagePipeline):
 
         metadata = getattr(self, f'{metadata_type}_metadata')
         metadata_layers = getattr(self, f'{metadata_type}_metadata_layers')
-        if metadata_type == 'item':
-            metadata_output = metadata[items, :].to(self.device)
-        else:
-            metadata_output = metadata[users, :].to(self.device)
+        metadata_output = metadata[ids, :].to(self.device)
 
         if metadata_layers is not None:
             for metadata_nn_layer in metadata_layers:
@@ -443,6 +440,44 @@ class HybridModel(MultiStagePipeline):
                     )
                 )
         return metadata_output
+
+    def _compute_prediction(
+        self,
+        combined_output: torch.tensor,
+        users: torch.tensor,
+        items: torch.tensor,
+    ) -> torch.tensor:
+        """
+        Calculate prediction output
+
+        Parameters
+        ----------
+        combined_output: tensor, 2-d
+            Array of user and item embeddings concatenated with item and/or user metadata
+        users: tensor, 1-d
+            Array of user indices
+        items: tensor, 1-d
+            Array of item indices
+
+        Returns
+        -------
+        pred_scores: tensor, 2-d
+            Predicted scores
+        """
+
+        for combined_nn_layer in self.combined_layers[:-1]:
+            combined_output = self.dropout(
+                F.leaky_relu(
+                    combined_nn_layer(combined_output)
+                )
+            )
+
+        pred_scores = (
+            self.combined_layers[-1](combined_output)
+            + self.user_biases(users)
+            + self.item_biases(items)
+        )
+        return pred_scores
 
     def forward(self, users: torch.tensor, items: torch.tensor) -> torch.tensor:
         """
@@ -471,61 +506,37 @@ class HybridModel(MultiStagePipeline):
                 + self.item_biases(items).squeeze(1)
             )
         elif self.hparams.stage in ('metadata_only', 'all') and self.user_metadata is None:
-            item_metadata_output = self._calculate_metadata_output(
+            item_metadata_output = self._compute_metadata_output(
                 metadata_type='item',
-                users=users,
-                items=items
+                ids=items
             )
 
             # TODO: make this matrix factorization instead of only a MLP
             combined_output = torch.cat((self.user_embeddings(users),
                                          self.item_embeddings(items),
                                          item_metadata_output), 1)
-            for combined_nn_layer in self.combined_layers[:-1]:
-                combined_output = self.dropout(
-                    F.leaky_relu(
-                        combined_nn_layer(combined_output)
-                    )
-                )
+            pred_scores = self._compute_prediction(combined_output, users, items)
 
-            pred_scores = (
-                self.combined_layers[-1](combined_output)
-                + self.user_biases(users)
-                + self.item_biases(items)
-            )
         elif self.hparams.stage in ('metadata_only', 'all') and self.item_metadata is None:
-            user_metadata_output = self._calculate_metadata_output(
+            user_metadata_output = self._compute_metadata_output(
                 metadata_type='user',
-                users=users,
-                items=items
+                ids=users
             )
 
             # TODO: make this matrix factorization instead of only a MLP
             combined_output = torch.cat((user_metadata_output,
                                          self.user_embeddings(users),
                                          self.item_embeddings(items)), 1)
-            for combined_nn_layer in self.combined_layers[:-1]:
-                combined_output = self.dropout(
-                    F.leaky_relu(
-                        combined_nn_layer(combined_output)
-                    )
-                )
+            pred_scores = self._compute_prediction(combined_output, users, items)
 
-            pred_scores = (
-                self.combined_layers[-1](combined_output)
-                + self.user_biases(users)
-                + self.item_biases(items)
-            )
         else:
-            item_metadata_output = self._calculate_metadata_output(
+            user_metadata_output = self._compute_metadata_output(
                 metadata_type='user',
-                users=users,
-                items=items
+                ids=users
             )
-            user_metadata_output = self._calculate_metadata_output(
+            item_metadata_output = self._compute_metadata_output(
                 metadata_type='item',
-                users=users,
-                items=items
+                ids=items
             )
 
             # TODO: make this matrix factorization instead of only a MLP
@@ -533,18 +544,8 @@ class HybridModel(MultiStagePipeline):
                                          self.user_embeddings(users),
                                          self.item_embeddings(items),
                                          item_metadata_output), 1)
-            for combined_nn_layer in self.combined_layers[:-1]:
-                combined_output = self.dropout(
-                    F.leaky_relu(
-                        combined_nn_layer(combined_output)
-                    )
-                )
+            pred_scores = self._compute_prediction(combined_output, users, items)
 
-            pred_scores = (
-                self.combined_layers[-1](combined_output)
-                + self.user_biases(users)
-                + self.item_biases(items)
-            )
         return pred_scores.squeeze()
 
     def _get_item_embeddings(self) -> torch.tensor:

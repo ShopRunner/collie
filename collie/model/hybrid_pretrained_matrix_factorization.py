@@ -170,13 +170,13 @@ class HybridPretrainedModel(BasePipeline):
                 joblib.load(os.path.join(load_model_path, 'item_metadata.pkl'))
             )
         except FileNotFoundError:
-            warnings.warn('`item_metadata.pkl` not found')
+            warnings.warn('``item_metadata.pkl`` not found')
         try:
             self.user_metadata = (
                 joblib.load(os.path.join(load_model_path, 'user_metadata.pkl'))
             )
         except FileNotFoundError:
-            warnings.warn('`user_metadata.pkl` not found')
+            warnings.warn('``user_metadata.pkl`` not found')
         super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
                                         map_location=map_location)
 
@@ -219,7 +219,9 @@ class HybridPretrainedModel(BasePipeline):
                 )
                 self.add_module(f'{metadata_type}_metadata_layer_{i}', layer)
 
-            setattr(self, f'{metadata_type}_metadata_layers_dims', full_metadata_layers_dims)
+            setattr(self,
+                    f'{metadata_type}_metadata_layers_dims',
+                    full_metadata_layers_dims)
 
     def _setup_model(self, **kwargs) -> None:
         """
@@ -231,9 +233,9 @@ class HybridPretrainedModel(BasePipeline):
         if self.hparams.load_model_path is None:
             if not hasattr(self, '_trained_model'):
                 self._trained_model = kwargs.pop('trained_model')
-            if not hasattr(self, 'item_metadata') and 'item_metadata' in kwargs:
+            if 'item_metadata' in kwargs:
                 self.item_metadata = kwargs.pop('item_metadata')
-            if not hasattr(self, 'user_metadata') and 'user_metadata' in kwargs:
+            if 'user_metadata' in kwargs:
                 self.user_metadata = kwargs.pop('user_metadata')
             # we are not loading in a model, so we will create a new model from scratch
             # we don't want to modify the ``trained_model``'s weights, so we deep copy
@@ -321,11 +323,10 @@ class HybridPretrainedModel(BasePipeline):
             nn.init.xavier_normal_(self.combined_layers[i].weight)
             self.add_module('combined_layer_{}'.format(i), layer)
 
-    def _calculate_metadata_output(
+    def _compute_metadata_output(
         self,
         metadata_type: str,
-        users: torch.tensor,
-        items: torch.tensor,
+        ids: torch.tensor,
     ) -> torch.tensor:
         """
         Calculate metadata output for either item or user data.
@@ -334,10 +335,8 @@ class HybridPretrainedModel(BasePipeline):
         ----------
         metadata_type: str
             Metadata type, one of ``user`` or ``item``
-        users: tensor, 1-d
-            Array of user indices
-        items: tensor, 1-d
-            Array of item indices
+        ids: tensor, 1-d
+            Array of user indices or item indices
 
         Returns
         -------
@@ -349,10 +348,7 @@ class HybridPretrainedModel(BasePipeline):
 
         metadata = getattr(self, f'{metadata_type}_metadata')
         metadata_layers = getattr(self, f'{metadata_type}_metadata_layers')
-        if metadata_type == 'item':
-            metadata_output = metadata[items, :].to(self.device)
-        else:
-            metadata_output = metadata[users, :].to(self.device)
+        metadata_output = metadata[ids, :].to(self.device)
 
         if metadata_layers is not None:
             for metadata_nn_layer in metadata_layers:
@@ -362,6 +358,44 @@ class HybridPretrainedModel(BasePipeline):
                     )
                 )
         return metadata_output
+
+    def _compute_prediction(
+        self,
+        combined_output: torch.tensor,
+        users: torch.tensor,
+        items: torch.tensor,
+    ) -> torch.tensor:
+        """
+        Calculate prediction output
+
+        Parameters
+        ----------
+        combined_output: tensor, 2-d
+            Array of user and item embeddings concatenated with item and/or user metadata
+        users: tensor, 1-d
+            Array of user indices
+        items: tensor, 1-d
+            Array of item indices
+
+        Returns
+        -------
+        pred_scores: tensor, 2-d
+            Predicted scores
+        """
+
+        for combined_nn_layer in self.combined_layers[:-1]:
+            combined_output = self.dropout(
+                F.leaky_relu(
+                    combined_nn_layer(combined_output)
+                )
+            )
+
+        pred_scores = (
+            self.combined_layers[-1](combined_output)
+            + self.biases[0](users)
+            + self.biases[1](items)
+        )
+        return pred_scores
 
     def forward(self, users: torch.tensor, items: torch.tensor) -> torch.tensor:
         """
@@ -381,78 +415,50 @@ class HybridPretrainedModel(BasePipeline):
 
         """
 
-        if (
-            self.item_metadata is not None
-            and str(self.device) != str(self.item_metadata.device)
-        ) or (
-            self.user_metadata is not None
-            and str(self.device) != str(self.user_metadata.device)
-        ):
-            self._move_any_external_data_to_device()
-
         if self.item_metadata is not None and self.user_metadata is not None:
-            user_metadata_output = self._calculate_metadata_output(
+            user_metadata_output = self._compute_metadata_output(
                 metadata_type='user',
-                users=users,
-                items=items
+                ids=users
             )
 
-            item_metadata_output = self._calculate_metadata_output(
+            item_metadata_output = self._compute_metadata_output(
                 metadata_type='item',
-                users=users,
-                items=items
+                ids=items
             )
 
             combined_output = torch.cat((user_metadata_output,
                                          self.embeddings[0](users),
                                          self.embeddings[1](items),
                                          item_metadata_output), 1)
-            for combined_nn_layer in self.combined_layers[:-1]:
-                combined_output = self.dropout(
-                    F.leaky_relu(
-                        combined_nn_layer(combined_output)
-                    )
-                )
+            pred_scores = self._compute_prediction(combined_output,
+                                                   users,
+                                                   items)
 
         elif self.item_metadata is not None:
-            item_metadata_output = self._calculate_metadata_output(
+            item_metadata_output = self._compute_metadata_output(
                 metadata_type='item',
-                users=users,
-                items=items
+                ids=items
             )
 
             combined_output = torch.cat((self.embeddings[0](users),
                                          self.embeddings[1](items),
                                          item_metadata_output), 1)
-            for combined_nn_layer in self.combined_layers[:-1]:
-                combined_output = self.dropout(
-                    F.leaky_relu(
-                        combined_nn_layer(combined_output)
-                    )
-                )
+            pred_scores = self._compute_prediction(combined_output,
+                                                   users,
+                                                   items)
 
         elif self.user_metadata is not None:
-            user_metadata_output = self._calculate_metadata_output(
+            user_metadata_output = self._compute_metadata_output(
                 metadata_type='user',
-                users=users,
-                items=items
+                ids=users,
             )
 
             combined_output = torch.cat((user_metadata_output,
                                          self.embeddings[0](users),
                                          self.embeddings[1](items)), 1)
-            for combined_nn_layer in self.combined_layers[:-1]:
-                combined_output = self.dropout(
-                    F.leaky_relu(
-                        combined_nn_layer(combined_output)
-                    )
-                )
-
-        pred_scores = (
-            self.combined_layers[-1](combined_output)
-            + self.biases[0](users)
-            + self.biases[1](items)
-        )
+            pred_scores = self._compute_prediction(combined_output,
+                                                   users,
+                                                   items)
 
         return pred_scores.squeeze()
 
