@@ -1175,6 +1175,110 @@ def test_different_item_metadata_types_for_hybrid_model(movielens_metadata_df,
     assert model_5.user_metadata.equal(model_6.user_metadata)
 
 
+def test_item_metadata_only_hybrid_model(movielens_metadata_df,
+                                         train_val_implicit_data):
+    train, val = train_val_implicit_data
+
+    # ensure that we end up with the same ``item_metadata`` regardless of the input type
+    model = HybridModel(train=train,
+                        val=val,
+                        item_metadata=movielens_metadata_df)
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=5)
+    trainer.fit(model)
+
+    model.advance_stage()
+    trainer.max_epochs += 5
+    trainer.fit(model)
+
+    model.advance_stage()
+    trainer.max_epochs += 5
+    trainer.fit(model)
+
+    item_preds = model.get_item_predictions(user_id=0,
+                                            unseen_items_only=True,
+                                            sort_values=True)
+
+    assert isinstance(item_preds, pd.Series)
+    assert len(item_preds) > 0
+    assert len(item_preds) < len(train)
+
+    item_similarities = model.item_item_similarity(item_id=42)
+    assert item_similarities.index[0] == 42
+
+    user_preds = model.get_user_predictions(item_id=0,
+                                            unseen_users_only=True,
+                                            sort_values=True)
+
+    assert isinstance(user_preds, pd.Series)
+    assert len(user_preds) > 0
+    assert len(user_preds) < len(train)
+
+    user_similarities = model.user_user_similarity(user_id=42)
+    assert user_similarities.index[0] == 42
+
+    mapk_score = evaluate_in_batches([mapk], val, model)
+
+    # The metrics used for evaluation have been determined through 30
+    # trials of training the model and using the mean - 5 * std. dev.
+    # as the minimum score the model must achieve to pass the test.
+    assert mapk_score > 0.044
+
+
+def test_user_metadata_only_hybrid_model(user_metadata_df,
+                                         train_val_implicit_data):
+    train, val = train_val_implicit_data
+
+    # ensure that we end up with the same ``item_metadata`` regardless of the input type
+    model = HybridModel(train=train,
+                        val=val,
+                        user_metadata=user_metadata_df)
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=5)
+    trainer.fit(model)
+
+    model.advance_stage()
+    trainer.max_epochs += 5
+    trainer.fit(model)
+
+    model.advance_stage()
+    trainer.max_epochs += 5
+    trainer.fit(model)
+
+    item_preds = model.get_item_predictions(user_id=0,
+                                            unseen_items_only=True,
+                                            sort_values=True)
+
+    assert isinstance(item_preds, pd.Series)
+    assert len(item_preds) > 0
+    assert len(item_preds) < len(train)
+
+    item_similarities = model.item_item_similarity(item_id=42)
+    assert item_similarities.index[0] == 42
+
+    user_preds = model.get_user_predictions(item_id=0,
+                                            unseen_users_only=True,
+                                            sort_values=True)
+
+    assert isinstance(user_preds, pd.Series)
+    assert len(user_preds) > 0
+    assert len(user_preds) < len(train)
+
+    user_similarities = model.user_user_similarity(user_id=42)
+    assert user_similarities.index[0] == 42
+
+    mapk_score = evaluate_in_batches([mapk], val, model)
+
+    # The metrics used for evaluation have been determined through 30
+    # trials of training the model and using the mean - 5 * std. dev.
+    # as the minimum score the model must achieve to pass the test.
+    assert mapk_score > 0.044
+
+
 def test_item_metadata_with_nulls_hybrid_model(movielens_metadata_df,
                                                train_val_implicit_data):
 
@@ -1293,6 +1397,72 @@ def test_loading_and_saving_hybrid_pretrained_model(movielens_metadata_df,
     assert not user_preds_expected.equals(user_implicit_preds)
 
 
+def test_loading_and_saving_hybrid_pretrained_model_no_item_metadata(movielens_metadata_df,
+                                                                     user_metadata_df,
+                                                                     train_val_implicit_data,
+                                                                     tmpdir):
+    train, val = train_val_implicit_data
+    implicit_model = MatrixFactorizationModel(train=train, val=val)
+
+    model = HybridPretrainedModel(train=train,
+                                  val=val,
+                                  item_metadata=movielens_metadata_df,
+                                  user_metadata=user_metadata_df,
+                                  trained_model=implicit_model,
+                                  item_metadata_layers_dims=[16, 8],
+                                  user_metadata_layers_dims=[16, 8],
+                                  freeze_embeddings=True)
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=1,
+                            gpus=int(str(implicit_model.device).startswith('cuda:0')))
+    trainer.fit(model)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name,
+                                   'test_hybrid_pretrained_model_save_no_item_metadata')
+    model.save_model(save_model_path)
+    os.remove(f'{save_model_path}/item_metadata.pkl')
+    with pytest.warns(UserWarning, match='``item_metadata.pkl`` not found'):
+        HybridPretrainedModel(load_model_path=save_model_path)
+
+
+def test_loading_and_saving_hybrid_pretrained_model_no_user_metadata(movielens_metadata_df,
+                                                                     user_metadata_df,
+                                                                     train_val_implicit_data,
+                                                                     tmpdir):
+    train, val = train_val_implicit_data
+    implicit_model = MatrixFactorizationModel(train=train, val=val)
+
+    model = HybridPretrainedModel(train=train,
+                                  val=val,
+                                  item_metadata=movielens_metadata_df,
+                                  user_metadata=user_metadata_df,
+                                  trained_model=implicit_model,
+                                  item_metadata_layers_dims=[16, 8],
+                                  user_metadata_layers_dims=[16, 8],
+                                  freeze_embeddings=True)
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=1,
+                            gpus=int(str(implicit_model.device).startswith('cuda:0')))
+    trainer.fit(model)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name,
+                                   'test_hybrid_pretrained_model_save_no_user_metadata')
+    model.save_model(save_model_path)
+    os.remove(f'{save_model_path}/user_metadata.pkl')
+    with pytest.warns(UserWarning, match='``user_metadata.pkl`` not found'):
+        HybridPretrainedModel(load_model_path=save_model_path)
+
+
 def test_bad_saving_hybrid_pretrained_model(movielens_metadata_df,
                                             user_metadata_df,
                                             train_val_implicit_data,
@@ -1390,6 +1560,64 @@ def test_loading_and_saving_hybrid_model(movielens_metadata_df,
 
     assert item_preds_expected.equals(item_preds_actual)
     assert user_preds_expected.equals(user_preds_actual)
+
+
+def test_loading_and_saving_hybrid_model_no_item_metadata(movielens_metadata_df,
+                                                          user_metadata_df,
+                                                          train_val_implicit_data,
+                                                          tmpdir):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train,
+                        val=val,
+                        item_metadata=movielens_metadata_df,
+                        user_metadata=user_metadata_df,
+                        item_metadata_layers_dims=[16, 8],
+                        user_metadata_layers_dims=[16, 8])
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=1)
+    trainer.fit(model)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name,
+                                   'test_hybrid_model_save_no_item_metadata')
+    model.save_model(save_model_path)
+    os.remove(f'{save_model_path}/item_metadata.pkl')
+    with pytest.warns(UserWarning, match='``item_metadata.pkl`` not found'):
+        HybridModel(load_model_path=save_model_path)
+
+
+def test_loading_and_saving_hybrid_model_no_user_metadata(movielens_metadata_df,
+                                                          user_metadata_df,
+                                                          train_val_implicit_data,
+                                                          tmpdir):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train,
+                        val=val,
+                        item_metadata=movielens_metadata_df,
+                        user_metadata=user_metadata_df,
+                        item_metadata_layers_dims=[16, 8],
+                        user_metadata_layers_dims=[16, 8])
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=1)
+    trainer.fit(model)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name,
+                                   'test_hybrid_model_save_no_user_metadata')
+    model.save_model(save_model_path)
+    os.remove(f'{save_model_path}/user_metadata.pkl')
+    with pytest.warns(UserWarning, match='``user_metadata.pkl`` not found'):
+        HybridModel(load_model_path=save_model_path)
 
 
 def test_bad_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data, tmpdir):
