@@ -274,16 +274,14 @@ class HybridModel(MultiStagePipeline):
                 joblib.load(os.path.join(load_model_path, 'item_metadata.pkl'))
             )
         except FileNotFoundError:
-            if self.hparams.item_metadata_layers_dims is not None:
-                warnings.warn('``item_metadata.pkl`` not found')
+            warnings.warn('``item_metadata.pkl`` not found')
 
         try:
             self.user_metadata = (
                 joblib.load(os.path.join(load_model_path, 'user_metadata.pkl'))
             )
         except FileNotFoundError:
-            if self.hparams.user_metadata_layers_dims is not None:
-                warnings.warn('``user_metadata.pkl`` not found')
+            warnings.warn('``user_metadata.pkl`` not found')
 
         super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
                                         map_location=map_location,
