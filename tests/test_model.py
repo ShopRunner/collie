@@ -1044,7 +1044,7 @@ def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_mode
                                     user_metadata=user_metadata_df,
                                     trained_model=implicit_model)
     trainer_4 = CollieTrainer(model=model_4, logger=False, enable_checkpointing=False, max_epochs=1)
-    trainer_4.fit(model_1)
+    trainer_4.fit(model_4)
 
     model_5 = HybridPretrainedModel(train=train,
                                     val=val,
