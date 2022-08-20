@@ -1179,10 +1179,17 @@ def test_item_metadata_only_hybrid_model(movielens_metadata_df,
                                          train_val_implicit_data):
     train, val = train_val_implicit_data
 
-    # ensure that we end up with the same ``item_metadata`` regardless of the input type
+    # model parameters as setup in tutorials
     model = HybridModel(train=train,
                         val=val,
-                        item_metadata=movielens_metadata_df)
+                        item_metadata=movielens_metadata_df,
+                        item_metadata_layers_dims=[8],
+                        combined_layers_dims=[16],
+                        embedding_dim=30,
+                        lr=1e-2,  # used in stage 1
+                        bias_lr=1e-1,  # used in stage 1
+                        metadata_only_stage_lr=1e-3,  # used in stage 2
+                        all_stage_lr=1e-4)
     trainer = CollieTrainer(model=model,
                             logger=False,
                             enable_checkpointing=False,
@@ -1224,17 +1231,24 @@ def test_item_metadata_only_hybrid_model(movielens_metadata_df,
     # The metrics used for evaluation have been determined through 30
     # trials of training the model and using the mean - 5 * std. dev.
     # as the minimum score the model must achieve to pass the test.
-    assert mapk_score > 0.0495
+    assert mapk_score > 0.037
 
 
 def test_user_metadata_only_hybrid_model(user_metadata_df,
                                          train_val_implicit_data):
     train, val = train_val_implicit_data
 
-    # ensure that we end up with the same ``item_metadata`` regardless of the input type
+    # model parameters as setup in tutorials
     model = HybridModel(train=train,
                         val=val,
-                        user_metadata=user_metadata_df)
+                        user_metadata=user_metadata_df,
+                        user_metadata_layers_dims=[8],
+                        combined_layers_dims=[16],
+                        embedding_dim=30,
+                        lr=1e-2,  # used in stage 1
+                        bias_lr=1e-1,  # used in stage 1
+                        metadata_only_stage_lr=1e-3,  # used in stage 2
+                        all_stage_lr=1e-4)
     trainer = CollieTrainer(model=model,
                             logger=False,
                             enable_checkpointing=False,
@@ -1276,7 +1290,7 @@ def test_user_metadata_only_hybrid_model(user_metadata_df,
     # The metrics used for evaluation have been determined through 30
     # trials of training the model and using the mean - 5 * std. dev.
     # as the minimum score the model must achieve to pass the test.
-    assert mapk_score > 0.0394
+    assert mapk_score > 0.028
 
 
 def test_item_metadata_with_nulls_hybrid_model(movielens_metadata_df,
