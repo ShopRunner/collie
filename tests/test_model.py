@@ -1224,7 +1224,7 @@ def test_item_metadata_only_hybrid_model(movielens_metadata_df,
     # The metrics used for evaluation have been determined through 30
     # trials of training the model and using the mean - 5 * std. dev.
     # as the minimum score the model must achieve to pass the test.
-    assert mapk_score > 0.044
+    assert mapk_score > 0.0495
 
 
 def test_user_metadata_only_hybrid_model(user_metadata_df,
@@ -1276,7 +1276,7 @@ def test_user_metadata_only_hybrid_model(user_metadata_df,
     # The metrics used for evaluation have been determined through 30
     # trials of training the model and using the mean - 5 * std. dev.
     # as the minimum score the model must achieve to pass the test.
-    assert mapk_score > 0.044
+    assert mapk_score > 0.0394
 
 
 def test_item_metadata_with_nulls_hybrid_model(movielens_metadata_df,
