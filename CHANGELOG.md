@@ -3,7 +3,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
-# [1.3.0] - 2022-8-13
+# [1.3.0] - 2022-8-20
 ### Added
  - ``HybridModel`` and ``HybridPretrainedModel`` now take additional optional parameters ``user_metadata`` and ``user_metadata_layers_dims``
  - ``get_data.py`` now includes ``get_user_metadata``
