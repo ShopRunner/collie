@@ -269,23 +269,25 @@ class HybridModel(MultiStagePipeline):
             self.user_metadata = self.user_metadata.to(self.device)
 
     def _load_model_init_helper(self, load_model_path: str, map_location: str, **kwargs) -> None:
+
+        super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
+                                        map_location=map_location,
+                                        **kwargs)
         try:
             self.item_metadata = (
                 joblib.load(os.path.join(load_model_path, 'item_metadata.pkl'))
             )
         except FileNotFoundError:
-            warnings.warn('``item_metadata.pkl`` not found')
+            if self.hparams.item_metadata_layers_dims is not None:
+                warnings.warn('``item_metadata.pkl`` not found')
 
         try:
             self.user_metadata = (
                 joblib.load(os.path.join(load_model_path, 'user_metadata.pkl'))
             )
         except FileNotFoundError:
-            warnings.warn('``user_metadata.pkl`` not found')
-
-        super()._load_model_init_helper(load_model_path=os.path.join(load_model_path, 'model.pth'),
-                                        map_location=map_location,
-                                        **kwargs)
+            if self.hparams.user_metadata_layers_dims is not None:
+                warnings.warn('``user_metadata.pkl`` not found')
 
     def _configure_metadata_layers(
         self,
@@ -326,10 +328,6 @@ class HybridModel(MultiStagePipeline):
                 )
                 self.add_module(f'{metadata_type}_metadata_layer_{i}', layer)
 
-            setattr(self,
-                    f'{metadata_type}_metadata_layers_dims',
-                    full_metadata_layers_dims)
-
     def _setup_model(self, **kwargs) -> None:
         """
         Method for building model internals that rely on the data passed in.
@@ -362,7 +360,7 @@ class HybridModel(MultiStagePipeline):
                 metadata_layers_dims=self.hparams.item_metadata_layers_dims,
                 num_metadata_cols=self.hparams.item_metadata_num_cols,
             )
-            item_metadata_output_dim = self.item_metadata_layers_dims[-1]
+            item_metadata_output_dim = self.hparams.item_metadata_layers_dims[-1]
 
         # set up user metadata-only layers
         user_metadata_output_dim = self.hparams.user_metadata_num_cols
@@ -373,7 +371,7 @@ class HybridModel(MultiStagePipeline):
                 metadata_layers_dims=self.hparams.user_metadata_layers_dims,
                 num_metadata_cols=self.hparams.user_metadata_num_cols,
             )
-            user_metadata_output_dim = self.user_metadata_layers_dims[-1]
+            user_metadata_output_dim = self.hparams.user_metadata_layers_dims[-1]
 
         # set up combined layers depending on metadata inputs
         if item_metadata_output_dim is not None and user_metadata_output_dim is not None:
