@@ -8,7 +8,8 @@ import torch
 from collie.interactions.datasets import (BaseInteractions,
                                           ExplicitInteractions,
                                           HDF5Interactions,
-                                          Interactions)
+                                          Interactions,
+                                          SequentialInteractions)
 from collie.interactions.samplers import ApproximateNegativeSampler, HDF5Sampler
 
 
@@ -288,6 +289,93 @@ class ApproximateNegativeSamplingInteractionsDataLoader(BaseInteractionsDataLoad
             ApproximateNegativeSamplingInteractionsDataLoader object with {self.num_interactions}
             interactions between {self.num_users} users and {self.num_items} items, returning
             {self.num_negative_samples} negative samples per implicit interaction in
+            {'shuffled' if self.shuffle else 'non-shuffled'} batches of size
+            {self.approximate_negative_sampler.batch_size}.
+            '''
+        ).replace('\n', ' ').strip()
+
+
+class SequentialInteractionsDataLoader(BaseInteractionsDataLoader):
+    """
+    Like `ApproximateNegativeSamplingInteractionsDataLoader`, but for `SequentialInteractions`.
+
+    Parameters
+    -------------
+    interactions: Interactions
+        If not provided, an `Interactions` object will be created with `mat` or all of `users`,
+        `items`, and `ratings` with `max_number_of_samples_to_consider=0`
+    users: Iterable[int], 1-d
+        If `interactions is None and mat is None`, array of user IDs, starting at 0
+    items: Iterable[int], 1-d
+        If `interactions is None and mat is None`, rray of corresponding item IDs to `users`,
+        starting at 0
+    timestamp: Iterable[int], 1-d
+        If `interactions is None and mat is None`, array of corresponding timestamps to both `users`
+        and `items`
+    batch_size: int
+        Number of samples per batch to load
+    shuffle: bool
+        Whether to shuffle the order of data returned or not. This is especially useful for training
+        data to ensure the model does not overfit to a specific order of data
+    kwargs: keyword arguments
+        Relevant keyword arguments will be passed into `Interactions` object creation, if
+        `interactions is None` and the keyword argument matches one of
+        `Interactions.__init__.__code__.co_varnames`. All other keyword arguments will be passed
+        into `torch.utils.data.DataLoader`
+
+    Attributes
+    -------------
+    interactions: SequentialInteractions
+
+    """
+    def __init__(self,
+                 interactions: SequentialInteractions = None,
+                 users: Iterable[int] = None,
+                 items: Iterable[int] = None,
+                 timestamps: Iterable[int] = None,
+                 batch_size: int = 1024,
+                 shuffle: bool = False,
+                 num_workers: int = multiprocessing.cpu_count(),
+                 **kwargs):
+        if interactions is None:
+            interactions_only_kwargs = {
+                k: v for k, v in kwargs.items()
+                if k in SequentialInteractions.__init__.__code__.co_varnames
+            }
+            kwargs = {
+                k: v for k, v in kwargs.items()
+                if k not in SequentialInteractions.__init__.__code__.co_varnames
+                or k in torch.utils.data.DataLoader.__init__.__code__.co_varnames
+            }
+
+            interactions = SequentialInteractions(users=users,
+                                                  items=items,
+                                                  timestamps=timestamps,
+                                                  **interactions_only_kwargs)
+
+        approximate_negative_sampler = ApproximateNegativeSampler(interactions=interactions,
+                                                                  batch_size=batch_size,
+                                                                  shuffle=shuffle,
+                                                                  seed=interactions.seed)
+
+        super().__init__(
+            interactions=interactions,
+            sampler=approximate_negative_sampler,
+            num_workers=num_workers,
+            batch_size=None,  # Disable automated batching
+            **kwargs,
+        )
+
+        self.approximate_negative_sampler = approximate_negative_sampler
+        self.shuffle = shuffle
+
+    def __repr__(self) -> str:
+        """String representation of `SequentialInteractionsDataLoader` class."""
+        return textwrap.dedent(
+            f'''
+            SequentialInteractionsDataLoader object with {self.num_interactions} sequences between
+            {self.num_users} users and {self.num_items} items, returning {self.num_negative_samples}
+            negative samples per implicit interaction in
             {'shuffled' if self.shuffle else 'non-shuffled'} batches of size
             {self.approximate_negative_sampler.batch_size}.
             '''

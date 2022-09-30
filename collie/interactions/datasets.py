@@ -562,6 +562,284 @@ class ExplicitInteractions(BaseInteractions):
         return user_id, item_id, rating
 
 
+class SequentialInteractions(torch.utils.data.Dataset):
+    """
+    Implicit interactions encoded as a sequence matrix.
+
+    Parameters
+    -------------
+    users: Iterable[int], 1-d
+        Array of user IDs
+    items: Iterable[int], 1-d
+        Array of corresponding item IDs to ``users``, starting at 0
+    timestamps: Iterable[int], 1-d
+        Array of timestamps corresponding to the interaction time for the user and item at that
+        index in ``users`` and ``items``, respectively
+    max_sequence_length: int
+        Maximum length of any item sequence in the final dataset
+    min_sequence_length: int
+        Minimum length of any item sequence in the final dataset
+    max_time: int
+        Maximum time that can pass between two interactions before we consider it a separate
+        session. For example, consider a user who has the following interactions at the following
+        times:
+
+        .. list-table::
+            :header-rows: 1
+
+            * - Item ID
+              - Timestamp
+            * - ``0``
+              - ``100``
+            * - ``1``
+              - ``110``
+            * - ``2``
+              - ``200``
+            * - ``3``
+              - ``250``
+
+        * If ``max_time`` is infinite, then the user will have a single sequence of
+          ``0 -> 1 -> 2 -> 3``.
+
+        * If ``max_time = 50``, then the user will have two sequences of
+          ``0 -> 1`` and ``2 -> 3``.
+
+        * If ``max_time = 25``, then the user will have three sequences of
+          ``0 -> 1`` and ``2`` and ``3``.
+
+        * Finally, if ``max_time = 1``, then the user will have four sequences of
+          ``0``, ``1``, ``2``, ``3``.
+
+    step_size: int
+        Step size of the window for a sequence. The default behavior is to set the step size equal
+        to the sequence length, so each sequence will be represented once. If the step size is less
+        than this, then subsequences will be included. For example, take a sequence
+        ``1 -> 2 -> 3 -> 4 -> 5``. If ``step_size = 1``, then the returned sequence will be:
+
+        .. code-block:: python
+           [[1, 2, 3, 4, 5],
+            [0, 1, 2, 3, 4],
+            [0, 0, 1, 2, 3],
+            [0, 0, 0, 1, 2],
+            [0, 0, 0, 0, 1]]
+
+        If ``step_size = 2``, then the returned sequence will be:
+
+        .. code-block:: python
+           [[1, 2, 3, 4, 5],
+            [0, 0, 1, 2, 3],
+            [0, 0, 0, 0, 1]]
+
+        If ``step_size = None``, then the sequence length will be used as the step size, returning:
+
+        .. code-block:: python
+           [[1, 2, 3, 4, 5]]
+
+    num_negative_samples: int
+        Number of negative samples to return with each ``__getitem__`` call
+    allow_missing_ids: bool
+        If ``False``, will check that ``items`` contain each integer from 0 to the maximum value in
+        the array
+    num_items: int
+        Number of items in the dataset. If ``num_items == 'infer'``, this will be set to the
+        ``max(items) + 1``
+    seed: int
+        Seed for random sampling
+
+    """
+    def __init__(self,
+                 users: Iterable[int],
+                 items: Iterable[int],
+                 timestamps: Iterable[int],
+                 max_sequence_length: int = 10,
+                 min_sequence_length: Optional[int] = None,
+                 max_time: int = float('inf'),
+                 step_size: Optional[int] = None,
+                 num_negative_samples: int = 10,
+                 allow_missing_ids: bool = False,
+                 num_items: int = 'infer',
+                 seed: Optional[int] = None):
+        num_users = len(set(users))
+        num_items = collie.utils._infer_num_if_needed_for_1d_array(num_items, items)
+
+        if allow_missing_ids is False:
+            _check_array_contains_all_integers(array=items,
+                                               array_max_value=num_items,
+                                               array_name='items')
+
+        if seed is None:
+            seed = collie.utils.get_random_seed()
+
+        self.users = np.array(users).astype(int)
+        self.items = np.array(items).astype(int)
+        self.timestamps = np.array(timestamps)
+        self.max_sequence_length = max_sequence_length
+        self.min_sequence_length = min_sequence_length
+        self.max_time = max_time
+        self.step_size = step_size
+        self.num_negative_samples = num_negative_samples
+        self.allow_missing_ids = allow_missing_ids
+
+        self.seed = seed
+        self.num_users = num_users
+        self.num_items = num_items
+
+        random.seed(self.seed)
+
+        self._initialize_sequences()
+
+    def _initialize_sequences(self):
+        """Create sequences that are model-ready."""
+        # default step size is the entire sequence
+        if self.step_size is None:
+            self.step_size = self.max_sequence_length
+
+        # sort first by using keys user ID, then timestamp
+        sort_indices = np.lexsort((self.timestamps, self.users))
+        user_ids = self.users[sort_indices]
+        item_ids = self.items[sort_indices]
+        timestamps = self.timestamps[sort_indices]
+
+        _, indices = np.unique(user_ids, return_index=True)
+
+        users_timestamps_sequences_list = [
+            user_timestamp_sequence for user_timestamp_sequence in self._generate_sequences(
+                users=user_ids, items=item_ids, timestamps=timestamps, indices=indices,
+            )
+        ]
+        user_per_sequence = [x[0] for x in users_timestamps_sequences_list]
+        timestamps_for_sequence = [x[1] for x in users_timestamps_sequences_list]
+        sequences = [x[2] for x in users_timestamps_sequences_list]
+
+        sequences = np.array(sequences)
+
+        if self.min_sequence_length is not None:
+            long_enough_sequences = sequences[:, -self.min_sequence_length] != -1
+            sequences = sequences[long_enough_sequences]
+
+        self.user_per_sequence = user_per_sequence
+        self.timestamps_for_sequence = timestamps_for_sequence
+        self.sequences = sequences.astype(np.int64)
+        self.num_interactions = len(self.sequences)
+
+    def _generate_sequences(self,
+                            users: Iterable[int],
+                            items: Iterable[int],
+                            timestamps: Iterable[int],
+                            indices: Iterable[int]):
+        """Generate sequences of length ``max_sequence_length``."""
+        for idx, start_idx in tqdm(enumerate(indices), total=len(indices)):
+            user_for_sequence = users[start_idx]
+
+            # are we at the end of the sequence? if not, then stop before the next user's data
+            stop_idx = indices[(idx + 1)] if idx < (len(indices) - 1) else None
+
+            # find differences in sequential timestamps for a user's sequence
+            timestamps_diffs = np.concatenate(([0], np.diff(timestamps[start_idx:stop_idx])))
+            # find indices that have a gap longer than ``self.max_time``
+            max_time_idxs = list(np.argwhere(timestamps_diffs > self.max_time).flatten())
+
+            # find all indices that are boundary points separating two different sessions
+            boundary_idxs = sorted(
+                list(set([0] + max_time_idxs + [len(timestamps_diffs)]))
+            )
+
+            running_boundary_idx = len(boundary_idxs) - 1
+            starting_idx = boundary_idxs[(running_boundary_idx - 1)]
+            ending_idx = boundary_idxs[running_boundary_idx]
+
+            while ending_idx > 0:
+                mid_idx = max(0, starting_idx, ending_idx - self.max_sequence_length)
+
+                sequence = items[start_idx:stop_idx][mid_idx:ending_idx]
+                padded_sequence = (
+                    [-1] * (self.max_sequence_length - len(sequence)) + list(sequence)
+                )
+
+                timestamps_for_sequence = timestamps[start_idx:stop_idx][mid_idx:ending_idx]
+
+                if starting_idx > (ending_idx - self.step_size):
+                    running_boundary_idx -= 1
+                    starting_idx = boundary_idxs[(running_boundary_idx - 1)]
+                    ending_idx = boundary_idxs[running_boundary_idx]
+                else:
+                    starting_idx -= self.step_size
+                    ending_idx -= self.step_size
+
+                yield user_for_sequence, timestamps_for_sequence, padded_sequence
+
+    def __getitem__(self, index: Union[int, Iterable[int]]) -> Tuple[np.array, np.array]:
+        """
+        Access item in the ``SequentialInteractions`` instance, returning negative samples as well.
+        Note that as of now, only approximate negative samples will be returned.
+
+        """
+        sequence = self.sequences[index]
+
+        if isinstance(index, collections.abc.Iterable):
+            batch_size, sliding_window = sequence.shape
+        else:
+            batch_size = 1
+            sliding_window = len(sequence)
+
+        negative_item_ids_array = np.random.randint(
+            low=0,
+            high=self.num_items,
+            size=(self.num_negative_samples * batch_size, sliding_window),
+        )
+
+        return sequence, negative_item_ids_array
+
+    def __len__(self) -> int:
+        """Number of sequences in the ``SequentialInteractions`` instance."""
+        return self.num_interactions
+
+    def __repr__(self) -> str:
+        """String representation of ``SequentialInteractions`` class."""
+        if self.min_sequence_length is None:
+            sequence_length_str = f'less than {self.max_sequence_length}'
+        else:
+            sequence_length_str = (
+                f'between {self.min_sequence_length} and {self.max_sequence_length}'
+            )
+
+        return textwrap.dedent(
+            f'''
+            SequentialInteractions object with {self.num_interactions} sequences between
+            {self.num_users} users and {self.num_items} items, returning {self.num_negative_samples}
+            negative samples per interaction with sequence length {sequence_length_str}, and step
+            size {self.step_size}.
+            '''
+        ).replace('\n', ' ').strip()
+
+    def todense(self) -> np.matrix:
+        """Transforms ``SequentialInteractions`` sequences to np.matrix, 2-d."""
+        return np.asmatrix(self.sequences)
+
+    def toarray(self) -> np.array:
+        """Transforms ``SequentialInteractions`` sequences to np.array, 2-d."""
+        return self.sequences
+
+    def head(self, n: int = 5) -> np.array:
+        """Return the first ``n`` rows of the sequences array."""
+        n = self._prep_head_tail_n(n=n)
+        return self.sequences[range(n), :]
+
+    def tail(self, n: int = 5) -> np.array:
+        """Return the last ``n`` rows of the sequences array."""
+        n = self._prep_head_tail_n(n=n)
+        return self.sequences[range(self.num_interactions - n, n), :]
+
+    def _prep_head_tail_n(self, n: int) -> int:
+        """Ensure we don't run into an ``IndexError`` when using ``head`` or ``tail`` methods."""
+        if n < 0:
+            n = self.num_interactions + n
+        if n > self.num_interactions:
+            n = self.num_interactions
+
+        return n
+
+
 class HDF5Interactions(torch.utils.data.Dataset):
     """
     Create an ``Interactions``-like object for data in the HDF5 format that might be too large to

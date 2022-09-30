@@ -2,7 +2,7 @@ from typing import Dict, Optional, Union
 
 import torch
 
-from collie.loss.metadata_utils import ideal_difference_from_metadata
+from collie.loss.metadata_utils import ideal_difference_from_metadata, mask_loss
 
 
 def warp_loss(
@@ -13,6 +13,7 @@ def warp_loss(
     negative_items: Optional[torch.tensor] = None,
     metadata: Optional[Dict[str, torch.tensor]] = dict(),
     metadata_weights: Optional[Dict[str, float]] = dict(),
+    mask: Optional[torch.tensor] = None,
 ) -> torch.tensor:
     """
     Modified WARP loss function [4]_.
@@ -59,6 +60,8 @@ def warp_loss(
 
         * a 0% match if it's a different item with a different genre and different director,
           which is equivalent to the loss without any partial credit
+    mask: torch.tensor, 1-d
+        Boolean vector used for masking loss terms for sequential recommendations
 
     Returns
     -------
@@ -129,6 +132,9 @@ def warp_loss(
         )
         * should_we_count_loss
     )
+
+    if mask is not None:
+        loss = mask_loss(loss=loss, mask=mask)
 
     return (loss.sum() + loss.pow(2).sum()) / len(positive_scores)
 
