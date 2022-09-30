@@ -128,12 +128,12 @@ def test_random_split(implicit_interactions_to_split,
     )
 
 
-def test_random_split_with_user_with_only_one_interaction(
-    interactions_to_split_with_a_user_with_only_one_interaction,
+def test_random_split_with_users_with_only_one_interaction(
+    interactions_to_split_with_users_with_only_one_interaction,
 ):
     # unlike for ``stratified_split``, this should work without error
     random_split(
-        interactions=interactions_to_split_with_a_user_with_only_one_interaction,
+        interactions=interactions_to_split_with_users_with_only_one_interaction,
     )
 
 
@@ -248,15 +248,43 @@ def test_stratified_split(implicit_interactions_to_split,
     )
 
 
-def test_stratified_split_with_user_with_only_one_interaction(
-    interactions_to_split_with_a_user_with_only_one_interaction,
+@pytest.mark.parametrize('processes', [0, -1])
+def test_stratified_split_with_users_with_only_one_interaction_raises_error(
+    interactions_to_split_with_users_with_only_one_interaction,
+    processes
 ):
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match='Unable to stratify split on users - the ``interactions`` object contains users '
+              'with a single interaction. Either set ``force_split = True`` to put all users '
+              'with a single interaction in the training set or run '
+              '``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
+    ):
         stratified_split(
-            interactions=interactions_to_split_with_a_user_with_only_one_interaction,
+            interactions=interactions_to_split_with_users_with_only_one_interaction,
             test_p=0.2,
             seed=42,
+            processes=processes,
         )
+
+
+@pytest.mark.parametrize('processes', [0, -1])
+def test_stratified_split_with_users_with_only_one_interaction_force_split(
+    interactions_to_split_with_users_with_only_one_interaction,
+    processes
+):
+    users_with_only_one_interaction = [0, 5, 6]
+
+    (train_actual, _, _) = stratified_split(
+        interactions=interactions_to_split_with_users_with_only_one_interaction,
+        val_p=0.1,
+        test_p=0.2,
+        seed=42,
+        processes=processes,
+        force_split=True
+    )
+
+    assert all(user in train_actual[:][0][0].tolist() for user in users_with_only_one_interaction)
 
 
 class TestSplitsWithWrongP:

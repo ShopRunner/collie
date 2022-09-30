@@ -33,7 +33,7 @@ def implicit_model(train_val_implicit_data, gpu_count):
                                   max_epochs=10,
                                   deterministic=True,
                                   logger=False,
-                                  checkpoint_callback=False)
+                                  enable_checkpointing=False)
     model_trainer.fit(model)
     model.eval()
 
@@ -73,7 +73,7 @@ def explicit_model(train_val_explicit_data, gpu_count):
                                   max_epochs=10,
                                   deterministic=True,
                                   logger=False,
-                                  checkpoint_callback=False)
+                                  enable_checkpointing=False)
     model_trainer.fit(model)
     model.freeze()
 
@@ -152,6 +152,7 @@ def untrained_implicit_model_no_val_data(train_val_implicit_data):
 def models_trained_for_one_step(request,
                                 train_val_implicit_sample_data,
                                 movielens_metadata_df,
+                                user_metadata_df,
                                 movielens_implicit_df,
                                 train_val_implicit_pandas_data,
                                 gpu_count):
@@ -212,7 +213,7 @@ def models_trained_for_one_step(request,
                                           max_epochs=1,
                                           deterministic=True,
                                           logger=False,
-                                          checkpoint_callback=False)
+                                          enable_checkpointing=False)
 
             model_trainer.fit(model)
             model.eval()
@@ -380,7 +381,7 @@ def models_trained_for_one_step(request,
                                                max_epochs=1,
                                                deterministic=True,
                                                logger=False,
-                                               checkpoint_callback=False)
+                                               enable_checkpointing=False)
         implicit_model_trainer.fit(implicit_model)
         implicit_model.eval()
 
@@ -392,7 +393,9 @@ def models_trained_for_one_step(request,
                                              val=val,
                                              item_metadata=movielens_metadata_df,
                                              trained_model=implicit_model,
-                                             metadata_layers_dims=metadata_layers_dims,
+                                             item_metadata_layers_dims=metadata_layers_dims,
+                                             user_metadata=user_metadata_df,
+                                             user_metadata_layers_dims=metadata_layers_dims,
                                              freeze_embeddings=True,
                                              dropout_p=0.15,
                                              loss='warp',
@@ -404,14 +407,16 @@ def models_trained_for_one_step(request,
                                              max_epochs=1,
                                              deterministic=True,
                                              logger=False,
-                                             checkpoint_callback=False)
+                                             enable_checkpointing=False)
         model_frozen_trainer.fit(model_frozen)
 
         model = HybridPretrainedModel(train=train,
                                       val=val,
                                       item_metadata=movielens_metadata_df,
                                       trained_model=implicit_model,
-                                      metadata_layers_dims=metadata_layers_dims,
+                                      item_metadata_layers_dims=metadata_layers_dims,
+                                      user_metadata=user_metadata_df,
+                                      user_metadata_layers_dims=metadata_layers_dims,
                                       freeze_embeddings=False,
                                       dropout_p=0.15,
                                       loss='bpr',
@@ -448,7 +453,9 @@ def models_trained_for_one_step(request,
                             val=val,
                             item_metadata=movielens_metadata_df,
                             embedding_dim=10,
-                            metadata_layers_dims=metadata_layers_dims,
+                            item_metadata_layers_dims=metadata_layers_dims,
+                            user_metadata=user_metadata_df,
+                            user_metadata_layers_dims=metadata_layers_dims,
                             lr=1e-1,
                             optimizer='adam',
                             **additional_kwargs)
@@ -485,7 +492,7 @@ def models_trained_for_one_step(request,
                                   max_epochs=1,
                                   deterministic=True,
                                   logger=False,
-                                  checkpoint_callback=False)
+                                  enable_checkpointing=False)
 
     if request.param == 'mf_no_val':
         with pytest.warns(UserWarning):
@@ -516,6 +523,7 @@ def models_trained_for_one_step(request,
 def explicit_models_trained_for_one_step(request,
                                          train_val_explicit_sample_data,
                                          movielens_metadata_df,
+                                         user_metadata_df,
                                          gpu_count):
     train, val = train_val_explicit_sample_data
 
@@ -581,7 +589,7 @@ def explicit_models_trained_for_one_step(request,
                                                max_epochs=1,
                                                deterministic=True,
                                                logger=False,
-                                               checkpoint_callback=False)
+                                               enable_checkpointing=False)
         implicit_model_trainer.fit(implicit_model)
         implicit_model.freeze()
 
@@ -598,7 +606,9 @@ def explicit_models_trained_for_one_step(request,
                                              val=val,
                                              item_metadata=movielens_metadata_df,
                                              trained_model=implicit_model,
-                                             metadata_layers_dims=None,
+                                             item_metadata_layers_dims=None,
+                                             user_metadata=user_metadata_df,
+                                             user_metadata_layers_dims=None,
                                              freeze_embeddings=True,
                                              dropout_p=0.15,
                                              loss='mae',
@@ -612,14 +622,16 @@ def explicit_models_trained_for_one_step(request,
                                              max_epochs=1,
                                              deterministic=True,
                                              logger=False,
-                                             checkpoint_callback=False)
+                                             enable_checkpointing=False)
         model_frozen_trainer.fit(model_frozen)
 
         model = HybridPretrainedModel(train=train,
                                       val=val,
                                       item_metadata=movielens_metadata_df,
                                       trained_model=implicit_model,
-                                      metadata_layers_dims=None,
+                                      item_metadata_layers_dims=None,
+                                      user_metadata=user_metadata_df,
+                                      user_metadata_layers_dims=None,
                                       freeze_embeddings=False,
                                       dropout_p=0.15,
                                       loss='mse',
@@ -636,7 +648,9 @@ def explicit_models_trained_for_one_step(request,
                             val=val,
                             item_metadata=movielens_metadata_df,
                             embedding_dim=10,
-                            metadata_layers_dims=[16, 12],
+                            item_metadata_layers_dims=[16, 12],
+                            user_metadata=user_metadata_df,
+                            user_metadata_layers_dims=[16, 12],
                             lr=1e-1,
                             loss='mae',
                             optimizer='adam')
@@ -657,7 +671,7 @@ def explicit_models_trained_for_one_step(request,
                                   max_epochs=1,
                                   deterministic=True,
                                   logger=False,
-                                  checkpoint_callback=False)
+                                  enable_checkpointing=False)
 
     if request.param == 'mf_no_val':
         with pytest.warns(UserWarning):

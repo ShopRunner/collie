@@ -46,6 +46,10 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
     * ``_get_item_embeddings`` - Returns item embeddings from the model on the device
 
+    For ``user_user_similarity`` to work properly, all subclasses are should also implement:
+
+    * ``_get_user_embeddings`` - Returns user embeddings from the model on the device
+
     Parameters
     ----------
     train: ``collie.interactions`` object
@@ -130,10 +134,10 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
                  train: INTERACTIONS_LIKE_INPUT = None,
                  val: INTERACTIONS_LIKE_INPUT = None,
                  lr: float = 1e-3,
-                 lr_scheduler_func: Optional[Callable] = None,
+                 lr_scheduler_func: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
                  weight_decay: float = 0.0,
-                 optimizer: Union[str, Callable] = 'adam',
-                 loss: Union[str, Callable] = 'hinge',
+                 optimizer: Union[str, torch.optim.Optimizer] = 'adam',
+                 loss: Union[str, Callable[..., torch.tensor]] = 'hinge',
                  metadata_for_loss: Optional[Dict[str, torch.tensor]] = None,
                  metadata_for_loss_weights: Optional[Dict[str, float]] = None,
                  load_model_path: Optional[str] = None,
@@ -213,6 +217,20 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             self.hparams.num_users = self.train_loader.num_users
             self.hparams.num_items = self.train_loader.num_items
             self.hparams.num_epochs_completed = 0
+
+            # ensure there are no nulls in ``item_metadata``
+            if kwargs.get('item_metadata') is not None:
+                if torch.isnan(kwargs.get('item_metadata')).any():
+                    raise ValueError(
+                        '``item_metadata`` may not contain nulls'
+                    )
+
+            # ensure there are no nulls in ``user_metadata``
+            if kwargs.get('user_metadata') is not None:
+                if torch.isnan(kwargs.get('user_metadata')).any():
+                    raise ValueError(
+                        '``user_metadata`` may not contain nulls'
+                    )
 
             self._configure_loss()
 
@@ -326,7 +344,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             raise ValueError('{} is not a valid loss function.'.format(self.loss))
 
     def configure_optimizers(self) -> (
-        Union[Tuple[List[Callable], List[Callable]], Tuple[Callable, Callable], Callable]
+        Union[
+            Tuple[List[torch.optim.Optimizer], List[torch.optim.Optimizer]],
+            Tuple[torch.optim.Optimizer, torch.optim.Optimizer],
+            torch.optim.Optimizer,
+        ]
     ):
         """
         Configure optimizers and learning rate schedulers to use in optimization.
@@ -390,7 +412,9 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         else:
             return optimizer
 
-    def _get_optimizer(self, optimizer: Optional[Union[str, Callable]], **kwargs) -> Callable:
+    def _get_optimizer(self,
+                       optimizer: Optional[Union[str, torch.optim.Optimizer]],
+                       **kwargs) -> torch.optim.Optimizer:
         if callable(optimizer):
             try:
                 optimizer = optimizer(
@@ -701,6 +725,13 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             the item ID
 
         """
+        if user_id >= self.hparams.num_users:
+            raise ValueError(
+                f'``user_id`` {user_id} is not in the model. '
+                'Expected ID between ``0`` and ``self.hparams.num_users - 1`` '
+                f'(``{self.hparams.num_users - 1}``), not ``{user_id}``'
+            )
+
         user = torch.tensor(
             [user_id] * self.hparams.num_items,
             dtype=torch.long,
@@ -715,12 +746,78 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
             preds = preds.sort_values(ascending=False)
 
         if unseen_items_only:
-            idxs_to_drop = self.train_loader.mat.tocsr()[user_id, :].nonzero()[1]
             if self.val_loader is not None:
                 idxs_to_drop = np.concatenate([
                     self.train_loader.mat.tocsr()[user_id, :].nonzero()[1],
                     self.val_loader.mat.tocsr()[user_id, :].nonzero()[1]
                 ])
+            else:
+                idxs_to_drop = self.train_loader.mat.tocsr()[user_id, :].nonzero()[1]
+            filtered_preds = preds.drop(idxs_to_drop)
+
+            return filtered_preds
+        else:
+            return preds
+
+    def get_user_predictions(self,
+                             item_id: int = 0,
+                             unseen_users_only: bool = False,
+                             sort_values: bool = True) -> pd.Series:
+        """
+        User counterpart to ``get_item_predictions`` method.
+
+        Get predicted rankings/ratings for all users for a given ``item_id``.
+
+        This method cannot be called for datasets stored in ``HDF5InteractionsDataLoader`` since
+        data in this ``DataLoader`` is read in dynamically.
+
+        Parameters
+        ----------
+        item_id: int
+        unseen_users_only: bool
+            Filter ``preds`` to only show predictions of unseen users not present in the training
+            or validation datasets for that ``item_id``. Note this requires both ``train_loader``
+            and ``val_loader`` to be 1) class-level attributes in the model and 2) DataLoaders with
+            ``Interactions`` at its core (not ``HDF5Interactions``). If you are loading in a model,
+            these two attributes will need to be set manually, since datasets are NOT saved when
+            saving the model
+        sort_values: bool
+            Whether to sort recommendations by descending prediction probability
+
+        Returns
+        -------
+        preds: pd.Series
+            Sorted values as predicted ratings for each user in the dataset with the index being
+            the user ID
+        """
+        if item_id >= self.hparams.num_items:
+            raise ValueError(
+                f'``item_id`` {item_id} is not in the model. '
+                'Expected ID between ``0`` and ``self.hparams.num_items - 1`` '
+                f'(``{self.hparams.num_items - 1}``), not ``{item_id}``'
+            )
+
+        item = torch.tensor(
+            [item_id] * self.hparams.num_users,
+            dtype=torch.long,
+            device=self.device
+        )
+        user = torch.arange(self.hparams.num_users, dtype=torch.long, device=self.device)
+
+        preds = self(user, item)
+        preds = preds.detach().cpu()
+        preds = pd.Series(preds)
+        if sort_values:
+            preds = preds.sort_values(ascending=False)
+
+        if unseen_users_only:
+            if self.val_loader is not None:
+                idxs_to_drop = np.concatenate([
+                    self.train_loader.mat.tocsr()[:, item_id].nonzero()[1],
+                    self.val_loader.mat.tocsr()[:, item_id].nonzero()[1]
+                ])
+            else:
+                idxs_to_drop = self.train_loader.mat.tocsr()[:, item_id].nonzero()[1]
             filtered_preds = preds.drop(idxs_to_drop)
 
             return filtered_preds
@@ -749,27 +846,77 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         always be the item itself.
 
         """
-        item_embeddings = self._get_item_embeddings()
-        item_embeddings = item_embeddings / item_embeddings.norm(dim=1)[:, None]
+        if item_id >= self.hparams.num_items:
+            raise ValueError(
+                f'``item_id`` {item_id} is not in the model. '
+                'Expected ID between ``0`` and ``self.hparams.num_items - 1`` '
+                f'(``{self.hparams.num_items - 1}``), not ``{item_id}``'
+            )
 
-        sim_score_idxs = (
-            torch.matmul(item_embeddings[[item_id], :], item_embeddings.transpose(1, 0))
+        return self._calculate_embedding_similarity(
+            embeddings=self._get_item_embeddings(),
+            id=item_id
+        )
+
+    def user_user_similarity(self, user_id: int) -> pd.Series:
+        """
+        User counterpart to ``item_item_similarity`` method.
+
+        Get most similar user indices by cosine similarity.
+
+        Cosine similarity is computed with user embeddings from a trained model.
+
+        Parameters
+        ----------
+        user_id: int
+
+        Returns
+        -------
+        sim_score_idxs: pd.Series
+            Sorted values as cosine similarity for each user in the dataset with the index being
+            the user ID
+
+        Note
+        ----
+        Returned array is unfiltered, so the first element, being the most similar user, will
+        always be the seed user themself.
+        """
+        if user_id >= self.hparams.num_users:
+            raise ValueError(
+                f'``user_id`` {user_id} is not in the model. '
+                'Expected ID between ``0`` and ``self.hparams.num_users - 1`` '
+                f'(``{self.hparams.num_users - 1}``), not ``{user_id}``'
+            )
+
+        return self._calculate_embedding_similarity(
+            embeddings=self._get_user_embeddings(),
+            id=user_id
+        )
+
+    def _calculate_embedding_similarity(self, embeddings: torch.tensor, id: int) -> pd.Series:
+        """Get most similar embedding indices by cosine similarity."""
+        embeddings = embeddings / embeddings.norm(dim=1)[:, None]
+
+        return pd.Series(
+            torch.matmul(embeddings[[id], :], embeddings.transpose(1, 0))
             .detach()
             .cpu()
             .numpy()
             .squeeze()
-        )
-
-        sim_score_idxs_series = pd.Series(sim_score_idxs)
-        sim_score_idxs_series = sim_score_idxs_series.sort_values(ascending=False)
-
-        return sim_score_idxs_series
+        ).sort_values(ascending=False)
 
     def _get_item_embeddings(self) -> torch.tensor:
         """``_get_item_embeddings`` should be implemented in all subclasses."""
         raise NotImplementedError(
             '``BasePipeline`` is meant to be inherited from, not used. '
             '``_get_item_embeddings`` is not implemented in this subclass.'
+        )
+
+    def _get_user_embeddings(self) -> torch.tensor:
+        """``_get_user_embeddings`` should be implemented in all subclasses."""
+        raise NotImplementedError(
+            '``BasePipeline`` is meant to be inherited from, not used. '
+            '``_get_user_embeddings`` is not implemented in this subclass.'
         )
 
     def save_model(self, filename: Union[str, Path] = 'model.pth') -> None:

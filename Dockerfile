@@ -1,12 +1,15 @@
-FROM pytorch/pytorch:1.9.0-cuda10.2-cudnn7-devel
-MAINTAINER data-science@shoprunner.com
+FROM pytorch/pytorch:1.10.0-cuda11.3-cudnn8-devel
+LABEL maintainer="data-science@shoprunner.com"
+
+# Nvidia fix based on Nate's recommendation
+RUN apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/3bf863cc.pub
 
 RUN apt-get update \
-    && apt-get install -y tmux \
-    && apt-get install -y vim \
-    && apt-get install -y libpq-dev \
-    && apt-get install -y gcc \
-    && apt-get clean
+  && apt-get install -y tmux \
+  && apt-get install -y vim \
+  && apt-get install -y libpq-dev \
+  && apt-get install -y gcc \
+  && apt-get clean
 
 # first remove PyYAML from conda or else pip gives us an error that a distutils library cannot be
 # uninstalled

@@ -2,8 +2,10 @@ from contextlib import suppress
 import copy
 from functools import partial
 import os
+import re
 from unittest import mock
 
+import numpy as np
 import pandas as pd
 import pytest
 import pytorch_lightning
@@ -35,7 +37,7 @@ from collie.model import (BasePipeline,
 def test_CollieTrainer_no_val_data(untrained_implicit_model_no_val_data):
     trainer = CollieTrainer(model=untrained_implicit_model_no_val_data,
                             logger=False,
-                            checkpoint_callback=False)
+                            enable_checkpointing=False)
 
     assert trainer.num_sanity_val_steps == 0
     assert trainer.check_val_every_n_epoch > 1000
@@ -50,23 +52,10 @@ def test_CollieTrainer_no_gpu(is_available_mock, untrained_implicit_model, capfd
         # can still test if the ``CollieTrainer`` is doing what it should here
         CollieTrainer(model=untrained_implicit_model,
                       logger=False,
-                      checkpoint_callback=False)
+                      enable_checkpointing=False)
 
     out, _ = capfd.readouterr()
     assert 'Detected GPU. Setting ``gpus`` to 1.' in out
-
-
-@mock.patch('torch.cuda.is_available')
-def test_CollieTrainer_on_cpu(is_available_mock, untrained_implicit_model):
-    is_available_mock.return_value = True
-
-    with pytest.warns(UserWarning):
-        trainer = CollieTrainer(model=untrained_implicit_model,
-                                logger=False,
-                                checkpoint_callback=False,
-                                gpus=0)
-
-    assert trainer.gpus == 0
 
 
 def test_basepipeline_does_not_initialize(train_val_implicit_data):
@@ -115,7 +104,7 @@ def test_okay_mismatched_train_and_val_loaders(train_val_implicit_data):
     val.num_negative_samples = 3
 
     model = MatrixFactorizationModel(train=train, val=val)
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer = CollieTrainer(model=model, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer.fit(model)
 
 
@@ -163,7 +152,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     train, val = train_val_implicit_data
 
     model_1 = MatrixFactorizationModel(train=train, val=val, bias_optimizer=None)
-    trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_1 = CollieTrainer(model=model_1, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_1.fit(model_1)
     assert not isinstance(model_1.optimizers(), list)
     model_1_lr_schedulers = [s['scheduler'] for s in trainer_1.lr_schedulers]
@@ -173,7 +162,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
                                        val=val,
                                        bias_optimizer=None,
                                        lr_scheduler_func=None)
-    trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_2 = CollieTrainer(model=model_2, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_2.fit(model_2)
     assert not isinstance(model_2.optimizers(), list)
     model_2_lr_schedulers = [s['scheduler'] for s in trainer_2.lr_schedulers]
@@ -183,7 +172,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
                                        val=val,
                                        bias_optimizer='infer',
                                        bias_lr='infer')
-    trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_3 = CollieTrainer(model=model_3, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_3.fit(model_3)
     assert len(model_3.optimizers()) == 2
     assert model_3.bias_optimizer == model_3.optimizer
@@ -196,7 +185,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
                                        bias_optimizer='infer',
                                        bias_lr='infer',
                                        lr_scheduler_func=None)
-    trainer_4 = CollieTrainer(model=model_4, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_4 = CollieTrainer(model=model_4, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_4.fit(model_4)
     assert len(model_4.optimizers()) == 2
     assert model_4.bias_optimizer == model_4.optimizer
@@ -209,7 +198,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
                                        bias_optimizer='infer',
                                        bias_lr=10,
                                        lr_scheduler_func=None)
-    trainer_5 = CollieTrainer(model=model_5, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_5 = CollieTrainer(model=model_5, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_5.fit(model_5)
     assert len(model_5.optimizers()) == 2
     assert model_5.bias_optimizer == model_5.optimizer
@@ -218,18 +207,18 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     assert len(model_5_lr_schedulers) == 0
 
     model_6 = MatrixFactorizationModel(train=train, val=val, optimizer='fake_optimizer')
-    trainer_6 = CollieTrainer(model=model_6, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_6 = CollieTrainer(model=model_6, logger=False, enable_checkpointing=False, max_epochs=1)
     with pytest.raises(ValueError):
         trainer_6.fit(model_6)
 
     model_7 = MatrixFactorizationModel(train=train, val=val, bias_optimizer='fake_optimizer')
-    trainer_7 = CollieTrainer(model=model_7, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_7 = CollieTrainer(model=model_7, logger=False, enable_checkpointing=False, max_epochs=1)
     with pytest.raises(ValueError):
         trainer_7.fit(model_7)
 
     # ``Adadelta`` accepts ``weight_decay`` parameter
     model_8 = MatrixFactorizationModel(train=train, val=val, optimizer=torch.optim.Adadelta)
-    trainer_8 = CollieTrainer(model=model_8, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_8 = CollieTrainer(model=model_8, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_8.fit(model_8)
 
     # ``LBFGS`` does not accept ``weight_decay`` parameter
@@ -237,7 +226,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
                                        val=val,
                                        optimizer=torch.optim.LBFGS,
                                        sparse=True)
-    trainer_9 = CollieTrainer(model=model_9, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_9 = CollieTrainer(model=model_9, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_9.fit(model_9)
 
 
@@ -454,18 +443,48 @@ class TestCollieMinimalTrainer():
 
         assert simple_logger_more_saves.saved_count > simple_logger_less_saves.saved_count
 
-    @mock.patch.object(MatrixFactorizationModel, 'calculate_loss')
     def test_terminate_on_nan(self,
-                              calculate_loss_mock,
                               train_val_implicit_sample_data):
-        calculate_loss_mock.return_value = torch.tensor(float('nan')).requires_grad_()
-
         train, val = train_val_implicit_sample_data
         model = MatrixFactorizationModel(train=train, val=val)
-        trainer = CollieMinimalTrainer(model=model, terminate_on_nan=True)
 
-        with pytest.raises(ValueError):
-            trainer.fit(model)
+        with pytest.warns(
+            DeprecationWarning,
+            match='``terminate_on_nan`` is deprecated and is replaced with ``detect_anomaly``.'
+        ):
+            trainer = CollieMinimalTrainer(model=model, terminate_on_nan=True)
+
+        assert trainer.detect_anomaly
+
+    def test_detect_anomaly(self,
+                            train_val_implicit_sample_data):
+        # create a tensor of ``nan``s as the loss to trigger anomaly detection
+        def bad_loss(*args, **kwargs):
+            return torch.tensor(0.0, requires_grad=True) * torch.tensor(float('nan'))
+
+        train, val = train_val_implicit_sample_data
+        model_no_detect_anomaly = MatrixFactorizationModel(train=train, val=val, loss=bad_loss)
+        trainer_no_detect_anomaly = CollieMinimalTrainer(
+            model=model_no_detect_anomaly,
+            detect_anomaly=False,
+            max_epochs=1
+        )
+
+        trainer_no_detect_anomaly.fit(model_no_detect_anomaly)
+
+        model_with_detect_anomaly = MatrixFactorizationModel(train=train, val=val, loss=bad_loss)
+        trainer_with_detect_anomaly = CollieMinimalTrainer(
+            model=model_with_detect_anomaly,
+            detect_anomaly=True,
+            max_epochs=1
+        )
+
+        with pytest.raises(RuntimeError, match='returned nan values in its 0th output.'):
+            with pytest.warns(
+                UserWarning,
+                match=r'.*Error detected in.* Traceback of forward call that caused the error.*'
+            ):
+                trainer_with_detect_anomaly.fit(model_with_detect_anomaly)
 
     def test_multiple_optimizers_and_lr_schedulers(self, train_val_implicit_sample_data):
         train, val = train_val_implicit_sample_data
@@ -538,12 +557,51 @@ class TestCollieMinimalTrainer():
                                          val=val)
         trainer = CollieMinimalTrainer(model=model,
                                        max_epochs=1,
-                                       weights_summary='full',
+                                       enable_model_summary=True,
                                        verbosity=verbosity)
         trainer.fit(model)
 
         out, _ = capfd.readouterr()
         assert out == ''
+
+    def test_weights_summary(self,
+                             train_val_implicit_sample_data):
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train, val=val)
+
+        with pytest.warns(
+            DeprecationWarning,
+            match='``weights_summary`` is deprecated and is replaced with ``enable_model_summary``.'
+        ):
+            CollieMinimalTrainer(model=model,
+                                 max_epochs=1,
+                                 weights_summary='full')
+
+    def test_enable_model_summary(self,
+                                  train_val_implicit_sample_data,
+                                  capsys):
+        train, val = train_val_implicit_sample_data
+        model = MatrixFactorizationModel(train=train, val=val)
+
+        enable_model_summary_trainer = CollieMinimalTrainer(model=model,
+                                                            max_epochs=1,
+                                                            enable_model_summary=True)
+
+        enable_model_summary_trainer.fit(model)
+
+        enable_model_summary_out, _ = capsys.readouterr()
+
+        assert '| Name            | Type            | Params' in enable_model_summary_out
+
+        disable_model_summary_trainer = CollieMinimalTrainer(model=model,
+                                                             max_epochs=1,
+                                                             enable_model_summary=False)
+
+        disable_model_summary_trainer.fit(model)
+
+        disable_model_summary_out, _ = capsys.readouterr()
+
+        assert '| Name            | Type            | Params' not in disable_model_summary_out
 
     def test_unexpected_batch_format(self, train_val_implicit_sample_data):
         train, val = train_val_implicit_sample_data
@@ -570,7 +628,7 @@ class TestMaxEpochsSetter():
     def test_max_epochs_setter_lightning(self, untrained_implicit_model):
         trainer = CollieTrainer(model=untrained_implicit_model,
                                 logger=False,
-                                checkpoint_callback=False,
+                                enable_checkpointing=False,
                                 max_epochs=3)
         assert trainer.max_epochs == 3
 
@@ -608,6 +666,10 @@ class TestMultiStageModelsCollieMinimalTrainer():
 
         assert item_similarities.index[0] == 42
 
+        user_similarities = model.user_user_similarity(user_id=42)
+
+        assert user_similarities.index[0] == 42
+
     def test_cold_start_model_collie_minimal_trainer(self, train_val_implicit_data):
         train, val = train_val_implicit_data
         item_buckets = torch.randint(low=0, high=5, size=(train.num_items,))
@@ -622,6 +684,12 @@ class TestMultiStageModelsCollieMinimalTrainer():
         # we can't check if the first value in the list matches, but it just shouldn't be the last
         # one
         assert item_similarities.index[-1] != 42
+
+        user_similarities = model.user_user_similarity(user_id=42)
+
+        # we can't check if the first value in the list matches, but it just shouldn't be the last
+        # one
+        assert user_similarities.index[-1] != 42
 
 
 def test_model_instantiation_no_train_data():
@@ -683,6 +751,17 @@ def test_implicit_model(implicit_model,
     item_similarities = model.item_item_similarity(item_id=42)
     assert item_similarities.index[0] == 42
 
+    user_preds = model.get_user_predictions(item_id=0,
+                                            unseen_users_only=True,
+                                            sort_values=True)
+
+    assert isinstance(user_preds, pd.Series)
+    assert len(user_preds) > 0
+    assert len(user_preds) < len(train)
+
+    user_similarities = model.user_user_similarity(user_id=42)
+    assert user_similarities.index[0] == 42
+
     mapk_score = evaluate_in_batches([mapk], val, model)
 
     # The metrics used for evaluation have been determined through 30
@@ -714,6 +793,17 @@ def test_explicit_model(explicit_model,
     item_similarities = model.item_item_similarity(item_id=42)
     assert item_similarities.index[0] == 42
 
+    user_preds = model.get_user_predictions(item_id=0,
+                                            unseen_users_only=True,
+                                            sort_values=True)
+
+    assert isinstance(user_preds, pd.Series)
+    assert len(user_preds) > 0
+    assert len(user_preds) < len(train)
+
+    user_similarities = model.user_user_similarity(user_id=42)
+    assert user_similarities.index[0] == 42
+
     mse_score = explicit_evaluate_in_batches([torchmetrics.MeanSquaredError()],
                                              val,
                                              model,
@@ -742,7 +832,7 @@ def test_bad_final_layer_of_neucf(train_val_implicit_data):
     model = NeuralCollaborativeFiltering(train=train,
                                          val=val,
                                          final_layer='nonexistent_final_layer')
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer = CollieTrainer(model=model, logger=False, enable_checkpointing=False, max_epochs=1)
 
     with pytest.raises(ValueError):
         trainer.fit(model)
@@ -754,7 +844,7 @@ def test_bad_final_layer_of_deep_fm(train_val_implicit_data):
     model = DeepFM(train=train,
                    val=val,
                    final_layer='nonexistent_final_layer')
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer = CollieTrainer(model=model, logger=False, enable_checkpointing=False, max_epochs=1)
 
     with pytest.raises(ValueError):
         trainer.fit(model)
@@ -825,10 +915,62 @@ def test_cold_start_stages_progression(train_val_implicit_data):
         model.set_stage('invalid_stage_name')
 
 
-def test_hybrid_model_stages_progression(train_val_implicit_data, movielens_metadata_df):
+def test_hybrid_model_stages_progression_item_metadata_only(train_val_implicit_data,
+                                                            movielens_metadata_df,
+                                                            user_metadata_df):
     train, val = train_val_implicit_data
 
     model = HybridModel(train=train, val=val, item_metadata=movielens_metadata_df)
+
+    assert model.hparams.stage == 'matrix_factorization'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'metadata_only'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'all'
+
+    with pytest.raises(ValueError):
+        model.advance_stage()
+
+    with pytest.raises(ValueError):
+        model.set_stage('invalid_stage_name')
+
+
+def test_hybrid_model_stages_progression_user_metadata_only(train_val_implicit_data,
+                                                            user_metadata_df):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train, val=val, user_metadata=user_metadata_df)
+
+    assert model.hparams.stage == 'matrix_factorization'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'metadata_only'
+
+    model.advance_stage()
+
+    assert model.hparams.stage == 'all'
+
+    with pytest.raises(ValueError):
+        model.advance_stage()
+
+    with pytest.raises(ValueError):
+        model.set_stage('invalid_stage_name')
+
+
+def test_hybrid_model_stages_progression_all_metadata(train_val_implicit_data,
+                                                      movielens_metadata_df,
+                                                      user_metadata_df):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train,
+                        val=val,
+                        item_metadata=movielens_metadata_df,
+                        user_metadata=user_metadata_df)
 
     assert model.hparams.stage == 'matrix_factorization'
 
@@ -862,11 +1004,13 @@ def test_bad_initialization_of_hybrid_pretrained_model(implicit_model,
         HybridPretrainedModel(train=train,
                               val=val,
                               item_metadata=None,
+                              user_metadata=None,
                               trained_model=implicit_model)
 
 
 def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_model,
                                                                    movielens_metadata_df,
+                                                                   user_metadata_df,
                                                                    train_val_implicit_data):
     train, val = train_val_implicit_data
 
@@ -875,14 +1019,14 @@ def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_mode
                                     val=val,
                                     item_metadata=movielens_metadata_df,
                                     trained_model=implicit_model)
-    trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_1 = CollieTrainer(model=model_1, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_1.fit(model_1)
 
     model_2 = HybridPretrainedModel(train=train,
                                     val=val,
                                     item_metadata=movielens_metadata_df.to_numpy(),
                                     trained_model=implicit_model)
-    trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_2 = CollieTrainer(model=model_2, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_2.fit(model_2)
 
     model_3 = HybridPretrainedModel(
@@ -891,11 +1035,69 @@ def test_different_item_metadata_types_for_hybrid_pretrained_model(implicit_mode
         item_metadata=torch.from_numpy(movielens_metadata_df.to_numpy()),
         trained_model=implicit_model,
     )
-    trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_3 = CollieTrainer(model=model_3, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_3.fit(model_3)
+
+    # ensure that we end up with the same ``user_metadata`` regardless of the input type
+    model_4 = HybridPretrainedModel(train=train,
+                                    val=val,
+                                    user_metadata=user_metadata_df,
+                                    trained_model=implicit_model)
+    trainer_4 = CollieTrainer(model=model_4, logger=False, enable_checkpointing=False, max_epochs=1)
+    trainer_4.fit(model_4)
+
+    model_5 = HybridPretrainedModel(train=train,
+                                    val=val,
+                                    user_metadata=user_metadata_df.to_numpy(),
+                                    trained_model=implicit_model)
+    trainer_5 = CollieTrainer(model=model_5, logger=False, enable_checkpointing=False, max_epochs=1)
+    trainer_5.fit(model_5)
+
+    model_6 = HybridPretrainedModel(train=train,
+                                    val=val,
+                                    user_metadata=torch.from_numpy(user_metadata_df.to_numpy()),
+                                    trained_model=implicit_model)
+    trainer_6 = CollieTrainer(model=model_6, logger=False, enable_checkpointing=False, max_epochs=1)
+    trainer_6.fit(model_6)
 
     assert model_1.item_metadata.equal(model_2.item_metadata)
     assert model_2.item_metadata.equal(model_3.item_metadata)
+    assert model_4.user_metadata.equal(model_5.user_metadata)
+    assert model_5.user_metadata.equal(model_6.user_metadata)
+
+
+def test_item_metadata_with_nulls_hybrid_pretrained_model(implicit_model,
+                                                          movielens_metadata_df,
+                                                          train_val_implicit_data):
+
+    train, val = train_val_implicit_data
+
+    # create copy of metadata and add column of nulls
+    movielens_metadata_df_with_bad_col = movielens_metadata_df.copy()
+    movielens_metadata_df_with_bad_col['bad_column'] = np.nan
+
+    with pytest.raises(ValueError, match='``item_metadata`` may not contain nulls'):
+        HybridPretrainedModel(train=train,
+                              val=val,
+                              item_metadata=movielens_metadata_df_with_bad_col,
+                              trained_model=implicit_model)
+
+
+def test_user_metadata_with_nulls_hybrid_pretrained_model(implicit_model,
+                                                          user_metadata_df,
+                                                          train_val_implicit_data):
+
+    train, val = train_val_implicit_data
+
+    # create copy of metadata and add column of nulls
+    user_metadata_df_with_bad_col = user_metadata_df.copy()
+    user_metadata_df_with_bad_col['bad_column'] = np.nan
+
+    with pytest.raises(ValueError, match='``user_metadata`` may not contain nulls'):
+        HybridPretrainedModel(train=train,
+                              val=val,
+                              user_metadata=user_metadata_df_with_bad_col,
+                              trained_model=implicit_model)
 
 
 def test_bad_initialization_of_multi_stage_model(train_val_implicit_data):
@@ -919,11 +1121,13 @@ def test_bad_initialization_of_multi_stage_model(train_val_implicit_data):
 def test_bad_initialization_of_hybrid_model(movielens_metadata_df, train_val_implicit_data):
     train, val = train_val_implicit_data
 
-    with pytest.raises(ValueError):
-        HybridModel(train=train, val=val, item_metadata=None)
+    with pytest.raises(ValueError,
+                       match='Must provide item metadata and/or user metadata for ``HybridModel``'):
+        HybridModel(train=train, val=val, item_metadata=None, user_metadata=None)
 
 
 def test_different_item_metadata_types_for_hybrid_model(movielens_metadata_df,
+                                                        user_metadata_df,
                                                         train_val_implicit_data):
     train, val = train_val_implicit_data
 
@@ -931,29 +1135,202 @@ def test_different_item_metadata_types_for_hybrid_model(movielens_metadata_df,
     model_1 = HybridModel(train=train,
                           val=val,
                           item_metadata=movielens_metadata_df)
-    trainer_1 = CollieTrainer(model=model_1, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_1 = CollieTrainer(model=model_1, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_1.fit(model_1)
 
     model_2 = HybridModel(train=train,
                           val=val,
                           item_metadata=movielens_metadata_df.to_numpy())
-    trainer_2 = CollieTrainer(model=model_2, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer_2 = CollieTrainer(model=model_2, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_2.fit(model_2)
 
-    model_3 = HybridModel(
-        train=train,
-        val=val,
-        item_metadata=torch.from_numpy(movielens_metadata_df.to_numpy()),
-    )
-    trainer_3 = CollieTrainer(model=model_3, logger=False, checkpoint_callback=False, max_epochs=1)
+    model_3 = HybridModel(train=train,
+                          val=val,
+                          item_metadata=torch.from_numpy(movielens_metadata_df.to_numpy()))
+
+    trainer_3 = CollieTrainer(model=model_3, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer_3.fit(model_3)
+
+    model_4 = HybridModel(train=train,
+                          val=val,
+                          user_metadata=user_metadata_df)
+    trainer_4 = CollieTrainer(model=model_4, logger=False, enable_checkpointing=False, max_epochs=1)
+    trainer_4.fit(model_4)
+
+    model_5 = HybridModel(train=train,
+                          val=val,
+                          user_metadata=user_metadata_df.to_numpy())
+    trainer_5 = CollieTrainer(model=model_5, logger=False, enable_checkpointing=False, max_epochs=1)
+    trainer_5.fit(model_5)
+
+    model_6 = HybridModel(train=train,
+                          val=val,
+                          user_metadata=torch.from_numpy(user_metadata_df.to_numpy()))
+    trainer_6 = CollieTrainer(model=model_6, logger=False, enable_checkpointing=False, max_epochs=1)
+    trainer_6.fit(model_6)
 
     assert model_1.item_metadata.equal(model_2.item_metadata)
     assert model_2.item_metadata.equal(model_3.item_metadata)
+    assert model_4.user_metadata.equal(model_5.user_metadata)
+    assert model_5.user_metadata.equal(model_6.user_metadata)
 
 
-def test_loading_and_saving_implicit_model(implicit_model, untrained_implicit_model, tmpdir):
-    expected = implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+def test_item_metadata_only_hybrid_model(movielens_metadata_df,
+                                         train_val_implicit_data):
+    train, val = train_val_implicit_data
+
+    # model parameters as setup in tutorials
+    model = HybridModel(train=train,
+                        val=val,
+                        item_metadata=movielens_metadata_df,
+                        item_metadata_layers_dims=[8],
+                        combined_layers_dims=[16],
+                        embedding_dim=30,
+                        lr=1e-2,  # used in stage 1
+                        bias_lr=1e-1,  # used in stage 1
+                        metadata_only_stage_lr=1e-3,  # used in stage 2
+                        all_stage_lr=1e-4)
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=5)
+    trainer.fit(model)
+
+    model.advance_stage()
+    trainer.max_epochs += 5
+    trainer.fit(model)
+
+    model.advance_stage()
+    trainer.max_epochs += 5
+    trainer.fit(model)
+
+    item_preds = model.get_item_predictions(user_id=0,
+                                            unseen_items_only=True,
+                                            sort_values=True)
+
+    assert isinstance(item_preds, pd.Series)
+    assert len(item_preds) > 0
+    assert len(item_preds) < len(train)
+
+    item_similarities = model.item_item_similarity(item_id=42)
+    assert item_similarities.index[0] == 42
+
+    user_preds = model.get_user_predictions(item_id=0,
+                                            unseen_users_only=True,
+                                            sort_values=True)
+
+    assert isinstance(user_preds, pd.Series)
+    assert len(user_preds) > 0
+    assert len(user_preds) < len(train)
+
+    user_similarities = model.user_user_similarity(user_id=42)
+    assert user_similarities.index[0] == 42
+
+    mapk_score = evaluate_in_batches([mapk], val, model)
+
+    # The metrics used for evaluation have been determined through 30
+    # trials of training the model and using the mean - 5 * std. dev.
+    # as the minimum score the model must achieve to pass the test.
+    assert mapk_score > 0.037
+
+
+def test_user_metadata_only_hybrid_model(user_metadata_df,
+                                         train_val_implicit_data):
+    train, val = train_val_implicit_data
+
+    # model parameters as setup in tutorials
+    model = HybridModel(train=train,
+                        val=val,
+                        user_metadata=user_metadata_df,
+                        user_metadata_layers_dims=[8],
+                        combined_layers_dims=[16],
+                        embedding_dim=30,
+                        lr=1e-2,  # used in stage 1
+                        bias_lr=1e-1,  # used in stage 1
+                        metadata_only_stage_lr=1e-3,  # used in stage 2
+                        all_stage_lr=1e-4)
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=5)
+    trainer.fit(model)
+
+    model.advance_stage()
+    trainer.max_epochs += 5
+    trainer.fit(model)
+
+    model.advance_stage()
+    trainer.max_epochs += 5
+    trainer.fit(model)
+
+    item_preds = model.get_item_predictions(user_id=0,
+                                            unseen_items_only=True,
+                                            sort_values=True)
+
+    assert isinstance(item_preds, pd.Series)
+    assert len(item_preds) > 0
+    assert len(item_preds) < len(train)
+
+    item_similarities = model.item_item_similarity(item_id=42)
+    assert item_similarities.index[0] == 42
+
+    user_preds = model.get_user_predictions(item_id=0,
+                                            unseen_users_only=True,
+                                            sort_values=True)
+
+    assert isinstance(user_preds, pd.Series)
+    assert len(user_preds) > 0
+    assert len(user_preds) < len(train)
+
+    user_similarities = model.user_user_similarity(user_id=42)
+    assert user_similarities.index[0] == 42
+
+    mapk_score = evaluate_in_batches([mapk], val, model)
+
+    # The metrics used for evaluation have been determined through 30
+    # trials of training the model and using the mean - 5 * std. dev.
+    # as the minimum score the model must achieve to pass the test.
+    assert mapk_score > 0.028
+
+
+def test_item_metadata_with_nulls_hybrid_model(movielens_metadata_df,
+                                               train_val_implicit_data):
+
+    train, val = train_val_implicit_data
+
+    # create copy of metadata and add column of nulls
+    movielens_metadata_df_with_bad_col = movielens_metadata_df.copy()
+    movielens_metadata_df_with_bad_col['bad_column'] = np.nan
+
+    with pytest.raises(ValueError, match='``item_metadata`` may not contain nulls'):
+        HybridModel(train=train,
+                    val=val,
+                    item_metadata=movielens_metadata_df_with_bad_col)
+
+
+def test_user_metadata_with_nulls_hybrid_model(user_metadata_df,
+                                               train_val_implicit_data):
+
+    train, val = train_val_implicit_data
+
+    # create copy of metadata and add column of nulls
+    user_metadata_df_with_bad_col = user_metadata_df.copy()
+    user_metadata_df_with_bad_col['bad_column'] = np.nan
+
+    with pytest.raises(ValueError, match='``user_metadata`` may not contain nulls'):
+        HybridModel(train=train,
+                    val=val,
+                    user_metadata=user_metadata_df_with_bad_col)
+
+
+def test_loading_and_saving_implicit_model(train_val_implicit_data,
+                                           untrained_implicit_model,
+                                           tmpdir):
+    train, val = train_val_implicit_data
+    implicit_model = MatrixFactorizationModel(train=train, val=val)
+
+    item_preds_expected = implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_expected = implicit_model.get_user_predictions(item_id=42, unseen_users_only=False)
 
     # set up TemporaryDirectory for writing and reading all files in this test
     temp_dir_name = str(tmpdir)
@@ -962,36 +1339,56 @@ def test_loading_and_saving_implicit_model(implicit_model, untrained_implicit_mo
     implicit_model.save_model(save_model_path)
     loaded_implicit_model = MatrixFactorizationModel(load_model_path=save_model_path)
 
-    actual = loaded_implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_actual = loaded_implicit_model.get_item_predictions(
+        user_id=42,
+        unseen_items_only=False
+    )
+    user_preds_actual = loaded_implicit_model.get_user_predictions(
+        item_id=42,
+        unseen_users_only=False
+    )
 
-    assert expected.equals(actual)
+    assert item_preds_expected.equals(item_preds_actual)
+    assert user_preds_expected.equals(user_preds_actual)
 
     # now, test that this is not equal to a randomly initialized model's output
-    new_preds = untrained_implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_new_preds = untrained_implicit_model.get_item_predictions(
+        user_id=42,
+        unseen_items_only=False
+    )
+    user_new_preds = untrained_implicit_model.get_user_predictions(
+        item_id=42,
+        unseen_users_only=False
+    )
 
-    assert not expected.equals(new_preds)
+    assert not item_preds_expected.equals(item_new_preds)
+    assert not user_preds_expected.equals(user_new_preds)
 
 
-def test_loading_and_saving_hybrid_pretrained_model(implicit_model,
-                                                    movielens_metadata_df,
+def test_loading_and_saving_hybrid_pretrained_model(movielens_metadata_df,
+                                                    user_metadata_df,
                                                     train_val_implicit_data,
                                                     tmpdir):
     train, val = train_val_implicit_data
+    implicit_model = MatrixFactorizationModel(train=train, val=val)
 
     model = HybridPretrainedModel(train=train,
                                   val=val,
                                   item_metadata=movielens_metadata_df,
+                                  user_metadata=user_metadata_df,
                                   trained_model=implicit_model,
-                                  metadata_layers_dims=[16, 8],
+                                  item_metadata_layers_dims=[16, 8],
+                                  user_metadata_layers_dims=[16, 8],
                                   freeze_embeddings=True)
     trainer = CollieTrainer(model=model,
                             logger=False,
-                            checkpoint_callback=False,
+                            enable_checkpointing=False,
                             max_epochs=1,
                             gpus=int(str(implicit_model.device).startswith('cuda:0')))
     trainer.fit(model)
 
-    expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_expected = model.get_user_predictions(item_id=42, unseen_users_only=False)
 
     # set up TemporaryDirectory for writing and reading the file in this test
     temp_dir_name = str(tmpdir)
@@ -1000,29 +1397,102 @@ def test_loading_and_saving_hybrid_pretrained_model(implicit_model,
     model.save_model(save_model_path)
     loaded_model = HybridPretrainedModel(load_model_path=save_model_path)
 
-    actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_actual = loaded_model.get_user_predictions(item_id=42, unseen_users_only=False)
 
-    assert expected.equals(actual)
+    assert item_preds_expected.equals(item_preds_actual)
+    assert user_preds_expected.equals(user_preds_actual)
 
     # now, test that this is not equal to a randomly initialized model's output
-    implicit_preds = implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_implicit_preds = implicit_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_implicit_preds = implicit_model.get_user_predictions(item_id=42, unseen_users_only=False)
 
-    assert not expected.equals(implicit_preds)
+    assert not item_preds_expected.equals(item_implicit_preds)
+    assert not user_preds_expected.equals(user_implicit_preds)
 
 
-def test_bad_saving_hybrid_pretrained_model(implicit_model,
-                                            movielens_metadata_df,
-                                            train_val_implicit_data,
-                                            tmpdir):
+def test_loading_and_saving_hybrid_pretrained_model_no_item_metadata(movielens_metadata_df,
+                                                                     user_metadata_df,
+                                                                     train_val_implicit_data,
+                                                                     tmpdir):
     train, val = train_val_implicit_data
+    implicit_model = MatrixFactorizationModel(train=train, val=val)
 
     model = HybridPretrainedModel(train=train,
                                   val=val,
                                   item_metadata=movielens_metadata_df,
+                                  user_metadata=user_metadata_df,
                                   trained_model=implicit_model,
-                                  metadata_layers_dims=[16, 8],
+                                  item_metadata_layers_dims=[16, 8],
+                                  user_metadata_layers_dims=[16, 8],
                                   freeze_embeddings=True)
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=1,
+                            gpus=int(str(implicit_model.device).startswith('cuda:0')))
+    trainer.fit(model)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name,
+                                   'test_hybrid_pretrained_model_save_no_item_metadata')
+    model.save_model(save_model_path)
+    os.remove(f'{save_model_path}/item_metadata.pkl')
+    with pytest.warns(UserWarning, match='``item_metadata.pkl`` not found'):
+        HybridPretrainedModel(load_model_path=save_model_path)
+
+
+def test_loading_and_saving_hybrid_pretrained_model_no_user_metadata(movielens_metadata_df,
+                                                                     user_metadata_df,
+                                                                     train_val_implicit_data,
+                                                                     tmpdir):
+    train, val = train_val_implicit_data
+    implicit_model = MatrixFactorizationModel(train=train, val=val)
+
+    model = HybridPretrainedModel(train=train,
+                                  val=val,
+                                  item_metadata=movielens_metadata_df,
+                                  user_metadata=user_metadata_df,
+                                  trained_model=implicit_model,
+                                  item_metadata_layers_dims=[16, 8],
+                                  user_metadata_layers_dims=[16, 8],
+                                  freeze_embeddings=True)
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=1,
+                            gpus=int(str(implicit_model.device).startswith('cuda:0')))
+    trainer.fit(model)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name,
+                                   'test_hybrid_pretrained_model_save_no_user_metadata')
+    model.save_model(save_model_path)
+    os.remove(f'{save_model_path}/user_metadata.pkl')
+    with pytest.warns(UserWarning, match='``user_metadata.pkl`` not found'):
+        HybridPretrainedModel(load_model_path=save_model_path)
+
+
+def test_bad_saving_hybrid_pretrained_model(movielens_metadata_df,
+                                            user_metadata_df,
+                                            train_val_implicit_data,
+                                            tmpdir):
+    train, val = train_val_implicit_data
+    implicit_model = MatrixFactorizationModel(train=train, val=val)
+
+    model = HybridPretrainedModel(train=train,
+                                  val=val,
+                                  item_metadata=movielens_metadata_df,
+                                  user_metadata=user_metadata_df,
+                                  trained_model=implicit_model,
+                                  item_metadata_layers_dims=[16, 8],
+                                  user_metadata_layers_dims=[16, 8],
+                                  freeze_embeddings=True)
+    trainer = CollieTrainer(model=model, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer.fit(model)
 
     # set up TemporaryDirectory for writing and reading all files in this test
@@ -1043,13 +1513,14 @@ def test_loading_and_saving_cold_start_model(train_val_implicit_data, tmpdir):
     item_buckets = torch.randint(low=0, high=3, size=(train.num_items,))
 
     model = ColdStartModel(train=train, val=val, item_buckets=item_buckets)
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer = CollieTrainer(model=model, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer.fit(model)
 
     # we have to advance to the final stage so our item embeddings are copied over before saving
     model.advance_stage()
 
-    expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_expected = model.get_user_predictions(item_id=42, unseen_users_only=False)
 
     # set up TemporaryDirectory for writing and reading the file in this test
     temp_dir_name = str(tmpdir)
@@ -1058,24 +1529,32 @@ def test_loading_and_saving_cold_start_model(train_val_implicit_data, tmpdir):
     model.save_model(save_model_path)
     loaded_model = ColdStartModel(load_model_path=save_model_path)
 
-    actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_actual = loaded_model.get_user_predictions(item_id=42, unseen_users_only=False)
 
-    assert expected.equals(actual)
+    assert item_preds_expected.equals(item_preds_actual)
+    assert user_preds_expected.equals(user_preds_actual)
 
     assert loaded_model.hparams.stage == 'no_buckets'
 
 
-def test_loading_and_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data, tmpdir):
+def test_loading_and_saving_hybrid_model(movielens_metadata_df,
+                                         user_metadata_df,
+                                         train_val_implicit_data,
+                                         tmpdir):
     train, val = train_val_implicit_data
 
     model = HybridModel(train=train,
                         val=val,
                         item_metadata=movielens_metadata_df,
-                        metadata_layers_dims=[16, 8])
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+                        user_metadata=user_metadata_df,
+                        item_metadata_layers_dims=[16, 8],
+                        user_metadata_layers_dims=[16, 8])
+    trainer = CollieTrainer(model=model, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer.fit(model)
 
-    expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_expected = model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_expected = model.get_user_predictions(item_id=42, unseen_users_only=False)
 
     # set up TemporaryDirectory for writing and reading the file in this test
     temp_dir_name = str(tmpdir)
@@ -1087,12 +1566,72 @@ def test_loading_and_saving_hybrid_model(movielens_metadata_df, train_val_implic
     assert loaded_model.hparams.stage == 'all'
 
     # set the stage of the loaded in model to be the same as the saved model so
-    # ``get_item_predictions`` is the same
+    # ``get_item_predictions`` and ``get_user_predictions`` are the same
     loaded_model.set_stage('matrix_factorization')
 
-    actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    item_preds_actual = loaded_model.get_item_predictions(user_id=42, unseen_items_only=False)
+    user_preds_actual = loaded_model.get_user_predictions(item_id=42, unseen_users_only=False)
 
-    assert expected.equals(actual)
+    assert item_preds_expected.equals(item_preds_actual)
+    assert user_preds_expected.equals(user_preds_actual)
+
+
+def test_loading_and_saving_hybrid_model_no_item_metadata(movielens_metadata_df,
+                                                          user_metadata_df,
+                                                          train_val_implicit_data,
+                                                          tmpdir):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train,
+                        val=val,
+                        item_metadata=movielens_metadata_df,
+                        user_metadata=user_metadata_df,
+                        item_metadata_layers_dims=[16, 8],
+                        user_metadata_layers_dims=[16, 8])
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=1)
+    trainer.fit(model)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name,
+                                   'test_hybrid_model_save_no_item_metadata')
+    model.save_model(save_model_path)
+    os.remove(f'{save_model_path}/item_metadata.pkl')
+    with pytest.warns(UserWarning, match='``item_metadata.pkl`` not found'):
+        HybridModel(load_model_path=save_model_path)
+
+
+def test_loading_and_saving_hybrid_model_no_user_metadata(movielens_metadata_df,
+                                                          user_metadata_df,
+                                                          train_val_implicit_data,
+                                                          tmpdir):
+    train, val = train_val_implicit_data
+
+    model = HybridModel(train=train,
+                        val=val,
+                        item_metadata=movielens_metadata_df,
+                        user_metadata=user_metadata_df,
+                        item_metadata_layers_dims=[16, 8],
+                        user_metadata_layers_dims=[16, 8])
+    trainer = CollieTrainer(model=model,
+                            logger=False,
+                            enable_checkpointing=False,
+                            max_epochs=1)
+    trainer.fit(model)
+
+    # set up TemporaryDirectory for writing and reading the file in this test
+    temp_dir_name = str(tmpdir)
+
+    save_model_path = os.path.join(temp_dir_name,
+                                   'test_hybrid_model_save_no_user_metadata')
+    model.save_model(save_model_path)
+    os.remove(f'{save_model_path}/user_metadata.pkl')
+    with pytest.warns(UserWarning, match='``user_metadata.pkl`` not found'):
+        HybridModel(load_model_path=save_model_path)
 
 
 def test_bad_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data, tmpdir):
@@ -1101,7 +1640,7 @@ def test_bad_saving_hybrid_model(movielens_metadata_df, train_val_implicit_data,
     model = HybridModel(train=train,
                         val=val,
                         item_metadata=movielens_metadata_df)
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer = CollieTrainer(model=model, logger=False, enable_checkpointing=False, max_epochs=1)
     trainer.fit(model)
 
     # set up TemporaryDirectory for writing and reading all files in this test
@@ -1129,12 +1668,24 @@ def test_implicit_models_trained_for_one_step(models_trained_for_one_step, train
         assert len(item_preds) > 0
         assert len(item_preds) < len(train)
 
+        user_preds = models_trained_for_one_step.get_user_predictions(item_id=0,
+                                                                      unseen_users_only=True,
+                                                                      sort_values=True)
+
+        assert isinstance(user_preds, pd.Series)
+        assert len(user_preds) > 0
+        assert len(user_preds) < len(train)
+
     item_similarities = models_trained_for_one_step.item_item_similarity(item_id=42)
+    user_similarities = models_trained_for_one_step.user_user_similarity(user_id=42)
 
     if not isinstance(models_trained_for_one_step, ColdStartModel):
         # cold start models aren't trained enough for this check to be true
         assert item_similarities.index[0] == 42
         assert round(item_similarities.values[0], 1) == 1
+
+        assert user_similarities.index[0] == 42
+        assert round(user_similarities.values[0], 1) == 1
     else:
         # ensure ``item_bucket_item_similarity`` works for cold start models
         item_bucket_similarities = (
@@ -1156,12 +1707,24 @@ def test_explicit_models_trained_for_one_step(explicit_models_trained_for_one_st
     assert len(item_preds) > 0
     assert len(item_preds) < len(train)
 
+    user_preds = explicit_models_trained_for_one_step.get_user_predictions(item_id=0,
+                                                                           unseen_users_only=True,
+                                                                           sort_values=True)
+
+    assert isinstance(user_preds, pd.Series)
+    assert len(user_preds) > 0
+    assert len(user_preds) < len(train)
+
     item_similarities = explicit_models_trained_for_one_step.item_item_similarity(item_id=42)
+    user_similarities = explicit_models_trained_for_one_step.user_user_similarity(user_id=42)
 
     if not isinstance(explicit_models_trained_for_one_step, ColdStartModel):
         # cold start models aren't trained enough for this check to be true
         assert item_similarities.index[0] == 42
         assert round(item_similarities.values[0], 1) == 1
+
+        assert user_similarities.index[0] == 42
+        assert round(user_similarities.values[0], 1) == 1
     else:
         # ensure ``item_bucket_item_similarity`` works for cold start models
         item_bucket_similarities = (
@@ -1190,7 +1753,7 @@ def test_really_bad_implicit_model_explicit_data(train_val_explicit_data, train_
     model.train_loader = InteractionsDataLoader(explicit_train)
     model.val_loader = InteractionsDataLoader(explicit_val)
 
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer = CollieTrainer(model=model, logger=False, enable_checkpointing=False, max_epochs=1)
 
     with pytest.raises(ValueError):
         trainer.fit(model)
@@ -1202,7 +1765,83 @@ def test_bad_explicit_model_implicit_data(train_val_implicit_sample_data):
     model = MatrixFactorizationModel(train=train,
                                      val=val,
                                      loss='mse')
-    trainer = CollieTrainer(model=model, logger=False, checkpoint_callback=False, max_epochs=1)
+    trainer = CollieTrainer(model=model, logger=False, enable_checkpointing=False, max_epochs=1)
 
     with pytest.raises(ValueError):
         trainer.fit(model)
+
+
+def test_get_item_preds_err(implicit_model,
+                            train_val_implicit_data):
+    model = implicit_model
+    train, _ = train_val_implicit_data
+
+    nonexistent_user_id = train.num_users
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f'``user_id`` {nonexistent_user_id} is not in the model. '
+            'Expected ID between ``0`` and ``self.hparams.num_users - 1`` '
+            f'(``{train.num_users - 1}``), not ``{nonexistent_user_id}``'
+        )
+    ):
+        model.get_item_predictions(user_id=nonexistent_user_id,
+                                   unseen_items_only=True,
+                                   sort_values=True)
+
+
+def test_get_user_preds_err(implicit_model,
+                            train_val_implicit_data):
+    model = implicit_model
+    train, _ = train_val_implicit_data
+
+    nonexistent_item_id = train.num_items
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f'``item_id`` {nonexistent_item_id} is not in the model. '
+            'Expected ID between ``0`` and ``self.hparams.num_items - 1`` '
+            f'(``{train.num_items - 1}``), not ``{nonexistent_item_id}``'
+        )
+    ):
+        model.get_user_predictions(item_id=nonexistent_item_id,
+                                   unseen_users_only=True,
+                                   sort_values=True)
+
+
+def test_item_item_similarity_err(implicit_model,
+                                  train_val_implicit_data):
+    model = implicit_model
+    train, _ = train_val_implicit_data
+
+    nonexistent_item_id = train.num_items
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f'``item_id`` {nonexistent_item_id} is not in the model. '
+            'Expected ID between ``0`` and ``self.hparams.num_items - 1`` '
+            f'(``{train.num_items - 1}``), not ``{nonexistent_item_id}``'
+        )
+    ):
+        model.item_item_similarity(item_id=nonexistent_item_id)
+
+
+def test_user_user_similarity_err(implicit_model,
+                                  train_val_implicit_data):
+    model = implicit_model
+    train, _ = train_val_implicit_data
+
+    nonexistent_user_id = train.num_users
+
+    with pytest.raises(
+        ValueError,
+        match=re.escape(
+            f'``user_id`` {nonexistent_user_id} is not in the model. '
+            'Expected ID between ``0`` and ``self.hparams.num_users - 1`` '
+            f'(``{train.num_users - 1}``), not ``{nonexistent_user_id}``'
+        )
+    ):
+        model.user_user_similarity(user_id=nonexistent_user_id)

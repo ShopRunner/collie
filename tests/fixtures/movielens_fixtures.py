@@ -4,8 +4,10 @@ from sklearn.model_selection import train_test_split
 from collie.cross_validation import random_split, stratified_split
 from collie.interactions import ExplicitInteractions, Interactions
 from collie.movielens import (get_movielens_metadata,
+                              get_user_metadata,
                               read_movielens_df,
                               read_movielens_df_item,
+                              read_movielens_df_user,
                               read_movielens_posters_df)
 from collie.utils import convert_to_implicit
 
@@ -31,6 +33,11 @@ def movielens_df_item():
 
 
 @pytest.fixture(scope='session')
+def movielens_df_user():
+    return read_movielens_df_user()
+
+
+@pytest.fixture(scope='session')
 def movielens_posters_df():
     return read_movielens_posters_df()
 
@@ -38,6 +45,11 @@ def movielens_posters_df():
 @pytest.fixture(scope='session')
 def movielens_metadata_df():
     return get_movielens_metadata()
+
+
+@pytest.fixture(scope='session')
+def user_metadata_df():
+    return get_user_metadata()
 
 
 @pytest.fixture(scope='session')

@@ -13,9 +13,9 @@ from collie.metrics.metrics_utils import _get_evaluate_in_batches_device, _log_m
 from collie.model import BasePipeline
 
 
-def get_user_item_pairs(user_ids: (np.array, torch.tensor),
-                        n_items: int,
-                        device: Union[str, torch.device]) -> Tuple[torch.tensor, torch.tensor]:
+def _get_user_item_pairs(user_ids: Union[np.array, torch.tensor],
+                         n_items: int,
+                         device: Union[str, torch.device]) -> Tuple[torch.tensor, torch.tensor]:
     """
     Create tensors pairing each input user ID with each item ID.
 
@@ -71,7 +71,7 @@ def get_user_item_pairs(user_ids: (np.array, torch.tensor),
 
 
 def get_preds(model: BasePipeline,
-              user_ids: (np.array, torch.tensor),
+              user_ids: Union[np.array, torch.tensor],
               n_items: int,
               device: Union[str, torch.device]) -> torch.tensor:
     """
@@ -103,10 +103,10 @@ def get_preds(model: BasePipeline,
     return predicted_scores.view(-1, n_items)
 
 
-def get_labels(targets: csr_matrix,
-               user_ids: (np.array, torch.tensor),
-               preds: (np.array, torch.tensor),
-               device: str) -> torch.tensor:
+def _get_labels(targets: csr_matrix,
+                user_ids: Union[np.array, torch.tensor],
+                preds: Union[np.array, torch.tensor],
+                device: str) -> torch.tensor:
     """
     Returns a binary array indicating which of the recommended products are in each user's target
     set.
@@ -138,8 +138,8 @@ def get_labels(targets: csr_matrix,
 
 
 def mapk(targets: csr_matrix,
-         user_ids: (np.array, torch.tensor),
-         preds: (np.array, torch.tensor),
+         user_ids: Union[np.array, torch.tensor],
+         preds: Union[np.array, torch.tensor],
          k: int = 10) -> float:
     """
     Calculate the mean average precision at K (MAP@K) score for each user.
@@ -195,8 +195,8 @@ def mapk(targets: csr_matrix,
 
 
 def mrr(targets: csr_matrix,
-        user_ids: (np.array, torch.tensor),
-        preds: (np.array, torch.tensor),
+        user_ids: Union[np.array, torch.tensor],
+        preds: Union[np.array, torch.tensor],
         k: Optional[Any] = None) -> float:
     """
     Calculate the mean reciprocal rank (MRR) of the input predictions.
@@ -237,8 +237,8 @@ def mrr(targets: csr_matrix,
 
 
 def auc(targets: csr_matrix,
-        user_ids: (np.array, torch.tensor),
-        preds: (np.array, torch.tensor),
+        user_ids: Union[np.array, torch.tensor],
+        preds: Union[np.array, torch.tensor],
         k: Optional[Any] = None) -> float:
     """
     Calculate the area under the ROC curve (AUC) for each user and average the results.
@@ -276,7 +276,10 @@ def auc(targets: csr_matrix,
 
 
 def evaluate_in_batches(
-    metric_list: Iterable[Callable],
+    metric_list: Iterable[Callable[
+        [csr_matrix, Union[np.array, torch.tensor], Union[np.array, torch.tensor], Optional[int]],
+        float
+    ]],
     test_interactions: collie.interactions.Interactions,
     model: collie.model.BasePipeline,
     k: int = 10,
@@ -352,6 +355,7 @@ def evaluate_in_batches(
 
     device = _get_evaluate_in_batches_device(model=model)
     model.to(device)
+    model._move_any_external_data_to_device()
 
     test_users = np.unique(test_interactions.mat.row)
     targets = test_interactions.mat.tocsr()

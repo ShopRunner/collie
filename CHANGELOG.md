@@ -3,6 +3,41 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
+# [1.3.0] - 2022-8-20
+### Added
+ - ``HybridModel`` and ``HybridPretrainedModel`` now take additional optional parameters ``user_metadata`` and ``user_metadata_layers_dims``
+ - ``get_data.py`` now includes ``get_user_metadata``
+
+### Changed
+ - Added ``item_metadata_layers_dims`` and ``user_metadata_layers_dims`` parameters to ``HybridPretrainedModel`` and ``HybridModel`` and removed ``metadata_layers_dims``
+ - Updated notebooks and examples to include usage of ``user_metadata``
+
+# [1.2.2] - 2022-7-14
+### Fixed
+ - a ``Value Error`` is now raised when ``item_metadata`` contains nulls
+
+# [1.2.1] - 2022-7-12
+### Fixed
+ - Deprecated PyTorch Lightning unit test
+
+# [1.2.0] - 2022-1-18
+### Added
+ - option to ``force_split`` to ``stratified_split``
+ - better type hints for ``Callable``s
+ - added methods ``get_user_predictions`` and ``user_user_similarity`` to the ``BasePipeline``
+ - added ``_get_user_embeddings`` method to all model classes
+### Changed
+ - default ``Dockerfile`` image to be ``torch@1.10.0`` with CUDA 11.3
+ - check if index is in-bound for ``get_item_predictions`` and ``item_item_similarity`` before calling the model
+ - added ``enable_model_summary`` and ``detect_anomaly`` parameters to ``CollieMinimalTrainer`` and deprecated ``weights_summary`` and ``terminate_on_nan`` to more closely match the new ``pytorch_lightning`` API
+ - clarified error message when user has a single interaction when using ``stratified_split``
+ - updated all examples, tests, and notebooks with post-1.5.0 PyTorch Lightning APIs
+### Fixed
+ - device error when running metrics for a ``MultiStagePipeline`` models
+ - ``CollieMinimalTrainer`` model summary to work with later versions of PyTorch Lightning
+### Removed
+ - default ``num_workers`` for ``Interactions`` DataLoaders
+
 # [1.1.2] - 2021-8-17
 ### Added
  - string support for Adagrad optimizer in model pipelines

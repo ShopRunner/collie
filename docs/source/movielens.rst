@@ -25,6 +25,10 @@ Format MovieLens 100K Item Metadata Data
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 .. autofunction:: collie.movielens.get_movielens_metadata
 
+Format MovieLens 100K User Metadata Data
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.. autofunction:: collie.movielens.get_user_metadata
+
 
 MovieLens Model Training Pipeline
 ---------------------------------

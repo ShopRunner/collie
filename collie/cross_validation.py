@@ -142,7 +142,8 @@ def stratified_split(interactions: BaseInteractions,
                      val_p: float = 0.0,
                      test_p: float = 0.2,
                      processes: int = -1,
-                     seed: Optional[int] = None) -> Tuple[BaseInteractions, ...]:
+                     seed: Optional[int] = None,
+                     force_split: bool = False) -> Tuple[BaseInteractions, ...]:
     """
     Split an ``Interactions`` instance into train, validate, and test datasets in a stratified
     manner such that each user appears at least once in each of the datasets.
@@ -178,6 +179,11 @@ def stratified_split(interactions: BaseInteractions,
         will be used
     seed: int
         Random seed for splits
+    force_split: bool
+        Ignore error raised when a user in the dataset has only a single interaction. Normally,
+        a ``ValueError`` is raised when this occurs. When ``force_split=True``, however,
+        users with a single interaction will be placed in the training set and an error will NOT be
+        raised
 
     Returns
     -------
@@ -212,13 +218,15 @@ def stratified_split(interactions: BaseInteractions,
     train, test = _stratified_split(interactions=interactions,
                                     test_p=test_p,
                                     processes=processes,
-                                    seed=seed)
+                                    seed=seed,
+                                    force_split=force_split)
 
     if val_p > 0:
         train, validate = _stratified_split(interactions=train,
                                             test_p=val_p / (1 - test_p),
                                             processes=processes,
-                                            seed=seed)
+                                            seed=seed,
+                                            force_split=force_split)
 
         return train, validate, test
     else:
@@ -228,7 +236,8 @@ def stratified_split(interactions: BaseInteractions,
 def _stratified_split(interactions: BaseInteractions,
                       test_p: float,
                       processes: int,
-                      seed: int) -> Tuple[Interactions, Interactions]:
+                      seed: int,
+                      force_split: bool) -> Tuple[Interactions, Interactions]:
     users = interactions.mat.row
     unique_users = set(users)
 
@@ -244,7 +253,8 @@ def _stratified_split(interactions: BaseInteractions,
         test_idxs = [
             _stratified_split_parallel_worker(idxs_to_split=all_idxs_for_users_dict[user],
                                               test_p=test_p,
-                                              seed=(seed + user))
+                                              seed=(seed + user),
+                                              force_split=force_split)
             for user in unique_users
         ]
     else:
@@ -255,7 +265,8 @@ def _stratified_split(interactions: BaseInteractions,
         test_idxs = Parallel(n_jobs=processes)(
             delayed(_stratified_split_parallel_worker)(all_idxs_for_users_dict[user],
                                                        test_p,
-                                                       seed + user)
+                                                       seed + user,
+                                                       force_split)
             for user in unique_users
         )
 
@@ -273,12 +284,26 @@ def _stratified_split(interactions: BaseInteractions,
 
 
 def _stratified_split_parallel_worker(idxs_to_split: Iterable[Any],
-                                      test_p: float, seed: int) -> np.array:
-    _, test_idxs = train_test_split(idxs_to_split,
-                                    test_size=test_p,
-                                    random_state=seed,
-                                    shuffle=True,
-                                    stratify=np.ones_like(idxs_to_split))
+                                      test_p: float,
+                                      seed: int,
+                                      force_split: bool) -> np.array:
+    try:
+        _, test_idxs = train_test_split(idxs_to_split,
+                                        test_size=test_p,
+                                        random_state=seed,
+                                        shuffle=True,
+                                        stratify=np.ones_like(idxs_to_split))
+    except ValueError as ve:
+        if 'the resulting train set will be empty' in str(ve):
+            if force_split is False:
+                raise ValueError(
+                    'Unable to stratify split on users - the ``interactions`` object contains users'
+                    ' with a single interaction. Either set ``force_split = True`` to put all users'
+                    ' with a single interaction in the training set or run'
+                    ' ``collie.utils.remove_users_with_fewer_than_n_interactions`` first.'
+                )
+            else:
+                test_idxs = []
 
     return test_idxs
 
