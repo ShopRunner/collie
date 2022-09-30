@@ -50,7 +50,7 @@ idna==3.3
     #   yarl
 importlib-metadata==4.10.0
     # via markdown
-joblib==1.1.0
+joblib==1.2.0
     # via
     #   collie (setup.py)
     #   scikit-learn
