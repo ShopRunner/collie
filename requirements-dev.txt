@@ -127,6 +127,7 @@ importlib-metadata==4.10.0
     #   -c requirements.txt
     #   build
     #   click
+    #   collie
     #   flake8
     #   jsonschema
     #   jupyterlab-server

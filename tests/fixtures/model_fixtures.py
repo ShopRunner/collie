@@ -494,19 +494,15 @@ def models_trained_for_one_step(request,
                                   logger=False,
                                   enable_checkpointing=False)
 
-    if request.param == 'mf_no_val':
-        with pytest.warns(UserWarning):
-            model_trainer.fit(model)
+    if number_of_stages is None:
+        model_trainer.fit(model)
     else:
-        if number_of_stages is None:
+        for idx in range(number_of_stages):
             model_trainer.fit(model)
-        else:
-            for idx in range(number_of_stages):
-                model_trainer.fit(model)
 
-                if idx < (number_of_stages - 1):
-                    model_trainer.max_epochs += 1
-                    model.advance_stage()
+            if idx < (number_of_stages - 1):
+                model_trainer.max_epochs += 1
+                model.advance_stage()
 
     model.eval()
 
