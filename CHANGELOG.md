@@ -3,11 +3,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) and this project uses [Semantic Versioning](http://semver.org/).
 
+# [1.3.1] - 2023-3-20
+### Fixed
+ - Versions of PyTorch Lightning at or above ``1.6.0`` are now supported
+
 # [1.3.0] - 2022-8-20
 ### Added
  - ``HybridModel`` and ``HybridPretrainedModel`` now take additional optional parameters ``user_metadata`` and ``user_metadata_layers_dims``
  - ``get_data.py`` now includes ``get_user_metadata``
-
 ### Changed
  - Added ``item_metadata_layers_dims`` and ``user_metadata_layers_dims`` parameters to ``HybridPretrainedModel`` and ``HybridModel`` and removed ``metadata_layers_dims``
  - Updated notebooks and examples to include usage of ``user_metadata``
