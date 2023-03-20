@@ -9,11 +9,11 @@ import numpy as np
 import pandas as pd
 import pytest
 import pytorch_lightning
-from pytorch_lightning.loggers.base import rank_zero_experiment
 try:
+    from pytorch_lightning.loggers.logger import rank_zero_experiment
     from pytorch_lightning.loggers.logger import Logger as LightningLoggerBase
 except ImportError:  # compatible with old ``LightningLoggerBase`` used in versions prior to ``1.6``
-    from pytorch_lightning.loggers.base import LightningLoggerBase
+    from pytorch_lightning.loggers.base import LightningLoggerBase, rank_zero_experiment
 from pytorch_lightning.utilities import rank_zero_only
 import torch
 from torch.optim.lr_scheduler import ReduceLROnPlateau, StepLR
@@ -161,9 +161,10 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     assert not isinstance(model_1.optimizers(), list)
     try:
         model_1_lr_schedulers = [s['scheduler'] for s in trainer_1.lr_schedulers]
+        assert len(model_1_lr_schedulers) == 1
     except AttributeError:  # compatible with ``lr_schedulers`` used in versions prior to ``1.6``
-        model_1_lr_schedulers = [s['scheduler'] for s in trainer_1.lr_schedulers()]
-    assert len(model_1_lr_schedulers) == 1
+        model_1_lr_schedulers = model_1.lr_schedulers()
+        assert not isinstance(model_1_lr_schedulers, list) and model_1_lr_schedulers is not None
 
     model_2 = MatrixFactorizationModel(train=train,
                                        val=val,
@@ -174,9 +175,9 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     assert not isinstance(model_2.optimizers(), list)
     try:
         model_2_lr_schedulers = [s['scheduler'] for s in trainer_2.lr_schedulers]
+        assert len(model_2_lr_schedulers) == 0
     except AttributeError:  # compatible with ``lr_schedulers`` used in versions prior to ``1.6``
-        model_2_lr_schedulers = [s['scheduler'] for s in trainer_2.lr_schedulers()]
-    assert len(model_2_lr_schedulers) == 0
+        assert model_2.lr_schedulers() is None
 
     model_3 = MatrixFactorizationModel(train=train,
                                        val=val,
@@ -190,7 +191,7 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     try:
         model_3_lr_schedulers = [s['scheduler'] for s in trainer_3.lr_schedulers]
     except AttributeError:  # compatible with ``lr_schedulers`` used in versions prior to ``1.6``
-        model_3_lr_schedulers = [s['scheduler'] for s in trainer_3.lr_schedulers()]
+        model_3_lr_schedulers = model_3.lr_schedulers()
     assert len(model_3_lr_schedulers) == 2
 
     model_4 = MatrixFactorizationModel(train=train,
@@ -205,9 +206,9 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     assert model_4.hparams.bias_lr == model_4.hparams.lr
     try:
         model_4_lr_schedulers = [s['scheduler'] for s in trainer_4.lr_schedulers]
+        assert len(model_4_lr_schedulers) == 0
     except AttributeError:  # compatible with ``lr_schedulers`` used in versions prior to ``1.6``
-        model_4_lr_schedulers = [s['scheduler'] for s in trainer_4.lr_schedulers()]
-    assert len(model_4_lr_schedulers) == 0
+        assert model_4.lr_schedulers() is None
 
     model_5 = MatrixFactorizationModel(train=train,
                                        val=val,
@@ -221,9 +222,9 @@ def test_instantiation_of_model_optimizer(train_val_implicit_data):
     assert model_5.hparams.bias_lr != model_5.hparams.lr
     try:
         model_5_lr_schedulers = [s['scheduler'] for s in trainer_5.lr_schedulers]
+        assert len(model_5_lr_schedulers) == 0
     except AttributeError:  # compatible with ``lr_schedulers`` used in versions prior to ``1.6``
-        model_5_lr_schedulers = [s['scheduler'] for s in trainer_5.lr_schedulers()]
-    assert len(model_5_lr_schedulers) == 0
+        assert model_5.lr_schedulers() is None
 
     model_6 = MatrixFactorizationModel(train=train, val=val, optimizer='fake_optimizer')
     trainer_6 = CollieTrainer(model=model_6, logger=False, enable_checkpointing=False, max_epochs=1)

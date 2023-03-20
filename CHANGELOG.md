@@ -5,7 +5,7 @@ The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/) a
 
 # [1.3.1] - 2023-3-20
 ### Fixed
- - Versions of PyTorch Lightning at or above ``1.6.0`` are now supported
+ - Versions of PyTorch Lightning between ``1.6.0`` and ``1.9.X`` are now supported
 
 # [1.3.0] - 2022-8-20
 ### Added

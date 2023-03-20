@@ -263,6 +263,7 @@ class HybridModel(MultiStagePipeline):
 
     def _move_any_external_data_to_device(self):
         """Move item and user metadata to the device before training."""
+        super()._move_any_external_data_to_device()
         if self.item_metadata is not None:
             self.item_metadata = self.item_metadata.to(self.device)
         if self.user_metadata is not None:

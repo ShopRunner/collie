@@ -268,7 +268,11 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
     def _move_any_external_data_to_device(self):
         """Code for ensuring all side-data is put onto the model's device before training."""
-        pass
+        if self.hparams.metadata_for_loss is not None:
+            self.hparams.metadata_for_loss = {
+                k: v.to(self.device)
+                for k, v in self.hparams.metadata_for_loss.items()
+            }
 
     def _configure_loss(self) -> None:
         # set up loss function
