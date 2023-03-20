@@ -7,7 +7,7 @@ import warnings
 
 import numpy as np
 import pandas as pd
-from pytorch_lightning.core.lightning import LightningModule
+from pytorch_lightning import LightningModule
 import torch
 
 from collie.interactions import (ApproximateNegativeSamplingInteractionsDataLoader,
