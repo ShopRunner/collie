@@ -273,7 +273,10 @@ def auc(targets: csr_matrix,
         # many models' ``preds`` may be unbounded if a final activation layer is not applied
         # we have to normalize ``preds`` here to avoid a ``ValueError`` stating that ``preds``
         # should be probabilities, but values were detected outside of [0,1] range
-        auc = auroc(torch.sigmoid(preds[i, :]), target=target_tensor, pos_label=1)
+        try:
+            auc = auroc(torch.sigmoid(preds[i, :]), target=target_tensor, pos_label=1)
+        except TypeError:  # compatible with old ``aucroc`` API used in versions prior to ``1.6``
+            auc = auroc(torch.sigmoid(preds[i, :]), target=target_tensor, task='binary')
         agg += auc
 
     return (agg/len(user_ids)).item()

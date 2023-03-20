@@ -122,7 +122,7 @@ idna==3.4
     #   yarl
 imagesize==1.4.1
     # via sphinx
-importlib-metadata==6.1.0
+importlib-metadata==4.10.0
     # via
     #   -c requirements.txt
     #   build

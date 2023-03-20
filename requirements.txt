@@ -34,7 +34,7 @@ idna==3.4
     # via
     #   requests
     #   yarl
-importlib-metadata==6.1.0
+importlib-metadata==4.10.0
     # via lightning-utilities
 joblib==1.2.0
     # via
