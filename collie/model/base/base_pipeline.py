@@ -354,11 +354,6 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
         exception of the learning rate, which will be set to ``self.hparams.bias_lr``.
 
         """
-        # since this is the only function that is called before each ``trainer.fit`` call, we will
-        # also take this time to ensure any external data a model might rely on has been properly
-        # moved to the device before training
-        self._move_any_external_data_to_device()
-
         if self.bias_optimizer is not None:
             if self.bias_optimizer == 'infer':
                 self.bias_optimizer = self.optimizer
@@ -479,12 +474,21 @@ class BasePipeline(LightningModule, metaclass=ABCMeta):
 
         return optimizer_parameters
 
+    def on_fit_start(self) -> None:
+        """
+        Method that runs at the very beginning of the fit process.
+
+        This method will be called after ``configure_optimizers``.
+
+        """
+        self._move_any_external_data_to_device()
+
     def train_dataloader(self) -> Union[ApproximateNegativeSamplingInteractionsDataLoader,
                                         InteractionsDataLoader]:
         """
         Method that sets up training data as a PyTorch DataLoader.
 
-        This method will be called after ``configure_optimizers``.
+        This method will be called after ``on_fit_start``.
 
         """
         return self.train_loader
