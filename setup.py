@@ -29,7 +29,7 @@ setup(
         'joblib',
         'numpy',
         'pandas',
-        'pytorch-lightning>=1.0.0',  # ``collie`` library uses newer ``pytorch_lightning`` APIs
+        'pytorch-lightning>=1.0.0,<2.0.0',
         'scikit-learn',
         'tables',
         'torch',
@@ -41,6 +41,7 @@ setup(
             'flake8',
             'flake8-docstrings',
             'flake8-import-order',
+            'importlib-metadata<5.0',  # breaks ``flake8`` in Python 3.7
             'ipython',
             'ipywidgets',
             'jupyterlab>=3.0.0',

@@ -7,8 +7,11 @@ try:
     from pytorch_lightning.utilities.model_summary import ModelSummary
 except ImportError:  # compatible with old ``ModelSummary`` API used in versions prior to ``1.5``
     from pytorch_lightning.core.memory import ModelSummary
-from pytorch_lightning.loggers.base import LightningLoggerBase
-from pytorch_lightning.utilities.apply_func import move_data_to_device
+try:
+    from pytorch_lightning.loggers.logger import Logger as LightningLoggerBase
+except ImportError:  # compatible with old ``LightningLoggerBase`` used in versions prior to ``1.6``
+    from pytorch_lightning.loggers.base import LightningLoggerBase
+from pytorch_lightning.utilities import move_data_to_device
 import torch
 from tqdm.auto import tqdm
 

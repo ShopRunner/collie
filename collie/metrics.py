@@ -2,7 +2,10 @@ from typing import Any, Callable, Iterable, List, Optional, Tuple, Union
 import warnings
 
 import numpy as np
-import pytorch_lightning
+try:
+    from pytorch_lightning.loggers.logger import Logger as LightningLoggerBase
+except ImportError:  # compatible with old ``LightningLoggerBase`` used in versions prior to ``1.6``
+    from pytorch_lightning.loggers.base import LightningLoggerBase
 from scipy.sparse import csr_matrix
 import torch
 from torchmetrics import Metric
@@ -270,7 +273,10 @@ def auc(targets: csr_matrix,
         # many models' ``preds`` may be unbounded if a final activation layer is not applied
         # we have to normalize ``preds`` here to avoid a ``ValueError`` stating that ``preds``
         # should be probabilities, but values were detected outside of [0,1] range
-        auc = auroc(torch.sigmoid(preds[i, :]), target=target_tensor, pos_label=1)
+        try:
+            auc = auroc(torch.sigmoid(preds[i, :]), target=target_tensor, pos_label=1)
+        except TypeError:  # compatible with old ``aucroc`` API used in versions prior to ``1.6``
+            auc = auroc(torch.sigmoid(preds[i, :]), target=target_tensor, task='binary')
         agg += auc
 
     return (agg/len(user_ids)).item()
@@ -285,7 +291,7 @@ def evaluate_in_batches(
     model: collie.model.BasePipeline,
     k: int = 10,
     batch_size: int = 20,
-    logger: pytorch_lightning.loggers.base.LightningLoggerBase = None,
+    logger: LightningLoggerBase = None,
     verbose: bool = True,
 ) -> List[float]:
     """
@@ -393,7 +399,7 @@ def explicit_evaluate_in_batches(
     metric_list: Iterable[Metric],
     test_interactions: collie.interactions.ExplicitInteractions,
     model: collie.model.BasePipeline,
-    logger: pytorch_lightning.loggers.base.LightningLoggerBase = None,
+    logger: LightningLoggerBase = None,
     verbose: bool = True,
     **kwargs,
 ) -> List[float]:
@@ -516,7 +522,7 @@ def _get_evaluate_in_batches_device(model: BasePipeline):
 
 
 def _log_metrics(model: BasePipeline,
-                 logger: pytorch_lightning.loggers.base.LightningLoggerBase,
+                 logger: LightningLoggerBase,
                  metric_list: List[Union[Callable[..., Any], Metric]],
                  all_scores: List[float],
                  verbose: bool):
