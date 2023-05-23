@@ -84,7 +84,7 @@ pytz==2022.7.1
     # via pandas
 pyyaml==6.0
     # via pytorch-lightning
-requests==2.28.2
+requests==2.31.0
     # via fsspec
 scikit-learn==1.0.2
     # via collie (setup.py)
