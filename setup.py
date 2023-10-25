@@ -22,7 +22,7 @@ setup(
     data_files=[('', ['LICENSE'])],
     packages=find_packages(exclude=('tests', 'docs')),
     keywords=['deep learning', 'pytorch', 'recommender'],
-    python_requires='>=3.6',
+    python_requires='>=3.9',
     install_requires=[
         'docstring_parser',
         'fire',
@@ -30,7 +30,7 @@ setup(
         'numpy',
         'pandas',
         'pytorch-lightning>=1.0.0,<2.0.0',
-        'scikit-learn',
+        'scikit-learn>=1.3.0',
         'tables',
         'torch',
         'torchmetrics',
